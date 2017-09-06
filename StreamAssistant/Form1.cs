@@ -16,8 +16,8 @@ namespace StreamAssistant {
 		protected IrrKlang.ISoundEngine irrKlangEngine;
 		protected IrrKlang.ISound currentlyPlayingSound;
 
-		//string subscriber;
-		//string subscriber2;
+		string subscriber;
+		string subscriber2;
 
 		Timer timer2;
 
@@ -72,7 +72,7 @@ namespace StreamAssistant {
 		}
 
 		private void OnChanged(object source, FileSystemEventArgs e) {
-			/*if (e.Name == "session_most_recent_subscriber.txt") {
+			if (e.Name == "session_most_recent_subscriber.txt") {
 				try {
 					subscriber2 = File.ReadAllText(e.FullPath);
 				}
@@ -80,11 +80,10 @@ namespace StreamAssistant {
 					Debug.WriteLine("CRITICAL ERROR");
 				}
 				if (subscriber2 != subscriber) {
-					//button2_Click(null, null);
+					button2_Click(null, null);
 					subscriber = subscriber2;
-					outputFile.WriteLine(subscriber2);
 				}
-			}*/
+			}
 
 
 			if (e.Name == "session_most_recent_cheerer.txt") {
@@ -99,7 +98,7 @@ namespace StreamAssistant {
 					char[] cheer3 = cheer2.ToCharArray();
 					cheer3 = Array.FindAll<char>(cheer3, (c => (char.IsDigit(c))));
 					if (cheer3.Length > 2) {
-						button4_Click(null, null);
+						button1_Click(null, null);
 					}
 					cheer = cheer2;
 				}
@@ -197,6 +196,19 @@ namespace StreamAssistant {
 
 		private void checkBox1_CheckedChanged(object sender, EventArgs e) {
 			memRead.toolRunning = checkBox1.Checked;
+		}
+
+		private void comboBox2_SelectedIndexChanged(object sender, EventArgs e) {
+			switch (comboBox2.SelectedText) {
+				default:
+					break;
+				case "GTASA":
+					memRead.selectedGame = MemRead.games.SanAndreas;
+					break;
+				case "GTA3":
+					memRead.selectedGame = MemRead.games.III;
+					break;
+			}
 		}
 	}
 }

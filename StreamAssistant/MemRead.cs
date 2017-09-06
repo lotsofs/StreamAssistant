@@ -21,72 +21,72 @@ namespace StreamAssistant {
 		Timer timer1;
 		Timer timer2;
 
-		// hard coding this shit for now. Too lazy to do it differently.
+		// hard coding this shit for now. Too lazy to do it differently and Im not planning on publishing this.
 
-		public int address_bulletsFired = 0xC0BA00;
-		public int address_bulletsHits = 0xC0BA08;
+		#region GTASA stuff
+		public int addressGtaSA_bulletsFired = 0xC0BA00;
+		public int addressGtaSA_bulletsHits = 0xC0BA08;
 		//public int address_headshots = 0xC0BA10; //Useless
-		public int bulletsFired = 0;
-		public int bulletsHit = 0;
-		public float accuracy = 0f;
+		public int gtaSA_bulletsFired = 0;
+		public int gtaSA_bulletsHit = 0;
+		public float gtaSA_accuracy = 0f;
+		public int addressGtaSA_propertyDamage = 0xC0B9FC;
+		public int addressGtaSA_peopleWastedYou = 0xC0B9EC;
+		public int addressGtaSA_peopleWastedOthers = 0xC0B9E8;
+		public int addressGtaSA_kgExplosives = 0xC0BA04;
+		public int gtaSA_propertyDamage = 0;
+		public int gtaSA_peopleWastedYou = 0;
+		public int gtaSA_peopleWastedOthers = 0;
+		public int gtaSA_kgExplosives = 0;
+		public int addressGtaSA_distanceFoot = 0xC0BD74;
+		public int addressGtaSA_distanceCar = 0xC0BD78;
+		public int addressGtaSA_distanceBicycle = 0xC0BDD4;
+		public int addressGtaSA_distanceBike = 0xC0BD7C;
+		public int addressGtaSA_distanceHelicopter = 0xC0BD88;
+		public int addressGtaSA_distancePlane = 0xC0BD8C;
+		public int addressGtaSA_distanceBoat = 0xC0BD80;
+		public int addressGtaSA_distanceSwimming = 0xC0BDD0;
+		public int addressGtaSA_distanceGolfCart = 0xC0BD84;
+		//public int addressGtaSA_distanceJetpack = 0x0; // Doesnt exist gg good game
+		public float gtaSA_distanceFoot = 0f;
+		public float gtaSA_distanceCar = 0f;
+		public float gtaSA_distanceBicycle = 0f;
+		public float gtaSA_distanceBike = 0f;
+		public float gtaSA_distanceHelicopter = 0f;
+		public float gtaSA_distancePlane = 0f;
+		public float gtaSA_distanceBoat = 0f;
+		public float gtaSA_distanceSwimming = 0f;
+		public float gtaSA_distanceGolfCart = 0f;
+		public float gtaSA_totalDistanceTraveled = 0f;
+		public int addressGtaSA_legitimateKills = 0xC0BACC;
+		public int addressGtaSA_timesWasted = 0xC0BA24;
+		public int addressGtaSA_timesBusted = 0xC0BA1C;
+		public int addressGtaSA_firefighterLevel = 0xC0BA84;
+		public int addressGtaSA_firefighterTargets = 0xC0BA6C;
+		public int addressGtaSA_paramedicLevel = 0xC0BA80;
+		public int addressGtaSA_paramedicTargets = 0xC0BA64;
+		public int addressGtaSA_vigilanteTargets = 0xC0BA68;
+		public int addressGtaSA_money = 0xC0F948;
+		public int addressGtaSA_aircraftDestroyed = 0xC0B9F8;
+		public int addressGtaSA_timesCheated = 0xC0BA2C;
+		public int addressGtaSA_percentage = 0xC0BD68;
+		public int gtaSA_legitimateKills = 0;
+		public int gtaSA_timesWasted = 0;
+		public int gtaSA_timesBusted = 0;
+		public int gtaSA_firefighterLevel = 0;
+		public int gtaSA_firefighterTargets = 0;
+		public int gtaSA_paramedicLevel = 0;
+		public int gtaSA_paramedicTargets = 0;
+		public int gtaSA_vigilanteTargets = 0;
+		public int gtaSA_moneyOwned = 0;
+		public int gtaSA_aircraftDestroyed = 0;
+		public int gtaSA_timesCheated = 0;
+		public int gtaSA_percentage = 0;
+		public int gtaSA_criminalRating = 0;
+		#endregion
 
-		public int address_propertyDamage = 0xC0B9FC;
-		public int address_peopleWastedYou = 0xC0B9EC;
-		public int address_peopleWastedOthers = 0xC0B9E8;
-		public int address_kgExplosives = 0xC0BA04;
-		public int propertyDamage = 0;
-		public int peopleWastedYou = 0;
-		public int peopleWastedOthers = 0;
-		public int kgExplosives = 0;
-
-
-		public int address_distanceFoot = 0xC0BD74;
-		public int address_distanceCar = 0xC0BD78;
-		public int address_distanceBicycle = 0xC0BDD4;
-		public int address_distanceBike = 0xC0BD7C;
-		public int address_distanceHelicopter = 0xC0BD88;
-		public int address_distancePlane = 0xC0BD8C;
-		public int address_distanceBoat = 0xC0BD80;
-		public int address_distanceSwimming = 0xC0BDD0;
-		public int address_distanceGolfCart = 0xC0BD84;
-		//public int address_distanceJetpack = 0x0; // Doesnt exist gg good game
-		public float distanceFoot = 0f;
-		public float distanceCar = 0f;
-		public float distanceBicycle = 0f;
-		public float distanceBike = 0f;
-		public float distanceHelicopter = 0f;
-		public float distancePlane = 0f;
-		public float distanceBoat = 0f;
-		public float distanceSwimming = 0f;
-		public float distanceGolfCart = 0f;
-		public float totalDistanceTraveled = 0f;
-
-		public int address_legitimateKills = 0xC0BACC;
-		public int address_timesWasted = 0xC0BA24;
-		public int address_timesBusted = 0xC0BA1C;
-		public int address_firefighterLevel = 0xC0BA84;
-		public int address_firefighterTargets = 0xC0BA6C;
-		public int address_paramedicLevel = 0xC0BA80;
-		public int address_paramedicTargets = 0xC0BA64;
-		public int address_vigilanteTargets = 0xC0BA68;
-		public int address_money = 0xC0F948;
-		public int address_aircraftDestroyed = 0xC0B9F8;
-		public int address_timesCheated = 0xC0BA2C;
-		public int address_percentage = 0xC0BD68;
-		public int legitimateKills = 0;
-		public int timesWasted = 0;
-		public int timesBusted = 0;
-		public int firefighterLevel = 0;
-		public int firefighterTargets = 0;
-		public int paramedicLevel = 0;
-		public int paramedicTargets = 0;
-		public int vigilanteTargets = 0;
-		public int moneyOwned = 0;
-		public int aircraftDestroyed = 0;
-		public int timesCheated = 0;
-		public int percentage = 0;
-		public int criminalRating = 0;
-
+		public enum games { SanAndreas, III }
+		public games selectedGame;
 		string statsText;
 
 		public bool gameRunning = false;
@@ -119,53 +119,53 @@ namespace StreamAssistant {
 		public void processStats() {
 			try {
 				/* --------- distance -------- */
-				distanceFoot = ReadValue(p[0].Handle, address_distanceFoot, true, false);
-				distanceCar = ReadValue(p[0].Handle, address_distanceCar, true, false);
-				distanceBicycle = ReadValue(p[0].Handle, address_distanceBicycle, true, false);
-				distanceBike = ReadValue(p[0].Handle, address_distanceBike, true, false);
-				distanceHelicopter = ReadValue(p[0].Handle, address_distanceHelicopter, true, false);
-				distancePlane = ReadValue(p[0].Handle, address_distancePlane, true, false);
-				distanceBoat = ReadValue(p[0].Handle, address_distanceBoat, true, false);
-				distanceSwimming = ReadValue(p[0].Handle, address_distanceSwimming, true, false);
-				distanceGolfCart = ReadValue(p[0].Handle, address_distanceGolfCart, true, false);
-				totalDistanceTraveled = distanceBicycle + distanceBike + distanceBoat + distanceCar + distanceFoot + distanceHelicopter + distancePlane + distanceSwimming + distanceGolfCart;
-				statsText = "Distance Traveled: \n   " + (totalDistanceTraveled /** (10f / 3f)*/).ToString() + " m";
+				gtaSA_distanceFoot = ReadValue(p[0].Handle, addressGtaSA_distanceFoot, true, false);
+				gtaSA_distanceCar = ReadValue(p[0].Handle, addressGtaSA_distanceCar, true, false);
+				gtaSA_distanceBicycle = ReadValue(p[0].Handle, addressGtaSA_distanceBicycle, true, false);
+				gtaSA_distanceBike = ReadValue(p[0].Handle, addressGtaSA_distanceBike, true, false);
+				gtaSA_distanceHelicopter = ReadValue(p[0].Handle, addressGtaSA_distanceHelicopter, true, false);
+				gtaSA_distancePlane = ReadValue(p[0].Handle, addressGtaSA_distancePlane, true, false);
+				gtaSA_distanceBoat = ReadValue(p[0].Handle, addressGtaSA_distanceBoat, true, false);
+				gtaSA_distanceSwimming = ReadValue(p[0].Handle, addressGtaSA_distanceSwimming, true, false);
+				gtaSA_distanceGolfCart = ReadValue(p[0].Handle, addressGtaSA_distanceGolfCart, true, false);
+				gtaSA_totalDistanceTraveled = gtaSA_distanceBicycle + gtaSA_distanceBike + gtaSA_distanceBoat + gtaSA_distanceCar + gtaSA_distanceFoot + gtaSA_distanceHelicopter + gtaSA_distancePlane + gtaSA_distanceSwimming + gtaSA_distanceGolfCart;
+				statsText = "Distance Traveled: \n   " + (gtaSA_totalDistanceTraveled /** (10f / 3f)*/).ToString() + " m";
 				/* --------- shots fired -------- */
-				bulletsFired = ReadValue(p[0].Handle, address_bulletsFired, false, true);
-				bulletsHit = ReadValue(p[0].Handle, address_bulletsHits, false, true);
-				accuracy = (float)bulletsHit / (float)bulletsFired * 100f;
-				statsText = statsText + "\nAccuracy: \n   " + bulletsHit.ToString() + "/" + bulletsFired.ToString() + " (" + accuracy.ToString("0.00") + "%)";
+				gtaSA_bulletsFired = ReadValue(p[0].Handle, addressGtaSA_bulletsFired, false, true);
+				gtaSA_bulletsHit = ReadValue(p[0].Handle, addressGtaSA_bulletsHits, false, true);
+				gtaSA_accuracy = (float)gtaSA_bulletsHit / (float)gtaSA_bulletsFired * 100f;
+				statsText = statsText + "\nAccuracy: \n   " + gtaSA_bulletsHit.ToString() + "/" + gtaSA_bulletsFired.ToString() + " (" + gtaSA_accuracy.ToString("0.00") + "%)";
 				/* --------- Explosives ----------- */
-				kgExplosives = ReadValue(p[0].Handle, address_kgExplosives, false, true);
-				statsText = statsText + "\nExplosives Used: \n   " + kgExplosives;
+				gtaSA_kgExplosives = ReadValue(p[0].Handle, addressGtaSA_kgExplosives, false, true);
+				statsText = statsText + "\nExplosives Used: \n   " + gtaSA_kgExplosives;
 				/* --------- Destruction ---------- */
-				propertyDamage = ReadValue(p[0].Handle, address_propertyDamage, false, true);
-				peopleWastedOthers = ReadValue(p[0].Handle, address_peopleWastedOthers, false, true);
-				peopleWastedYou = ReadValue(p[0].Handle, address_peopleWastedYou, false, true);
-				statsText = statsText + " kg\nKills: \n   " + peopleWastedYou.ToString() + " by player \n   " + peopleWastedOthers.ToString() + " by others\n   " + (peopleWastedOthers + peopleWastedYou).ToString() + " Total\nProperty Damage: \n   $" + propertyDamage.ToString() + ".00";
+				gtaSA_propertyDamage = ReadValue(p[0].Handle, addressGtaSA_propertyDamage, false, true);
+				gtaSA_peopleWastedOthers = ReadValue(p[0].Handle, addressGtaSA_peopleWastedOthers, false, true);
+				gtaSA_peopleWastedYou = ReadValue(p[0].Handle, addressGtaSA_peopleWastedYou, false, true);
+				statsText = statsText + " kg\nKills: \n   " + gtaSA_peopleWastedYou.ToString() + " by player \n   " + gtaSA_peopleWastedOthers.ToString() + " by others\n   " + (gtaSA_peopleWastedOthers + gtaSA_peopleWastedYou).ToString() + " Total\nProperty Damage: \n   $" + gtaSA_propertyDamage.ToString() + ".00";
 				/* -------- Criminal Rating --------- */
-				legitimateKills = ReadValue(p[0].Handle, address_legitimateKills, false, true);
-				timesWasted = ReadValue(p[0].Handle, address_timesWasted, false, true);
-				timesBusted = ReadValue(p[0].Handle, address_timesBusted, false, true);
-				firefighterLevel = ReadValue(p[0].Handle, address_firefighterLevel, false, true);
-				firefighterTargets = ReadValue(p[0].Handle, address_firefighterTargets, false, true);
-				paramedicLevel = ReadValue(p[0].Handle, address_paramedicLevel, false, true);
-				paramedicTargets = ReadValue(p[0].Handle, address_paramedicTargets, false, true);
-				vigilanteTargets = ReadValue(p[0].Handle, address_vigilanteTargets, false, true);
-				moneyOwned = ReadValue(p[0].Handle, address_money, false, true);
-				aircraftDestroyed = ReadValue(p[0].Handle, address_aircraftDestroyed, false, true);
-				timesCheated = ReadValue(p[0].Handle, address_timesCheated, false, true);
-				percentage = ReadValue(p[0].Handle, address_percentage, true, false);
-				criminalRating = legitimateKills + ((firefighterLevel + paramedicLevel) * 10) + (aircraftDestroyed * 30) + firefighterTargets + paramedicTargets + vigilanteTargets - (timesCheated * 10) - (timesBusted * 3) - (timesWasted * 3);
+				gtaSA_legitimateKills = ReadValue(p[0].Handle, addressGtaSA_legitimateKills, false, true);
+				gtaSA_timesWasted = ReadValue(p[0].Handle, addressGtaSA_timesWasted, false, true);
+				gtaSA_timesBusted = ReadValue(p[0].Handle, addressGtaSA_timesBusted, false, true);
+				gtaSA_firefighterLevel = ReadValue(p[0].Handle, addressGtaSA_firefighterLevel, false, true);
+				gtaSA_firefighterTargets = ReadValue(p[0].Handle, addressGtaSA_firefighterTargets, false, true);
+				gtaSA_paramedicLevel = ReadValue(p[0].Handle, addressGtaSA_paramedicLevel, false, true);
+				gtaSA_paramedicTargets = ReadValue(p[0].Handle, addressGtaSA_paramedicTargets, false, true);
+				gtaSA_vigilanteTargets = ReadValue(p[0].Handle, addressGtaSA_vigilanteTargets, false, true);
+				gtaSA_moneyOwned = ReadValue(p[0].Handle, addressGtaSA_money, false, true);
+				gtaSA_aircraftDestroyed = ReadValue(p[0].Handle, addressGtaSA_aircraftDestroyed, false, true);
+				gtaSA_timesCheated = ReadValue(p[0].Handle, addressGtaSA_timesCheated, false, true);
+				gtaSA_percentage = ReadValue(p[0].Handle, addressGtaSA_percentage, true, false);
+				gtaSA_criminalRating = gtaSA_legitimateKills + ((gtaSA_firefighterLevel + gtaSA_paramedicLevel) * 10) + (gtaSA_aircraftDestroyed * 30) + gtaSA_firefighterTargets + gtaSA_paramedicTargets + gtaSA_vigilanteTargets - (gtaSA_timesCheated * 10) - (gtaSA_timesBusted * 3) - (gtaSA_timesWasted * 3);
 				//criminalRating = (float)legitimateKills - (float)timesBusted*3f - (float)timesWasted*3f + ((float)firefighterLevel *10f) + ((float)paramedicLevel * 10f) + ((float)moneyOwned / 5000f) + ((float)aircraftDestroyed * 30f) + (float)firefighterTargets + (float)vigilanteTargets + (float)paramedicTargets - ((float)timesCheated * 10f);
-				criminalRating += (moneyOwned / 5000);
-				if (bulletsFired > 100) {
-					criminalRating += (500 * bulletsHit / bulletsFired);
+				gtaSA_criminalRating += (gtaSA_moneyOwned / 5000);
+				if (gtaSA_bulletsFired > 100) {
+					gtaSA_criminalRating += (500 * gtaSA_bulletsHit / gtaSA_bulletsFired);
 				}
-				criminalRating += (1000 * (int)percentage / 187);
-				statsText = statsText + "\nCriminal Rating: \n   " + criminalRating.ToString();
+				gtaSA_criminalRating += (1000 * (int)gtaSA_percentage / 187);
+				statsText = statsText + "\nCriminal Rating: \n   " + gtaSA_criminalRating.ToString();
 				/* --------- Percentage -------- */
-				statsText = statsText + "\nPercentage Completed: \n   " + ((percentage / 187f) * 100f).ToString("0.00");
+				statsText = statsText + "\nPercentage Completed: \n   " + ((gtaSA_percentage / 187f) * 100f).ToString("0.00");
 
 
 				form1.label2.Text = statsText;
