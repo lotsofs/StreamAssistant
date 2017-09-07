@@ -199,7 +199,7 @@ namespace StreamAssistant {
 		}
 
 		private void comboBox2_SelectedIndexChanged(object sender, EventArgs e) {
-			switch (comboBox2.SelectedText) {
+			switch (comboBox2.SelectedItem.ToString()) {
 				default:
 					break;
 				case "GTASA":
@@ -207,6 +207,7 @@ namespace StreamAssistant {
 					break;
 				case "GTA3":
 					memRead.selectedGame = MemRead.games.III;
+					Debug.WriteLine(memRead.selectedGame);
 					break;
 			}
 		}
