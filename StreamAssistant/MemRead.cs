@@ -150,6 +150,10 @@ namespace StreamAssistant {
 		public int addressGtaIII_aditoPassed = 0x75B8CC;
 		public int gtaIII_lastRequestsPassed = 0;
 		public int gtaIII_aditoPassed = 0;
+		public int addressGtaIII_wakaGarageEntered = 0x75E860;
+		public int addressGtaIII_wakaPassed = 0x75E874;
+		public int gtaIII_wakaGarageEntered = 0;
+		public int gtaIII_wakaPassed = 0;
 
 		#endregion
 
@@ -259,7 +263,17 @@ namespace StreamAssistant {
 					gtaIII_bulletsFired = ReadValue(p[0].Handle, addressGtaIII_bulletsFired, false, true);
 					gtaIII_bulletsHit = ReadValue(p[0].Handle, addressGtaIII_bulletsHits, false, true);
 					gtaIII_accuracy = (float)gtaIII_bulletsHit / (float)gtaIII_bulletsFired * 100f;
-					statsText = statsText + "\nAccuracy: \n   " + gtaIII_bulletsHit.ToString() + "/" + gtaIII_bulletsFired.ToString() + " (" + gtaIII_accuracy.ToString("0.00") + "%)";
+					gtaIII_wakaGarageEntered = ReadValue(p[0].Handle, addressGtaIII_wakaGarageEntered, false, true);
+					if (gtaIII_wakaGarageEntered == 1 && gtaIII_wakaPassed != 1) {
+						gtaIII_wakaPassed = ReadValue(p[0].Handle, addressGtaIII_wakaPassed, false, true);
+						if (addressGtaIII_wakaPassed != 1) {
+							statsText = statsText + "\nAccuracy: \n   " + "?" + "/" + gtaIII_bulletsFired.ToString() + " (" + "?" + "%) -- ERROR";
+						}
+					}
+					else {
+						addressGtaIII_wakaPassed = -1;
+						statsText = statsText + "\nAccuracy: \n   " + gtaIII_bulletsHit.ToString() + "/" + gtaIII_bulletsFired.ToString() + " (" + gtaIII_accuracy.ToString("0.00") + "%)";
+					}
 					/* --------- Explosives ----------- */
 					gtaIII_carsDestroyed = ReadValue(p[0].Handle, addressGtaIII_carsDestroyed, false, true);
 					statsText = statsText + "\nCars Blown Up: \n   " + gtaIII_carsDestroyed;
@@ -267,7 +281,12 @@ namespace StreamAssistant {
 					gtaIII_aircraftDestroyed = ReadValue(p[0].Handle, addressGtaIII_aircraftDestroyed, false, true);
 					gtaIII_peopleWastedOthers = ReadValue(p[0].Handle, addressGtaIII_peopleWastedOthers, false, true);
 					gtaIII_peopleWastedYou = ReadValue(p[0].Handle, addressGtaIII_peopleWastedYou, false, true);
-					statsText = statsText + "\nHelicopters Blown Up: \n   " + gtaIII_aircraftDestroyed.ToString() + "\nKills: \n   " + gtaIII_peopleWastedYou.ToString() + " by player \n   " + gtaIII_peopleWastedOthers.ToString() + " by others\n   " + (gtaIII_peopleWastedOthers + gtaIII_peopleWastedYou).ToString() + " Total";
+					if (gtaIII_wakaGarageEntered == 1 && gtaIII_wakaPassed != 1) {
+						statsText = statsText + "\nHelicopters Blown Up: \n   " + gtaIII_aircraftDestroyed.ToString() + "\nKills: \n   " + "?" + " by player -- ERROR \n   " + gtaIII_peopleWastedOthers.ToString() + " by others\n   " + "?" + " Total -- ERROR";
+					}
+					else {
+						statsText = statsText + "\nHelicopters Blown Up: \n   " + gtaIII_aircraftDestroyed.ToString() + "\nKills: \n   " + gtaIII_peopleWastedYou.ToString() + " by player \n   " + gtaIII_peopleWastedOthers.ToString() + " by others\n   " + (gtaIII_peopleWastedOthers + gtaIII_peopleWastedYou).ToString() + " Total";
+					}
 					/* -------- Criminal Rating --------- */
 					gtaIII_legitimateKills = ReadValue(p[0].Handle, addressGtaIII_legitimateKills, false, true);
 					gtaIII_timesWasted = ReadValue(p[0].Handle, addressGtaIII_timesWasted, false, true);
@@ -288,10 +307,18 @@ namespace StreamAssistant {
 					}
 					gtaIII_criminalRating += (1000 * (int)gtaIII_percentage / 154);
 					//not bothering with doing the staunton/shoreside limiting. I wont reach the threshold.
-					statsText = statsText + "\nCriminal Rating: \n   " + gtaIII_criminalRating.ToString();
+					if (gtaIII_wakaGarageEntered == 1 && gtaIII_wakaPassed != 1) {
+						statsText = statsText + "\nCriminal Rating: \n   " + "? -- ERROR";
+					}
+					else {
+						statsText = statsText + "\nCriminal Rating: \n   " + gtaIII_criminalRating.ToString();
+					}
 					/* --------- Percentage -------- */
 					Debug.WriteLine(gtaIII_percentage);
 					statsText = statsText + "\nPercentage Completed: \n   " + ((gtaIII_percentage / 154f) * 100f).ToString("0.00");
+					if (gtaIII_wakaGarageEntered == 1 && gtaIII_wakaPassed != 1) {
+						statsText = statsText + "\nERROR: Player in garage during Waka-Gashira...";
+					}
 					form1.label2.Text = statsText;
 				}
 			}
