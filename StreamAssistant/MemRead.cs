@@ -271,7 +271,6 @@ namespace StreamAssistant {
 						}
 					}
 					else {
-						addressGtaIII_wakaPassed = -1;
 						statsText = statsText + "\nAccuracy: \n   " + gtaIII_bulletsHit.ToString() + "/" + gtaIII_bulletsFired.ToString() + " (" + gtaIII_accuracy.ToString("0.00") + "%)";
 					}
 					/* --------- Explosives ----------- */
