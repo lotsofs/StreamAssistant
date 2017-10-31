@@ -20,13 +20,14 @@ namespace StreamAssistant {
 
 		Timer timer1;
 		Timer timer2;
+		Timer timer3;
 
 		// hard coding this shit for now. Too lazy to do it differently and Im not planning on publishing this.
 
 		#region GTASA stuff
 		public int addressGtaSA_bulletsFired = 0xC0BA00;
 		public int addressGtaSA_bulletsHits = 0xC0BA08;
-		//public int address_headshots = 0xC0BA10; //Useless
+		public int addressGtaSA_headshots = 0xC0BA10; //Useless
 		public int gtaSA_bulletsFired = 0;
 		public int gtaSA_bulletsHit = 0;
 		public float gtaSA_accuracy = 0f;
@@ -38,6 +39,7 @@ namespace StreamAssistant {
 		public int gtaSA_peopleWastedYou = 0;
 		public int gtaSA_peopleWastedOthers = 0;
 		public int gtaSA_kgExplosives = 0;
+		public int gtaSA_headshots = 0;
 		public int addressGtaSA_distanceFoot = 0xC0BD74;
 		public int addressGtaSA_distanceCar = 0xC0BD78;
 		public int addressGtaSA_distanceBicycle = 0xC0BDD4;
@@ -94,10 +96,12 @@ namespace StreamAssistant {
 		//public int addressGtaIII_propertyDamage = 0xC0B9FC;
 		public int addressGtaIII_peopleWastedYou = 0x901D70;
 		public int addressGtaIII_peopleWastedOthers = 0x8F2E44;
+		public int addressGtaIII_headshots = 0x906774;
 		//public int addressGtaIII_kgExplosives = 0xC0BA04;
 		//public int gtaIII_propertyDamage = 0;
 		public int gtaIII_peopleWastedYou = 0;
 		public int gtaIII_peopleWastedOthers = 0;
+		public int gtaIII_headshots = 0;
 		//public int gtaIII_kgExplosives = 0;
 		public int addressGtaIII_distanceFoot = 0x951810;
 		public int addressGtaIII_distanceCar = 0x95086C;
@@ -157,6 +161,16 @@ namespace StreamAssistant {
 
 		#endregion
 
+		#region UT Sounds
+		public int prevGtaIII_peopleWastedYou = 0;
+		public int prevGtaIII_timesWasted = 0;
+		public int recentRecentKills = 0;
+		public int killsAtDeath = 0;
+		public int recentKillsSinceDeath = 0;
+		public int prevGtaIII_headshots = 0;
+		public bool firstBloodHappened = false;
+		public bool uTSoundsEnabled = false;
+		#endregion
 
 		public enum games { SanAndreas, III }
 		public games selectedGame;
@@ -198,6 +212,9 @@ namespace StreamAssistant {
 
 		public MemRead(Form1 form1) {
 			this.form1 = form1;
+			timer3 = new Timer();
+			UTKillTimer();
+			timer3.Tick += new EventHandler(Timer3Tick);
 		}
 
 		public void processStats() {
@@ -251,7 +268,10 @@ namespace StreamAssistant {
 					statsText = statsText + "\nCriminal Rating: \n   " + gtaSA_criminalRating.ToString();
 					/* --------- Percentage -------- */
 					statsText = statsText + "\nPercentage Completed: \n   " + ((gtaSA_percentage / 187f) * 100f).ToString("0.00");
+					/* --------- Headshots --------- */
+					gtaSA_headshots = ReadValue(p[0].Handle, addressGtaSA_headshots, false, true);
 					form1.label2.Text = statsText;
+					DetectUnrealSound();
 				}
 				else if (selectedGame == games.III) {
 					/* --------- distance -------- */
@@ -313,18 +333,206 @@ namespace StreamAssistant {
 						statsText = statsText + "\nCriminal Rating: \n   " + gtaIII_criminalRating.ToString();
 					}
 					/* --------- Percentage -------- */
-					Debug.WriteLine(gtaIII_percentage);
 					statsText = statsText + "\nPercentage Completed: \n   " + ((gtaIII_percentage / 154f) * 100f).ToString("0.00");
 					if (gtaIII_wakaGarageEntered == 1 && gtaIII_wakaPassed != 1) {
 						statsText = statsText + "\nERROR: Player in garage during Waka-Gashira...";
 					}
+					/* --------- Headshots --------- */
+					gtaIII_headshots = ReadValue(p[0].Handle, addressGtaIII_headshots, false, true);
 					form1.label2.Text = statsText;
+					DetectUnrealSound();
 				}
 			}
 			catch (InvalidOperationException) {
 				Debug.WriteLine("InvalidOperationException");
 				gameRunning = false;
 				return;
+			}
+		}
+
+		void DetectUnrealSound() {
+			if (uTSoundsEnabled) {
+				if (selectedGame == games.SanAndreas) {
+					// head shot
+					if (prevGtaIII_headshots != gtaSA_headshots) {
+						prevGtaIII_headshots = gtaSA_headshots;
+						form1.playUTSound(Form1.unrealSounds.Headshot);
+					}// double kill - monster kill - holy shit
+					if (gtaSA_peopleWastedYou < prevGtaIII_peopleWastedYou) {
+						prevGtaIII_peopleWastedYou = gtaSA_peopleWastedYou;
+					}
+					int recentKills = Math.Max(gtaSA_peopleWastedYou - prevGtaIII_peopleWastedYou, 0);
+					if (recentKills != recentRecentKills) {
+						recentRecentKills = recentKills;
+						switch (recentKills) {
+							case 0:
+								break;
+							case 1:
+								UTKillTimer();
+								break;
+							case 2:
+								form1.playUTSound(Form1.unrealSounds.DoubleK);
+								UTKillTimer();
+								break;
+							case 3:
+								form1.playUTSound(Form1.unrealSounds.MultiK);
+								UTKillTimer();
+								break;
+							case 4:
+								form1.playUTSound(Form1.unrealSounds.MegaK);
+								UTKillTimer();
+								break;
+							case 5:
+								form1.playUTSound(Form1.unrealSounds.UltraK);
+								UTKillTimer();
+								break;
+							case 6:
+								form1.playUTSound(Form1.unrealSounds.MonsterK);
+								UTKillTimer();
+								break;
+							case 7:
+								form1.playUTSound(Form1.unrealSounds.LudicrousK);
+								UTKillTimer();
+								break;
+							default:
+								form1.playUTSound(Form1.unrealSounds.HolyS);
+								UTKillTimer();
+								break;
+						}
+
+					}
+					// killing spree - unstoppable - whicked sick
+					int killsSinceDeath = Math.Max(gtaSA_peopleWastedYou - killsAtDeath, 0);
+					if (killsSinceDeath != recentKillsSinceDeath) {
+						recentKillsSinceDeath = killsSinceDeath;
+						Debug.WriteLine(killsSinceDeath);
+						switch (killsSinceDeath) {
+							case 0:
+								break;
+							case 5:
+								form1.playUTSound(Form1.unrealSounds.KillingSpree);
+								break;
+							case 10:
+								form1.playUTSound(Form1.unrealSounds.Rampage);
+								break;
+							case 15:
+								form1.playUTSound(Form1.unrealSounds.Dominating);
+								break;
+							case 20:
+								form1.playUTSound(Form1.unrealSounds.Unstoppable);
+								break;
+							case 25:
+								form1.playUTSound(Form1.unrealSounds.Godlike);
+								break;
+							case 30:
+								form1.playUTSound(Form1.unrealSounds.WickedSick);
+								break;
+						}
+					}
+					if (prevGtaIII_timesWasted != gtaSA_timesWasted) {
+						prevGtaIII_timesWasted = gtaSA_timesWasted;
+						killsAtDeath = gtaSA_peopleWastedYou;
+					}
+					// first blood
+					if (gtaSA_peopleWastedYou == 1 && gtaSA_peopleWastedOthers == 0 && firstBloodHappened == false) {
+						firstBloodHappened = true;
+						form1.playUTSound(Form1.unrealSounds.FirstBlood);
+					}
+					else if (gtaSA_peopleWastedYou == 0) {
+						firstBloodHappened = false;
+					}
+				}
+				else if (selectedGame == games.III) {
+					// head shot
+					if (prevGtaIII_headshots != gtaIII_headshots) {
+						prevGtaIII_headshots = gtaIII_headshots;
+						form1.playUTSound(Form1.unrealSounds.Headshot);
+					}
+					// double kill - monster kill - holy shit
+					if (gtaIII_peopleWastedYou < prevGtaIII_peopleWastedYou) {
+						prevGtaIII_peopleWastedYou = gtaIII_peopleWastedYou;
+					}
+					int recentKills = Math.Max(gtaIII_peopleWastedYou - prevGtaIII_peopleWastedYou, 0);
+					if (recentKills != recentRecentKills) {
+						recentRecentKills = recentKills;
+						switch (recentKills) {
+							case 0:
+								break;
+							case 1:
+								UTKillTimer();
+								break;
+							case 2:
+								form1.playUTSound(Form1.unrealSounds.DoubleK);
+								UTKillTimer();
+								break;
+							case 3:
+								form1.playUTSound(Form1.unrealSounds.MultiK);
+								UTKillTimer();
+								break;
+							case 4:
+								form1.playUTSound(Form1.unrealSounds.MegaK);
+								UTKillTimer();
+								break;
+							case 5:
+								form1.playUTSound(Form1.unrealSounds.UltraK);
+								UTKillTimer();
+								break;
+							case 6:
+								form1.playUTSound(Form1.unrealSounds.MonsterK);
+								UTKillTimer();
+								break;
+							case 7:
+								form1.playUTSound(Form1.unrealSounds.LudicrousK);
+								UTKillTimer();
+								break;
+							default:
+								form1.playUTSound(Form1.unrealSounds.HolyS);
+								UTKillTimer();
+								break;
+						}
+
+					}
+					// killing spree - unstoppable - whicked sick
+					int killsSinceDeath = Math.Max(gtaIII_peopleWastedYou - killsAtDeath, 0);
+					if (killsSinceDeath != recentKillsSinceDeath) {
+						recentKillsSinceDeath = killsSinceDeath;
+						Debug.WriteLine(killsSinceDeath);
+						switch (killsSinceDeath) {
+							case 0:
+								break;
+							case 5:
+								form1.playUTSound(Form1.unrealSounds.KillingSpree);
+								break;
+							case 10:
+								form1.playUTSound(Form1.unrealSounds.Rampage);
+								break;
+							case 15:
+								form1.playUTSound(Form1.unrealSounds.Dominating);
+								break;
+							case 20:
+								form1.playUTSound(Form1.unrealSounds.Unstoppable);
+								break;
+							case 25:
+								form1.playUTSound(Form1.unrealSounds.Godlike);
+								break;
+							case 30:
+								form1.playUTSound(Form1.unrealSounds.WickedSick);
+								break;
+						}
+					}
+					if (prevGtaIII_timesWasted != gtaIII_timesWasted) {
+						prevGtaIII_timesWasted = gtaIII_timesWasted;
+						killsAtDeath = gtaIII_peopleWastedYou;
+					}
+					// first blood
+					if (gtaIII_peopleWastedYou == 1 && gtaIII_peopleWastedOthers == 0 && firstBloodHappened == false) {
+						firstBloodHappened = true;
+						form1.playUTSound(Form1.unrealSounds.FirstBlood);
+					}
+					else if (gtaIII_peopleWastedYou == 0) {
+						firstBloodHappened = false;
+					}
+				}
 			}
 		}
 
@@ -354,6 +562,12 @@ namespace StreamAssistant {
 			return buffer;
 		}
 
+		public void UTKillTimer() {
+			timer3.Stop();
+			timer3.Interval = 5000;
+			timer3.Start();
+		}
+
 		public void InitTimer() {
 			timer1 = new Timer();
 			timer1.Tick += new EventHandler(Timer1Tick);
@@ -364,6 +578,17 @@ namespace StreamAssistant {
 			timer2.Tick += new EventHandler(Timer2Tick);
 			timer2.Interval = 5000;
 			timer2.Start();
+		}
+
+		void Timer3Tick(object sender, EventArgs e) {
+			timer3.Stop();
+			Debug.WriteLine("timer3tick");
+			if (selectedGame == games.SanAndreas) {
+				prevGtaIII_peopleWastedYou = gtaSA_peopleWastedYou;
+			}
+			else if (selectedGame == games.III) {
+				prevGtaIII_peopleWastedYou = gtaIII_peopleWastedYou;
+			}
 		}
 
 		void Timer1Tick(object sender, EventArgs e) {

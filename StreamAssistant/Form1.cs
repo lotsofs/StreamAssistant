@@ -15,6 +15,9 @@ namespace StreamAssistant {
 		protected IrrKlang.ISoundDeviceList sdl;
 		protected IrrKlang.ISoundEngine irrKlangEngine;
 		protected IrrKlang.ISound currentlyPlayingSound;
+		protected IrrKlang.ISound currentUTSounds;
+
+		public enum unrealSounds { DoubleK, MultiK, MegaK, UltraK, MonsterK, LudicrousK, HolyS, KillingSpree, Rampage, Dominating, Unstoppable, Godlike, WickedSick, Headshot, FirstBlood };
 
 		string subscriber;
 		string subscriber2;
@@ -39,7 +42,7 @@ namespace StreamAssistant {
 			InitializeComponent();
 			memRead = new MemRead(this);
 
-			memRead.toolRunning = checkBox1.Checked;
+			memRead.toolRunning = false;
 			memRead.InitTimer();
 
 
@@ -165,6 +168,65 @@ namespace StreamAssistant {
 			}*/
 		}
 
+		public void playUTSound(unrealSounds sound) {
+			//if (memRead.gtaIII_distanceFoot > 2) {
+				if (currentUTSounds != null) {
+					currentUTSounds.Stop();
+				}
+				switch (sound) {
+					case unrealSounds.DoubleK:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/Double_Kill.wav", false);
+						break;
+					case unrealSounds.MultiK:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/MultiKill.wav", false);
+						break;
+					case unrealSounds.MegaK:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/MegaKill.wav", false);
+						break;
+					case unrealSounds.UltraK:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/UltraKill.wav", false);
+						break;
+					case unrealSounds.MonsterK:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/MonsterKill_F.wav", false);
+						break;
+					case unrealSounds.LudicrousK:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/LudicrousKill_F.wav", false);
+						break;
+					case unrealSounds.HolyS:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/HolyShit_F.wav", false);
+						break;
+					case unrealSounds.KillingSpree:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/Killing_Spree.wav", false);
+						break;
+					case unrealSounds.Rampage:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/Rampage.wav", false);
+						break;
+					case unrealSounds.Dominating:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/Dominating.wav", false);
+						break;
+					case unrealSounds.Unstoppable:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/Unstoppable.wav", false);
+						break;
+					case unrealSounds.Godlike:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/GodLike.wav", false);
+						break;
+					case unrealSounds.WickedSick:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/WhickedSick.wav", false);
+						break;
+					case unrealSounds.Headshot:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/Headshot.wav", false);
+						break;
+					case unrealSounds.FirstBlood:
+						currentUTSounds = irrKlangEngine.Play2D("Sounds/first_blood.wav", false);
+						break;
+					default:
+						break;
+				}
+			currentUTSounds.Volume = 0.3f;
+
+			//}
+		}
+
 		private void button1_Click(object sender, EventArgs e) {
 			currentlyPlayingSound = irrKlangEngine.Play2D("Sounds/Team17-Applauds.wav", false);
 			currentlyPlayingSound.Volume = 0.7f;
@@ -189,27 +251,26 @@ namespace StreamAssistant {
 		private void comboBox1_SelectedIndexChanged(object sender, EventArgs e) {
 			Debug.WriteLine(comboBox1.SelectedIndex.ToString());
 		}
-
-		private void label1_Click(object sender, EventArgs e) {
-
-		}
-
-		private void checkBox1_CheckedChanged(object sender, EventArgs e) {
-			memRead.toolRunning = checkBox1.Checked;
-		}
-
+		
 		private void comboBox2_SelectedIndexChanged(object sender, EventArgs e) {
 			switch (comboBox2.SelectedItem.ToString()) {
 				default:
+					memRead.toolRunning = false;
 					break;
 				case "GTASA":
+					memRead.toolRunning = true;
 					memRead.selectedGame = MemRead.games.SanAndreas;
 					break;
 				case "GTA3":
+					memRead.toolRunning = true;
 					memRead.selectedGame = MemRead.games.III;
 					Debug.WriteLine(memRead.selectedGame);
 					break;
 			}
+		}
+
+		private void checkBoxUT_CheckedChanged(object sender, EventArgs e) {
+			memRead.uTSoundsEnabled = checkBoxUT.Checked;
 		}
 	}
 }
