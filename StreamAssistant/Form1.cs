@@ -18,6 +18,7 @@ namespace StreamAssistant {
 		protected IrrKlang.ISound currentUTSounds;
 
 		public enum unrealSounds { DoubleK, MultiK, MegaK, UltraK, MonsterK, LudicrousK, HolyS, KillingSpree, Rampage, Dominating, Unstoppable, Godlike, WickedSick, Headshot, FirstBlood };
+		bool started = false;
 
 		string subscriber;
 		string subscriber2;
@@ -50,7 +51,7 @@ namespace StreamAssistant {
 			for (int i = 0; i < sdl.DeviceCount; i++) {
 				comboBox1.Items.Add(sdl.getDeviceDescription(i));
 			}
-			comboBox1.SelectedIndex = 4;
+			comboBox1.SelectedIndex = 5;
 			
 			irrKlangEngine = new IrrKlang.ISoundEngine(IrrKlang.SoundOutputDriver.AutoDetect, IrrKlang.SoundEngineOptionFlag.DefaultOptions, sdl.getDeviceID(comboBox1.SelectedIndex));
 
@@ -67,6 +68,8 @@ namespace StreamAssistant {
 			timer2.Tick += new EventHandler(TextChange);
 			timer2.Interval = 1000;
 			timer2.Start();
+
+			started = true;
 
 		}
 
@@ -250,8 +253,12 @@ namespace StreamAssistant {
 
 		private void comboBox1_SelectedIndexChanged(object sender, EventArgs e) {
 			Debug.WriteLine(comboBox1.SelectedIndex.ToString());
+			if (started) {
+				IrrKlang.ISoundDeviceList sdl = new IrrKlang.ISoundDeviceList(IrrKlang.SoundDeviceListType.PlaybackDevice);
+				irrKlangEngine = new IrrKlang.ISoundEngine(IrrKlang.SoundOutputDriver.AutoDetect, IrrKlang.SoundEngineOptionFlag.DefaultOptions, sdl.getDeviceID(comboBox1.SelectedIndex));
+			}
 		}
-		
+
 		private void comboBox2_SelectedIndexChanged(object sender, EventArgs e) {
 			switch (comboBox2.SelectedItem.ToString()) {
 				default:
