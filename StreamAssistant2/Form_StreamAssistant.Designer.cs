@@ -113,7 +113,6 @@
 			this.Name = "Form_StreamAssistant";
 			this.Text = "Form1";
 			this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form_StreamAssistant_FormClosing);
-			this.Load += new System.EventHandler(this.Form_StreamAssistant_Load);
 			this.statsDisplay_GroupBox.ResumeLayout(false);
 			this.statsDisplay_GroupBox.PerformLayout();
 			this.notifications_GroupBox.ResumeLayout(false);

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Configuration;
 using System.Data;
 using System.Drawing;
 using System.Linq;
@@ -18,6 +19,17 @@ namespace StreamAssistant2
 		public Form_StreamAssistant() {
 			InitializeComponent();
 			audioPlayer = new AudioPlayer();
+
+			System.Collections.Specialized.NameValueCollection appSettings = ConfigurationManager.AppSettings;
+			notifications_enabledCheckBox.Checked = bool.Parse(appSettings["NotificationsEnabled"]);
+		}
+
+		public void SaveSettings() {
+			Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+
+			config.AppSettings.Settings["NotificationsEnabled"].Value = notifications_enabledCheckBox.Checked.ToString();
+
+			config.Save();
 		}
 
 		#region stats display
@@ -49,11 +61,10 @@ namespace StreamAssistant2
 		#endregion
 
 		private void Form_StreamAssistant_FormClosing(object sender, FormClosingEventArgs e) {
-			notificationsConfig.Close();
-		}
-
-		private void Form_StreamAssistant_Load(object sender, EventArgs e) {
-
+			if (notificationsConfig != null) {
+				notificationsConfig.Close();
+			}
+			SaveSettings();
 		}
 	}
 }
