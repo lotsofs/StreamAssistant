@@ -17,22 +17,32 @@ namespace StreamAssistant2
 	public partial class Form_NotificationsSettings : Form
 	{
 		AudioPlayer audioPlayer;
-		
+		public Action<string> OnTextFilesPathChanged;
+
 		#region initialize
 
-		public Form_NotificationsSettings(AudioPlayer ap) {
+		public Form_NotificationsSettings(AudioPlayer ap, string textFilesPath) {
 			InitializeComponent();
 			audioPlayer = ap;
 
-			Notifications_AudioDeviceComboBox_Update();
-			Notifications_SoundsComboBoxes_Update();
-			Notifications_VolumeTexts_Update();
+			AudioDeviceComboBox_Update();
+			SoundsComboBoxes_Update();
+			VolumeTexts_Update();
+			TextFilesPath_Update(textFilesPath);
+		}
+
+		/// <summary>
+		/// Fills in the current text files path in the box
+		/// </summary>
+		/// <param name="path">the path</param>
+		public void TextFilesPath_Update(string path) {
+			folderPath_TextBox.Text = path;
 		}
 
 		/// <summary>
 		/// Fills the audio devices combo box with a list of audio devices
 		/// </summary>
-		public void Notifications_AudioDeviceComboBox_Update() {
+		public void AudioDeviceComboBox_Update() {
 			audioDevice_ComboBox.Items.Clear();
 			for (int i = 0; i < audioPlayer.DeviceListDescriptions.Length; i++) {
 				audioDevice_ComboBox.Items.Add(audioPlayer.DeviceListDescriptions[i]);
@@ -43,7 +53,7 @@ namespace StreamAssistant2
 		/// <summary>
 		/// Fills the sounds combo box with a list of available sounds in the Sounds folder
 		/// </summary>
-		public void Notifications_SoundsComboBoxes_Update() {
+		public void SoundsComboBoxes_Update() {
 			string[] files = Directory.GetFiles(@"Sounds\");
 
 			// fill comboboxes with options
@@ -65,7 +75,7 @@ namespace StreamAssistant2
 		/// <summary>
 		/// Set the proper value of the volume boxes
 		/// </summary>
-		public void Notifications_VolumeTexts_Update() {
+		public void VolumeTexts_Update() {
 			subscription_VolumeText.Text = audioPlayer.volumes[(int)TwitchEvents.Subscription].ToString();
 			bits_VolumeText.Text = audioPlayer.volumes[(int)TwitchEvents.Bits].ToString();
 			donation_VolumeText.Text = audioPlayer.volumes[(int)TwitchEvents.Donation].ToString();
@@ -80,6 +90,7 @@ namespace StreamAssistant2
 		/// </summary>
 		void ApplySettings() {
 			audioPlayer.SetAudioDevice(audioDevice_ComboBox.SelectedIndex);
+			OnTextFilesPathChanged(folderPath_TextBox.Text);
 
 			audioPlayer.soundFiles[(int)TwitchEvents.Subscription] = subscription_comboBox.SelectedItem.ToString();
 			audioPlayer.soundFiles[(int)TwitchEvents.Bits] = bits_ComboBox.SelectedItem.ToString();
@@ -88,25 +99,6 @@ namespace StreamAssistant2
 			audioPlayer.volumes[(int)TwitchEvents.Subscription] = int.Parse(subscription_VolumeText.Text);
 			audioPlayer.volumes[(int)TwitchEvents.Bits] = int.Parse(bits_VolumeText.Text);
 			audioPlayer.volumes[(int)TwitchEvents.Donation] = int.Parse(donation_VolumeText.Text);
-		}
-
-		/// <summary>
-		/// Save settings to file
-		/// </summary>
-		void SaveSettings() {
-			Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-
-			config.AppSettings.Settings["SoundDevice"].Value = audioPlayer.CurrentDeviceId.ToString();
-
-			config.AppSettings.Settings["SubscriptionSound"].Value = audioPlayer.soundFiles[(int)TwitchEvents.Subscription];
-			config.AppSettings.Settings["BitsSound"].Value = audioPlayer.soundFiles[(int)TwitchEvents.Bits];
-			config.AppSettings.Settings["DonationSound"].Value = audioPlayer.soundFiles[(int)TwitchEvents.Donation];
-
-			config.AppSettings.Settings["SubscriptionVolume"].Value = audioPlayer.volumes[(int)TwitchEvents.Subscription].ToString();
-			config.AppSettings.Settings["BitsVolume"].Value = audioPlayer.volumes[(int)TwitchEvents.Bits].ToString();
-			config.AppSettings.Settings["DonationVolume"].Value = audioPlayer.volumes[(int)TwitchEvents.Donation].ToString();
-
-			config.Save();
 		}
 
 		#endregion
@@ -145,15 +137,27 @@ namespace StreamAssistant2
 
 		#endregion
 
+		#region browse text files folder
+
+		private void folderPath_BrowseButton_Click(object sender, EventArgs e) {
+			DialogResult result = openFileDialog1.ShowDialog();
+			if (result == DialogResult.OK) {
+				string path = Path.GetDirectoryName(openFileDialog1.FileName);
+				folderPath_TextBox.Text = path;
+			}
+		}
+
+		#endregion
+		
 		#region bottom buttons
 		private void button_Apply_Click(object sender, EventArgs e) {
 			ApplySettings();
-			SaveSettings();
+			SaveLoad.SaveAll();
 		}
 
 		private void button_Ok_Click(object sender, EventArgs e) {
 			ApplySettings();
-			SaveSettings();
+			SaveLoad.SaveAll();
 			this.Close();
 		}
 
@@ -200,5 +204,6 @@ namespace StreamAssistant2
 		}
 
 		#endregion
+
 	}
 }

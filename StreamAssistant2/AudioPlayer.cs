@@ -10,7 +10,7 @@ using System.Configuration;
 
 namespace StreamAssistant2
 {
-	public class AudioPlayer {
+	public class AudioPlayer : ISaveable {
 		ISoundDeviceList soundDeviceList;
 		ISoundEngine soundEngine;
 		ISound currentSound;
@@ -32,7 +32,26 @@ namespace StreamAssistant2
 			LoadSettings();
 		}
 
+		#region save load
+
+		public void SaveSettings() {
+			Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+
+			config.AppSettings.Settings["SoundDevice"].Value = CurrentDeviceId.ToString();
+
+			config.AppSettings.Settings["SubscriptionSound"].Value = soundFiles[(int)TwitchEvents.Subscription];
+			config.AppSettings.Settings["BitsSound"].Value = soundFiles[(int)TwitchEvents.Bits];
+			config.AppSettings.Settings["DonationSound"].Value = soundFiles[(int)TwitchEvents.Donation];
+
+			config.AppSettings.Settings["SubscriptionVolume"].Value = volumes[(int)TwitchEvents.Subscription].ToString();
+			config.AppSettings.Settings["BitsVolume"].Value = volumes[(int)TwitchEvents.Bits].ToString();
+			config.AppSettings.Settings["DonationVolume"].Value = volumes[(int)TwitchEvents.Donation].ToString();
+
+			config.Save();
+		}
+
 		public void LoadSettings() {
+			SaveLoad.OnSave += SaveSettings;
 			System.Collections.Specialized.NameValueCollection appSettings = ConfigurationManager.AppSettings;
 
 			int audioDeviceIndex = int.Parse(appSettings["SoundDevice"]);
@@ -46,6 +65,8 @@ namespace StreamAssistant2
 			volumes[(int)TwitchEvents.Bits] = int.Parse(appSettings["BitsVolume"]);
 			volumes[(int)TwitchEvents.Donation] = int.Parse(appSettings["DonationVolume"]);
 		}
+
+		#endregion
 
 		/// <summary>
 		/// Plays a sound

@@ -25,14 +25,21 @@
 		/// the contents of this method with the code editor.
 		/// </summary>
 		private void InitializeComponent() {
+			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form_StreamAssistant));
 			this.statsDisplay_EnabledCheckBox = new System.Windows.Forms.CheckBox();
 			this.statsDisplay_GroupBox = new System.Windows.Forms.GroupBox();
 			this.statsDisplay_ComboBox = new System.Windows.Forms.ComboBox();
 			this.notifications_GroupBox = new System.Windows.Forms.GroupBox();
 			this.notifications_ConfigButton = new System.Windows.Forms.Button();
 			this.notifications_enabledCheckBox = new System.Windows.Forms.CheckBox();
+			this.fileSystemWatcherBits = new System.IO.FileSystemWatcher();
+			this.fileSystemWatcherDonation = new System.IO.FileSystemWatcher();
+			this.fileSystemWatcherSubscription = new System.IO.FileSystemWatcher();
 			this.statsDisplay_GroupBox.SuspendLayout();
 			this.notifications_GroupBox.SuspendLayout();
+			((System.ComponentModel.ISupportInitialize)(this.fileSystemWatcherBits)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.fileSystemWatcherDonation)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.fileSystemWatcherSubscription)).BeginInit();
 			this.SuspendLayout();
 			// 
 			// statsDisplay_EnabledCheckBox
@@ -103,6 +110,24 @@
 			this.notifications_enabledCheckBox.UseVisualStyleBackColor = true;
 			this.notifications_enabledCheckBox.CheckedChanged += new System.EventHandler(this.notifications_enabledCheckBox_CheckedChanged);
 			// 
+			// fileSystemWatcherBits
+			// 
+			this.fileSystemWatcherBits.Filter = "most_recent_cheerer.txt";
+			this.fileSystemWatcherBits.SynchronizingObject = this;
+			this.fileSystemWatcherBits.Changed += new System.IO.FileSystemEventHandler(this.fileSystemWatcherBits_Changed);
+			// 
+			// fileSystemWatcherDonation
+			// 
+			this.fileSystemWatcherDonation.Filter = "most_recent_donator.txt";
+			this.fileSystemWatcherDonation.SynchronizingObject = this;
+			this.fileSystemWatcherDonation.Changed += new System.IO.FileSystemEventHandler(this.fileSystemWatcherDonation_Changed);
+			// 
+			// fileSystemWatcherSubscription
+			// 
+			this.fileSystemWatcherSubscription.Filter = "most_recent_subscriber.txt";
+			this.fileSystemWatcherSubscription.SynchronizingObject = this;
+			this.fileSystemWatcherSubscription.Changed += new System.IO.FileSystemEventHandler(this.fileSystemWatcherSubscription_Changed);
+			// 
 			// Form_StreamAssistant
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -110,6 +135,7 @@
 			this.ClientSize = new System.Drawing.Size(800, 450);
 			this.Controls.Add(this.notifications_GroupBox);
 			this.Controls.Add(this.statsDisplay_GroupBox);
+			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.Name = "Form_StreamAssistant";
 			this.Text = "Form1";
 			this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form_StreamAssistant_FormClosing);
@@ -117,6 +143,9 @@
 			this.statsDisplay_GroupBox.PerformLayout();
 			this.notifications_GroupBox.ResumeLayout(false);
 			this.notifications_GroupBox.PerformLayout();
+			((System.ComponentModel.ISupportInitialize)(this.fileSystemWatcherBits)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.fileSystemWatcherDonation)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.fileSystemWatcherSubscription)).EndInit();
 			this.ResumeLayout(false);
 
 		}
@@ -129,6 +158,9 @@
 		private System.Windows.Forms.GroupBox notifications_GroupBox;
 		private System.Windows.Forms.CheckBox notifications_enabledCheckBox;
 		private System.Windows.Forms.Button notifications_ConfigButton;
+		private System.IO.FileSystemWatcher fileSystemWatcherBits;
+		private System.IO.FileSystemWatcher fileSystemWatcherDonation;
+		private System.IO.FileSystemWatcher fileSystemWatcherSubscription;
 	}
 }
 
