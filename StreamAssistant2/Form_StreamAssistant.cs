@@ -17,12 +17,19 @@ namespace StreamAssistant2
 	public partial class Form_StreamAssistant : Form, ISaveable
 	{
 		AudioPlayer audioPlayer;
+		Notifications notifications;
+
 		Form_NotificationsSettings notificationsConfig;
 		string notificationTextFilesPath;
+
+		bool fileSystemWatchersEnableable;
+
+		#region opening closing
 
 		public Form_StreamAssistant() {
 			InitializeComponent();
 			audioPlayer = new AudioPlayer();
+			notifications = new Notifications(audioPlayer);
 
 			LoadSettings();
 		}
@@ -39,6 +46,8 @@ namespace StreamAssistant2
 			SaveLoad.SaveAll();
 		}
 
+		#endregion
+
 		#region save load
 
 		/// <summary>
@@ -48,8 +57,9 @@ namespace StreamAssistant2
 			SaveLoad.OnSave += SaveSettings;
 
 			NameValueCollection appSettings = ConfigurationManager.AppSettings;
-			notifications_enabledCheckBox.Checked = bool.Parse(appSettings["NotificationsEnabled"]);
 			SetFileSystemWatcherPaths(appSettings["NotificationTextFilesPath"]);
+
+			notifications_enabledCheckBox.Checked = bool.Parse(appSettings["NotificationsEnabled"]);
 		}
 
 		/// <summary>
@@ -96,19 +106,24 @@ namespace StreamAssistant2
 				fileSystemWatcherBits.Path = Path.Combine(path, "cheer");
 				fileSystemWatcherSubscription.Path = path;
 				fileSystemWatcherDonation.Path = path;
+				fileSystemWatchersEnableable = true;
 			}
 			else {
 				fileSystemWatcherBits.Path = string.Empty;
 				fileSystemWatcherSubscription.Path = string.Empty;
 				fileSystemWatcherDonation.Path = string.Empty;
+				fileSystemWatchersEnableable = false;
 			}
 		}
 
 		/// <summary>
-		/// Enables or disables the file system watchers
+		/// Enables or disables the file system watchers, provided they can be
 		/// </summary>
 		/// <param name="enabled"></param>
 		public void EnableFileSystemWatchers(bool enabled) {
+			if (fileSystemWatchersEnableable == false) {
+				enabled = false;
+			}
 			fileSystemWatcherBits.EnableRaisingEvents = enabled;
 			fileSystemWatcherSubscription.EnableRaisingEvents = enabled;
 			fileSystemWatcherDonation.EnableRaisingEvents = enabled;
@@ -135,16 +150,18 @@ namespace StreamAssistant2
 		#region file system watcher changed calls
 
 		// subs
-		private void fileSystemWatcherSubscription_Changed(object sender, System.IO.FileSystemEventArgs e) {
+		private void fileSystemWatcherSubscription_Changed(object sender, FileSystemEventArgs e) {
+			notifications.Subscription(e);
 		}
 
 		// bits
-		private void fileSystemWatcherBits_Changed(object sender, System.IO.FileSystemEventArgs e) {
-
+		private void fileSystemWatcherBits_Changed(object sender, FileSystemEventArgs e) {
+			notifications.Bits(e);
 		}
 
 		// donations
-		private void fileSystemWatcherDonation_Changed(object sender, System.IO.FileSystemEventArgs e) {
+		private void fileSystemWatcherDonation_Changed(object sender, FileSystemEventArgs e) {
+			notifications.Donation(e);
 		}
 
 		#endregion

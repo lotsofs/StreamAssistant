@@ -84,6 +84,20 @@ namespace StreamAssistant2
 		}
 
 		/// <summary>
+		/// Plays a sound
+		/// </summary>
+		/// <param name="twitchEvent">which event the sound relates to</param>
+		public void PlaySound(TwitchEvents twitchEvent) {
+			if (soundFiles[(int)twitchEvent] == "None") {
+				return;
+			}
+			string soundPath = Path.Combine(@"Sounds\", soundFiles[(int)twitchEvent]);
+			currentSound = soundEngine.Play2D(soundPath, false, true);
+			currentSound.Volume = volumes[(int)twitchEvent];
+			currentSound.Paused = false;
+		}
+
+		/// <summary>
 		/// Sets the audio device to play sounds from
 		/// </summary>
 		/// <param name="index"></param>

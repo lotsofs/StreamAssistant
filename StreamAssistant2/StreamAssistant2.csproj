@@ -70,7 +70,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SaveLoad.cs" />
-    <Compile Include="TextReader.cs" />
+    <Compile Include="Notifications.cs" />
     <Compile Include="TwitchEvents.cs" />
     <EmbeddedResource Include="Form_NotificationsSettings.resx">
       <DependentUpon>Form_NotificationsSettings.cs</DependentUpon>

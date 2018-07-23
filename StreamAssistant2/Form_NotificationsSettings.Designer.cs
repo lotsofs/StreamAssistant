@@ -306,9 +306,9 @@
 			this.helpText.ReadOnly = true;
 			this.helpText.Size = new System.Drawing.Size(324, 88);
 			this.helpText.TabIndex = 21;
-			this.helpText.Text = "most_recent_donator.txt:\r\n{amount} by {donor}: {message}\r\nmost_recent_subscriber." +
-    "txt:\r\n{subscriber} for {months_subscribed} months\r\nmost_recent_cheerer.txt:\r\n{am" +
-    "ount} by {donor}: {message}";
+			this.helpText.Text = "most_recent_donator.txt:\r\n{donor} {amount} {message}\r\nmost_recent_subscriber.txt:" +
+    "\r\n{subscriber} {months_subscribed}\r\nmost_recent_cheerer.txt:\r\n{donor} {amount} {" +
+    "message}";
 			// 
 			// Form_NotificationsSettings
 			// 
