@@ -328,7 +328,7 @@
 			this.Controls.Add(this.audioDevice_ComboBox);
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.Name = "Form_NotificationsSettings";
-			this.Text = "Stream Notifications Settings";
+			this.Text = "Stream Assistant: Notifications Settings";
 			this.groupBox_Sounds.ResumeLayout(false);
 			this.groupBox_Sounds.PerformLayout();
 			this.ResumeLayout(false);

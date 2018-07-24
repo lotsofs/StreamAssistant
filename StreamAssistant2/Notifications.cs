@@ -10,19 +10,35 @@ using System.Timers;
 
 namespace StreamAssistant2
 {
-	class Notifications	{
+	public class Notifications	{
 		AudioPlayer audioPlayer;
+
 		string lastSubscriber;
+
 		string lastDonator;
 		string lastDonation;
 		string lastDonationMessage;
+
+		public Action<string> OnDonation;
+
 		string lastCheerer;
 		string lastCheer;
 		string lastCheerMessage;
 
+		#region init
+
 		public Notifications(AudioPlayer ap) {
 			audioPlayer = ap;
 		}
+
+		#endregion
+
+		public string LastDonation() {
+			string donationInfo = String.Format("{0} {1} {2}", lastDonator, lastDonation, lastDonationMessage);
+			return donationInfo;
+		}
+
+		#region twitch events happening
 
 		/// <summary>
 		/// Subscription happening
@@ -32,7 +48,7 @@ namespace StreamAssistant2
 		public void Subscription(FileSystemEventArgs e) {
 			string subscriptionInfo = EventInformation(e.FullPath);
 			if (string.IsNullOrEmpty(subscriptionInfo)) {
-				lastSubscriber = string.Empty;
+				//lastSubscriber = string.Empty;
 				return;
 			}
 
@@ -41,7 +57,7 @@ namespace StreamAssistant2
 				return;
 			}
 
-			if (lastSubscriber != null) {
+			if (!string.IsNullOrEmpty(lastSubscriber)) {
 				audioPlayer.PlaySound(TwitchEvents.Subscription);
 			}
 			lastSubscriber = subscriber;
@@ -67,7 +83,7 @@ namespace StreamAssistant2
 				return;
 			}
 
-			if (lastCheerer != null) {
+			if (!string.IsNullOrEmpty(lastCheerer)) {
 				audioPlayer.PlaySound(TwitchEvents.Bits);
 			}
 			lastCheerer = cheerer;
@@ -95,12 +111,35 @@ namespace StreamAssistant2
 				return;
 			}
 
-			if (lastDonator != null) {
+			if (!string.IsNullOrEmpty(lastDonator)) {
 				audioPlayer.PlaySound(TwitchEvents.Donation);
 			}
 			lastDonator = donator;
 			lastDonation = donation;
 			lastDonationMessage = donationMessage;
+
+			if (OnDonation != null) {
+				OnDonation(donationInfo);
+			}
+		}
+
+		#endregion
+
+		#region extract information from text files
+
+		/// <summary>
+		/// reads the text file and returns the text contained within
+		/// </summary>
+		/// <param name="path"></param>
+		/// <returns></returns>
+		string EventInformation(string path) {
+			try {
+				string info = File.ReadAllText(path);
+				return info;
+			}
+			catch (IOException) {
+				return string.Empty;
+			}
 		}
 
 		/// <summary>
@@ -160,15 +199,9 @@ namespace StreamAssistant2
 			return info;
 		}
 
-		string EventInformation(string path) {
-			try {
-				string info = File.ReadAllText(path);
-				return info;
-			}
-			catch (IOException) {
-				return string.Empty;
-			}
-		}
+		#endregion
+
+
 
 	}
 }

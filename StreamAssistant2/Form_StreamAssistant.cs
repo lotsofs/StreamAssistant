@@ -20,6 +20,8 @@ namespace StreamAssistant2
 		Notifications notifications;
 
 		Form_NotificationsSettings notificationsConfig;
+		Form_NotificationsViewer notificationsViewer;
+
 		string notificationTextFilesPath;
 
 		bool fileSystemWatchersEnableable;
@@ -40,9 +42,7 @@ namespace StreamAssistant2
 		/// <param name="sender"></param>
 		/// <param name="e"></param>
 		private void Form_StreamAssistant_FormClosing(object sender, FormClosingEventArgs e) {
-			if (notificationsConfig != null) {
-				notificationsConfig.Close();
-			}
+			CloseNotificationsWindows();
 			SaveLoad.SaveAll();
 		}
 
@@ -96,6 +96,27 @@ namespace StreamAssistant2
 		}
 
 		/// <summary>
+		/// Opens the viewer panel for showing donation text
+		/// </summary>
+		public void OpenNotificationsViewer() {
+			notificationsViewer = new Form_NotificationsViewer(notifications);
+			notificationsViewer.Show();
+			notifications.OnDonation += notificationsViewer.UpdateText;
+		}
+
+		/// <summary>
+		/// Closes all notifcations windows
+		/// </summary>
+		public void CloseNotificationsWindows() {
+			if (notificationsConfig != null) {
+				notificationsConfig.Close();
+			}
+			if (notificationsViewer != null) {
+				notificationsViewer.Close();
+			}
+		}
+
+		/// <summary>
 		/// Sets the file system watcher paths
 		/// </summary>
 		/// <param name="path"></param>
@@ -141,8 +162,20 @@ namespace StreamAssistant2
 		// enabled checkbox
 		private void notifications_enabledCheckBox_CheckedChanged(object sender, EventArgs e) {
 			bool enabled = notifications_enabledCheckBox.Checked;
+			// disable buttons
 			notifications_ConfigButton.Enabled = enabled;
+			notifications_ViewButton.Enabled = enabled;
+			// disable utility
 			EnableFileSystemWatchers(enabled);
+			// close windows
+			if (enabled == false) {
+				CloseNotificationsWindows();
+			}
+		}
+
+		// view button
+		private void notifications_ViewButton_Click(object sender, EventArgs e) {
+			OpenNotificationsViewer();
 		}
 
 		#endregion
@@ -165,6 +198,7 @@ namespace StreamAssistant2
 		}
 
 		#endregion
+
 
 	}
 }

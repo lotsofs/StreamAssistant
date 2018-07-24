@@ -60,6 +60,12 @@
     <Compile Include="Form_NotificationsSettings.Designer.cs">
       <DependentUpon>Form_NotificationsSettings.cs</DependentUpon>
     </Compile>
+    <Compile Include="Form_NotificationsViewer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Form_NotificationsViewer.Designer.cs">
+      <DependentUpon>Form_NotificationsViewer.cs</DependentUpon>
+    </Compile>
     <Compile Include="Form_StreamAssistant.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -74,6 +80,9 @@
     <Compile Include="TwitchEvents.cs" />
     <EmbeddedResource Include="Form_NotificationsSettings.resx">
       <DependentUpon>Form_NotificationsSettings.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Form_NotificationsViewer.resx">
+      <DependentUpon>Form_NotificationsViewer.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

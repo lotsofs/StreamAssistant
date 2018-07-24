@@ -35,6 +35,7 @@
 			this.fileSystemWatcherBits = new System.IO.FileSystemWatcher();
 			this.fileSystemWatcherDonation = new System.IO.FileSystemWatcher();
 			this.fileSystemWatcherSubscription = new System.IO.FileSystemWatcher();
+			this.notifications_ViewButton = new System.Windows.Forms.Button();
 			this.statsDisplay_GroupBox.SuspendLayout();
 			this.notifications_GroupBox.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.fileSystemWatcherBits)).BeginInit();
@@ -83,11 +84,12 @@
 			// 
 			this.notifications_GroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+			this.notifications_GroupBox.Controls.Add(this.notifications_ViewButton);
 			this.notifications_GroupBox.Controls.Add(this.notifications_ConfigButton);
 			this.notifications_GroupBox.Controls.Add(this.notifications_enabledCheckBox);
 			this.notifications_GroupBox.Location = new System.Drawing.Point(12, 89);
 			this.notifications_GroupBox.Name = "notifications_GroupBox";
-			this.notifications_GroupBox.Size = new System.Drawing.Size(183, 42);
+			this.notifications_GroupBox.Size = new System.Drawing.Size(183, 67);
 			this.notifications_GroupBox.TabIndex = 2;
 			this.notifications_GroupBox.TabStop = false;
 			this.notifications_GroupBox.Text = "Notifications";
@@ -138,11 +140,24 @@
 			this.fileSystemWatcherSubscription.SynchronizingObject = this;
 			this.fileSystemWatcherSubscription.Changed += new System.IO.FileSystemEventHandler(this.fileSystemWatcherSubscription_Changed);
 			// 
+			// notifications_ViewButton
+			// 
+			this.notifications_ViewButton.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.notifications_ViewButton.Enabled = false;
+			this.notifications_ViewButton.Location = new System.Drawing.Point(6, 38);
+			this.notifications_ViewButton.Name = "notifications_ViewButton";
+			this.notifications_ViewButton.Size = new System.Drawing.Size(171, 23);
+			this.notifications_ViewButton.TabIndex = 2;
+			this.notifications_ViewButton.Text = "Open Donation View Window";
+			this.notifications_ViewButton.UseVisualStyleBackColor = true;
+			this.notifications_ViewButton.Click += new System.EventHandler(this.notifications_ViewButton_Click);
+			// 
 			// Form_StreamAssistant
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(207, 152);
+			this.ClientSize = new System.Drawing.Size(207, 182);
 			this.Controls.Add(this.notifications_GroupBox);
 			this.Controls.Add(this.statsDisplay_GroupBox);
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -171,6 +186,7 @@
 		private System.IO.FileSystemWatcher fileSystemWatcherBits;
 		private System.IO.FileSystemWatcher fileSystemWatcherDonation;
 		private System.IO.FileSystemWatcher fileSystemWatcherSubscription;
+		private System.Windows.Forms.Button notifications_ViewButton;
 	}
 }
 
