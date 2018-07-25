@@ -93,7 +93,7 @@ namespace StreamAssistant2
 			}
 			string soundPath = Path.Combine(@"Sounds\", soundFiles[(int)twitchEvent]);
 			currentSound = soundEngine.Play2D(soundPath, false, true);
-			currentSound.Volume = volumes[(int)twitchEvent];
+			currentSound.Volume = (float)volumes[(int)twitchEvent] / 100;
 			currentSound.Paused = false;
 		}
 
