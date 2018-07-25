@@ -48,7 +48,6 @@ namespace StreamAssistant2
 		public void Subscription(FileSystemEventArgs e) {
 			string subscriptionInfo = EventInformation(e.FullPath);
 			if (string.IsNullOrEmpty(subscriptionInfo)) {
-				//lastSubscriber = string.Empty;
 				return;
 			}
 
@@ -70,9 +69,6 @@ namespace StreamAssistant2
 		public void Bits(FileSystemEventArgs e) {
 			string bitsInfo = EventInformation(e.FullPath);
 			if (string.IsNullOrEmpty(bitsInfo)) {
-				lastCheerer = string.Empty;
-				lastCheer = string.Empty;
-				lastCheerMessage = string.Empty;
 				return;
 			}
 
@@ -98,9 +94,6 @@ namespace StreamAssistant2
 		public void Donation(FileSystemEventArgs e) {
 			string donationInfo = EventInformation(e.FullPath);
 			if (string.IsNullOrEmpty(donationInfo)) {
-				lastDonator = string.Empty;
-				lastDonation = string.Empty;
-				lastDonationMessage = string.Empty;
 				return;
 			}
 
