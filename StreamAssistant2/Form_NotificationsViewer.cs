@@ -12,9 +12,11 @@ namespace StreamAssistant2
 {
 	public partial class Form_NotificationsViewer : Form
 	{
+		const string DefaultText = "No donations yet";
+
 		public Form_NotificationsViewer(Notifications notif) {
 			InitializeComponent();
-			UpdateText(notif.LastDonation());
+			UpdateTextStartup(notif.LastDonation());
 		}
 
 		/// <summary>
@@ -24,5 +26,19 @@ namespace StreamAssistant2
 		public void UpdateText(string text) {
 			donationInfoLabel.Text = text;
 		}
+
+		/// <summary>
+		/// Updates the text to show the last donation for the user to read. if there is none, puts a default message
+		/// </summary>
+		/// <param name="text"></param>
+		public void UpdateTextStartup(string text) {
+			if (string.IsNullOrEmpty(text)) {
+				donationInfoLabel.Text = DefaultText;
+			}
+			else {
+				donationInfoLabel.Text = text;
+			}
+		}
+
 	}
 }

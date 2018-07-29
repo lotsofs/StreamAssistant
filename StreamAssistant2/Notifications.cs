@@ -25,17 +25,30 @@ namespace StreamAssistant2
 		string lastCheer;
 		string lastCheerMessage;
 
+		const string FirstBootText = "firstboot";
+		const string IOExceptionText = "ioexception";
+
 		#region init
 
 		public Notifications(AudioPlayer ap) {
 			audioPlayer = ap;
+
+			// set strings to something to point out the program has just been booted, so that it won't play a sound as soon as the program boots
+			lastSubscriber = FirstBootText;
+			lastDonator = FirstBootText;
+			lastCheerer = FirstBootText;
 		}
 
 		#endregion
 
 		public string LastDonation() {
-			string donationInfo = String.Format("{0} {1} {2}", lastDonator, lastDonation, lastDonationMessage);
-			return donationInfo;
+			if (lastDonator != FirstBootText) {
+				string donationInfo = String.Format("{0} {1} {2}", lastDonator, lastDonation, lastDonationMessage);
+				return donationInfo;
+			}
+			else {
+				return string.Empty;
+			}
 		}
 
 		#region twitch events happening
@@ -47,8 +60,8 @@ namespace StreamAssistant2
 		/// <param name="e"></param>
 		public void Subscription(FileSystemEventArgs e) {
 			string subscriptionInfo = EventInformation(e.FullPath);
-			if (string.IsNullOrEmpty(subscriptionInfo)) {
-				return;
+			while (subscriptionInfo == IOExceptionText) {
+				subscriptionInfo = EventInformation(e.FullPath);
 			}
 
 			string subscriber = UserName(subscriptionInfo);
@@ -56,7 +69,7 @@ namespace StreamAssistant2
 				return;
 			}
 
-			if (!string.IsNullOrEmpty(lastSubscriber)) {
+			if (lastSubscriber != FirstBootText) {
 				audioPlayer.PlaySound(TwitchEvents.Subscription);
 			}
 			lastSubscriber = subscriber;
@@ -68,8 +81,8 @@ namespace StreamAssistant2
 		/// <param name="e"></param>
 		public void Bits(FileSystemEventArgs e) {
 			string bitsInfo = EventInformation(e.FullPath);
-			if (string.IsNullOrEmpty(bitsInfo)) {
-				return;
+			while (bitsInfo == IOExceptionText) {
+				bitsInfo = EventInformation(e.FullPath);
 			}
 
 			string cheerer = UserName(bitsInfo);
@@ -79,7 +92,7 @@ namespace StreamAssistant2
 				return;
 			}
 
-			if (!string.IsNullOrEmpty(lastCheerer)) {
+			if (lastCheerer != FirstBootText) {
 				audioPlayer.PlaySound(TwitchEvents.Bits);
 			}
 			lastCheerer = cheerer;
@@ -93,8 +106,8 @@ namespace StreamAssistant2
 		/// <param name="e"></param>
 		public void Donation(FileSystemEventArgs e) {
 			string donationInfo = EventInformation(e.FullPath);
-			if (string.IsNullOrEmpty(donationInfo)) {
-				return;
+			while (donationInfo == IOExceptionText) {
+				donationInfo = EventInformation(e.FullPath);
 			}
 
 			string donator = UserName(donationInfo);
@@ -104,7 +117,7 @@ namespace StreamAssistant2
 				return;
 			}
 
-			if (!string.IsNullOrEmpty(lastDonator)) {
+			if (lastDonator != FirstBootText) {
 				audioPlayer.PlaySound(TwitchEvents.Donation);
 			}
 			lastDonator = donator;
@@ -131,7 +144,7 @@ namespace StreamAssistant2
 				return info;
 			}
 			catch (IOException) {
-				return string.Empty;
+				return IOExceptionText;
 			}
 		}
 
