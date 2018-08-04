@@ -18,6 +18,7 @@ namespace StreamAssistant2
 	{
 		AudioPlayer audioPlayer;
 		Notifications notifications;
+		EventLog eventLog;
 
 		Form_NotificationsSettings notificationsConfig;
 		Form_NotificationsViewer notificationsViewer;
@@ -31,7 +32,8 @@ namespace StreamAssistant2
 		public Form_StreamAssistant() {
 			InitializeComponent();
 			audioPlayer = new AudioPlayer();
-			notifications = new Notifications(audioPlayer);
+			eventLog = new EventLog();
+			notifications = new Notifications(audioPlayer, eventLog);
 
 			LoadSettings();
 		}
@@ -90,7 +92,7 @@ namespace StreamAssistant2
 		/// Opens the notifications configuration panel
 		/// </summary>
 		public void OpenNotificationsConfig() {
-			notificationsConfig = new Form_NotificationsSettings(audioPlayer, notificationTextFilesPath);
+			notificationsConfig = new Form_NotificationsSettings(audioPlayer, notificationTextFilesPath, eventLog);
 			notificationsConfig.Show();
 			notificationsConfig.OnTextFilesPathChanged += SetFileSystemWatcherPaths;
 		}

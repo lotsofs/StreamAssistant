@@ -15,8 +15,8 @@ namespace StreamAssistant2
 		ISoundEngine soundEngine;
 		ISound currentSound;
 
-		public string[] soundFiles;
-		public int[] volumes;
+		public string[] SoundFiles;
+		public int[] Volumes;
 
 		public string[] DeviceListDescriptions;
 		public int CurrentDeviceId;
@@ -26,8 +26,8 @@ namespace StreamAssistant2
 			SetAudioDevice();
 
 			int eventsLength = Enum.GetValues(typeof(TwitchEvents)).Length;
-			soundFiles = new string[eventsLength];
-			volumes = new int[eventsLength];
+			SoundFiles = new string[eventsLength];
+			Volumes = new int[eventsLength];
 
 			LoadSettings();
 		}
@@ -39,13 +39,13 @@ namespace StreamAssistant2
 
 			config.AppSettings.Settings["SoundDevice"].Value = CurrentDeviceId.ToString();
 
-			config.AppSettings.Settings["SubscriptionSound"].Value = soundFiles[(int)TwitchEvents.Subscription];
-			config.AppSettings.Settings["BitsSound"].Value = soundFiles[(int)TwitchEvents.Bits];
-			config.AppSettings.Settings["DonationSound"].Value = soundFiles[(int)TwitchEvents.Donation];
+			config.AppSettings.Settings["SubscriptionSound"].Value = SoundFiles[(int)TwitchEvents.Subscription];
+			config.AppSettings.Settings["BitsSound"].Value = SoundFiles[(int)TwitchEvents.Bits];
+			config.AppSettings.Settings["DonationSound"].Value = SoundFiles[(int)TwitchEvents.Donation];
 
-			config.AppSettings.Settings["SubscriptionVolume"].Value = volumes[(int)TwitchEvents.Subscription].ToString();
-			config.AppSettings.Settings["BitsVolume"].Value = volumes[(int)TwitchEvents.Bits].ToString();
-			config.AppSettings.Settings["DonationVolume"].Value = volumes[(int)TwitchEvents.Donation].ToString();
+			config.AppSettings.Settings["SubscriptionVolume"].Value = Volumes[(int)TwitchEvents.Subscription].ToString();
+			config.AppSettings.Settings["BitsVolume"].Value = Volumes[(int)TwitchEvents.Bits].ToString();
+			config.AppSettings.Settings["DonationVolume"].Value = Volumes[(int)TwitchEvents.Donation].ToString();
 
 			config.Save();
 		}
@@ -57,13 +57,13 @@ namespace StreamAssistant2
 			int audioDeviceIndex = int.Parse(appSettings["SoundDevice"]);
 			SetAudioDevice(audioDeviceIndex);
 
-			soundFiles[(int)TwitchEvents.Subscription] = appSettings["SubscriptionSound"];
-			soundFiles[(int)TwitchEvents.Bits] = appSettings["BitsSound"];
-			soundFiles[(int)TwitchEvents.Donation] = appSettings["DonationSound"];
+			SoundFiles[(int)TwitchEvents.Subscription] = appSettings["SubscriptionSound"];
+			SoundFiles[(int)TwitchEvents.Bits] = appSettings["BitsSound"];
+			SoundFiles[(int)TwitchEvents.Donation] = appSettings["DonationSound"];
 
-			volumes[(int)TwitchEvents.Subscription] = int.Parse(appSettings["SubscriptionVolume"]);
-			volumes[(int)TwitchEvents.Bits] = int.Parse(appSettings["BitsVolume"]);
-			volumes[(int)TwitchEvents.Donation] = int.Parse(appSettings["DonationVolume"]);
+			Volumes[(int)TwitchEvents.Subscription] = int.Parse(appSettings["SubscriptionVolume"]);
+			Volumes[(int)TwitchEvents.Bits] = int.Parse(appSettings["BitsVolume"]);
+			Volumes[(int)TwitchEvents.Donation] = int.Parse(appSettings["DonationVolume"]);
 		}
 
 		#endregion
@@ -88,12 +88,12 @@ namespace StreamAssistant2
 		/// </summary>
 		/// <param name="twitchEvent">which event the sound relates to</param>
 		public void PlaySound(TwitchEvents twitchEvent) {
-			if (soundFiles[(int)twitchEvent] == "None") {
+			if (SoundFiles[(int)twitchEvent] == "None") {
 				return;
 			}
-			string soundPath = Path.Combine(@"Sounds\", soundFiles[(int)twitchEvent]);
+			string soundPath = Path.Combine(@"Sounds\", SoundFiles[(int)twitchEvent]);
 			currentSound = soundEngine.Play2D(soundPath, false, true);
-			currentSound.Volume = (float)volumes[(int)twitchEvent] / 100;
+			currentSound.Volume = (float)Volumes[(int)twitchEvent] / 100;
 			currentSound.Paused = false;
 		}
 

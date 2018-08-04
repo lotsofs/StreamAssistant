@@ -49,6 +49,11 @@
 			this.folderPath_TextBox = new System.Windows.Forms.TextBox();
 			this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
 			this.helpText = new System.Windows.Forms.TextBox();
+			this.outputPath_TextBox = new System.Windows.Forms.TextBox();
+			this.outputPath_Label = new System.Windows.Forms.Label();
+			this.outputPath_BrowseButton = new System.Windows.Forms.Button();
+			this.outputPath_CountTextBox = new System.Windows.Forms.TextBox();
+			this.outputPath_CountLabel = new System.Windows.Forms.Label();
 			this.groupBox_Sounds.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -61,7 +66,7 @@
 			this.audioDevice_ComboBox.FormattingEnabled = true;
 			this.audioDevice_ComboBox.Location = new System.Drawing.Point(12, 25);
 			this.audioDevice_ComboBox.Name = "audioDevice_ComboBox";
-			this.audioDevice_ComboBox.Size = new System.Drawing.Size(324, 21);
+			this.audioDevice_ComboBox.Size = new System.Drawing.Size(373, 21);
 			this.audioDevice_ComboBox.TabIndex = 2;
 			// 
 			// audioDevice_Label
@@ -76,7 +81,7 @@
 			// button_Ok
 			// 
 			this.button_Ok.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.button_Ok.Location = new System.Drawing.Point(173, 318);
+			this.button_Ok.Location = new System.Drawing.Point(222, 356);
 			this.button_Ok.Name = "button_Ok";
 			this.button_Ok.Size = new System.Drawing.Size(75, 23);
 			this.button_Ok.TabIndex = 4;
@@ -87,7 +92,7 @@
 			// button1
 			// 
 			this.button1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.button1.Location = new System.Drawing.Point(254, 318);
+			this.button1.Location = new System.Drawing.Point(303, 356);
 			this.button1.Name = "button1";
 			this.button1.Size = new System.Drawing.Size(75, 23);
 			this.button1.TabIndex = 5;
@@ -98,7 +103,7 @@
 			// button_Apply
 			// 
 			this.button_Apply.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.button_Apply.Location = new System.Drawing.Point(92, 318);
+			this.button_Apply.Location = new System.Drawing.Point(141, 356);
 			this.button_Apply.Name = "button_Apply";
 			this.button_Apply.Size = new System.Drawing.Size(75, 23);
 			this.button_Apply.TabIndex = 6;
@@ -127,7 +132,7 @@
             "None"});
 			this.subscription_comboBox.Location = new System.Drawing.Point(87, 32);
 			this.subscription_comboBox.Name = "subscription_comboBox";
-			this.subscription_comboBox.Size = new System.Drawing.Size(175, 21);
+			this.subscription_comboBox.Size = new System.Drawing.Size(224, 21);
 			this.subscription_comboBox.TabIndex = 8;
 			// 
 			// groupBox_Sounds
@@ -146,9 +151,9 @@
 			this.groupBox_Sounds.Controls.Add(this.subscription_VolumeText);
 			this.groupBox_Sounds.Controls.Add(this.subscription_Button);
 			this.groupBox_Sounds.Controls.Add(this.subscription_comboBox);
-			this.groupBox_Sounds.Location = new System.Drawing.Point(12, 92);
+			this.groupBox_Sounds.Location = new System.Drawing.Point(12, 133);
 			this.groupBox_Sounds.Name = "groupBox_Sounds";
-			this.groupBox_Sounds.Size = new System.Drawing.Size(324, 120);
+			this.groupBox_Sounds.Size = new System.Drawing.Size(373, 120);
 			this.groupBox_Sounds.TabIndex = 9;
 			this.groupBox_Sounds.TabStop = false;
 			this.groupBox_Sounds.Text = "Sounds";
@@ -156,7 +161,7 @@
 			// donation_VolumeText
 			// 
 			this.donation_VolumeText.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.donation_VolumeText.Location = new System.Drawing.Point(268, 91);
+			this.donation_VolumeText.Location = new System.Drawing.Point(317, 91);
 			this.donation_VolumeText.Name = "donation_VolumeText";
 			this.donation_VolumeText.Size = new System.Drawing.Size(49, 20);
 			this.donation_VolumeText.TabIndex = 18;
@@ -184,13 +189,13 @@
             "None"});
 			this.donation_ComboBox.Location = new System.Drawing.Point(87, 90);
 			this.donation_ComboBox.Name = "donation_ComboBox";
-			this.donation_ComboBox.Size = new System.Drawing.Size(175, 21);
+			this.donation_ComboBox.Size = new System.Drawing.Size(224, 21);
 			this.donation_ComboBox.TabIndex = 17;
 			// 
 			// bits_VolumeText
 			// 
 			this.bits_VolumeText.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.bits_VolumeText.Location = new System.Drawing.Point(268, 62);
+			this.bits_VolumeText.Location = new System.Drawing.Point(317, 62);
 			this.bits_VolumeText.Name = "bits_VolumeText";
 			this.bits_VolumeText.Size = new System.Drawing.Size(49, 20);
 			this.bits_VolumeText.TabIndex = 15;
@@ -218,14 +223,14 @@
             "None"});
 			this.bits_ComboBox.Location = new System.Drawing.Point(87, 61);
 			this.bits_ComboBox.Name = "bits_ComboBox";
-			this.bits_ComboBox.Size = new System.Drawing.Size(175, 21);
+			this.bits_ComboBox.Size = new System.Drawing.Size(224, 21);
 			this.bits_ComboBox.TabIndex = 14;
 			// 
 			// label_Volume
 			// 
 			this.label_Volume.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
 			this.label_Volume.AutoSize = true;
-			this.label_Volume.Location = new System.Drawing.Point(265, 16);
+			this.label_Volume.Location = new System.Drawing.Point(314, 16);
 			this.label_Volume.Name = "label_Volume";
 			this.label_Volume.Size = new System.Drawing.Size(53, 13);
 			this.label_Volume.TabIndex = 12;
@@ -252,7 +257,7 @@
 			// subscription_VolumeText
 			// 
 			this.subscription_VolumeText.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.subscription_VolumeText.Location = new System.Drawing.Point(268, 33);
+			this.subscription_VolumeText.Location = new System.Drawing.Point(317, 33);
 			this.subscription_VolumeText.Name = "subscription_VolumeText";
 			this.subscription_VolumeText.Size = new System.Drawing.Size(49, 20);
 			this.subscription_VolumeText.TabIndex = 9;
@@ -264,14 +269,14 @@
 			this.folderPath_Label.AutoSize = true;
 			this.folderPath_Label.Location = new System.Drawing.Point(9, 49);
 			this.folderPath_Label.Name = "folderPath_Label";
-			this.folderPath_Label.Size = new System.Drawing.Size(87, 13);
+			this.folderPath_Label.Size = new System.Drawing.Size(85, 13);
 			this.folderPath_Label.TabIndex = 10;
-			this.folderPath_Label.Text = "Text Files Folder:";
+			this.folderPath_Label.Text = "Input File Folder:";
 			// 
 			// folderPath_BrowseButton
 			// 
 			this.folderPath_BrowseButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.folderPath_BrowseButton.Location = new System.Drawing.Point(261, 63);
+			this.folderPath_BrowseButton.Location = new System.Drawing.Point(310, 63);
 			this.folderPath_BrowseButton.Name = "folderPath_BrowseButton";
 			this.folderPath_BrowseButton.Size = new System.Drawing.Size(75, 23);
 			this.folderPath_BrowseButton.TabIndex = 19;
@@ -286,7 +291,7 @@
 			this.folderPath_TextBox.Enabled = false;
 			this.folderPath_TextBox.Location = new System.Drawing.Point(12, 65);
 			this.folderPath_TextBox.Name = "folderPath_TextBox";
-			this.folderPath_TextBox.Size = new System.Drawing.Size(243, 20);
+			this.folderPath_TextBox.Size = new System.Drawing.Size(292, 20);
 			this.folderPath_TextBox.TabIndex = 20;
 			// 
 			// openFileDialog1
@@ -300,22 +305,76 @@
 			this.helpText.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-			this.helpText.Location = new System.Drawing.Point(12, 219);
+			this.helpText.Location = new System.Drawing.Point(12, 260);
 			this.helpText.Multiline = true;
 			this.helpText.Name = "helpText";
 			this.helpText.ReadOnly = true;
-			this.helpText.Size = new System.Drawing.Size(324, 88);
+			this.helpText.Size = new System.Drawing.Size(373, 90);
 			this.helpText.TabIndex = 21;
 			this.helpText.Text = "most_recent_donator.txt:\r\n{donor} {amount} {message}\r\nmost_recent_subscriber.txt:" +
     "\r\n{subscriber} {months_subscribed}\r\nmost_recent_cheerer.txt:\r\n{donor} {amount} {" +
     "message}";
+			// 
+			// outputPath_TextBox
+			// 
+			this.outputPath_TextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.outputPath_TextBox.Enabled = false;
+			this.outputPath_TextBox.Location = new System.Drawing.Point(12, 104);
+			this.outputPath_TextBox.Name = "outputPath_TextBox";
+			this.outputPath_TextBox.Size = new System.Drawing.Size(230, 20);
+			this.outputPath_TextBox.TabIndex = 22;
+			// 
+			// outputPath_Label
+			// 
+			this.outputPath_Label.AutoSize = true;
+			this.outputPath_Label.Location = new System.Drawing.Point(9, 88);
+			this.outputPath_Label.Name = "outputPath_Label";
+			this.outputPath_Label.Size = new System.Drawing.Size(61, 13);
+			this.outputPath_Label.TabIndex = 23;
+			this.outputPath_Label.Text = "Output File:";
+			// 
+			// outputPath_BrowseButton
+			// 
+			this.outputPath_BrowseButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+			this.outputPath_BrowseButton.Location = new System.Drawing.Point(248, 104);
+			this.outputPath_BrowseButton.Name = "outputPath_BrowseButton";
+			this.outputPath_BrowseButton.Size = new System.Drawing.Size(75, 23);
+			this.outputPath_BrowseButton.TabIndex = 24;
+			this.outputPath_BrowseButton.Text = "Browse";
+			this.outputPath_BrowseButton.UseVisualStyleBackColor = true;
+			this.outputPath_BrowseButton.Click += new System.EventHandler(this.outputPath_BrowseButton_Click);
+			// 
+			// outputPath_CountTextBox
+			// 
+			this.outputPath_CountTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+			this.outputPath_CountTextBox.Location = new System.Drawing.Point(329, 104);
+			this.outputPath_CountTextBox.Name = "outputPath_CountTextBox";
+			this.outputPath_CountTextBox.Size = new System.Drawing.Size(49, 20);
+			this.outputPath_CountTextBox.TabIndex = 19;
+			this.outputPath_CountTextBox.Text = "8";
+			// 
+			// outputPath_CountLabel
+			// 
+			this.outputPath_CountLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+			this.outputPath_CountLabel.AutoSize = true;
+			this.outputPath_CountLabel.Location = new System.Drawing.Point(329, 89);
+			this.outputPath_CountLabel.Name = "outputPath_CountLabel";
+			this.outputPath_CountLabel.Size = new System.Drawing.Size(38, 13);
+			this.outputPath_CountLabel.TabIndex = 25;
+			this.outputPath_CountLabel.Text = "Count:";
 			// 
 			// Form_NotificationsSettings
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.BackColor = System.Drawing.SystemColors.Control;
-			this.ClientSize = new System.Drawing.Size(348, 353);
+			this.ClientSize = new System.Drawing.Size(397, 391);
+			this.Controls.Add(this.outputPath_CountLabel);
+			this.Controls.Add(this.outputPath_CountTextBox);
+			this.Controls.Add(this.outputPath_BrowseButton);
+			this.Controls.Add(this.outputPath_Label);
+			this.Controls.Add(this.outputPath_TextBox);
 			this.Controls.Add(this.helpText);
 			this.Controls.Add(this.folderPath_TextBox);
 			this.Controls.Add(this.folderPath_BrowseButton);
@@ -361,5 +420,10 @@
 		private System.Windows.Forms.TextBox folderPath_TextBox;
 		private System.Windows.Forms.OpenFileDialog openFileDialog1;
 		private System.Windows.Forms.TextBox helpText;
+		private System.Windows.Forms.TextBox outputPath_TextBox;
+		private System.Windows.Forms.Label outputPath_Label;
+		private System.Windows.Forms.Button outputPath_BrowseButton;
+		private System.Windows.Forms.TextBox outputPath_CountTextBox;
+		private System.Windows.Forms.Label outputPath_CountLabel;
 	}
 }

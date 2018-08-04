@@ -12,6 +12,7 @@ namespace StreamAssistant2
 {
 	public class Notifications	{
 		AudioPlayer audioPlayer;
+		EventLog eventLog;
 
 		string lastSubscriber;
 
@@ -30,8 +31,9 @@ namespace StreamAssistant2
 
 		#region init
 
-		public Notifications(AudioPlayer ap) {
+		public Notifications(AudioPlayer ap, EventLog el) {
 			audioPlayer = ap;
+			eventLog = el;
 
 			// set strings to something to point out the program has just been booted, so that it won't play a sound as soon as the program boots
 			lastSubscriber = FirstBootText;

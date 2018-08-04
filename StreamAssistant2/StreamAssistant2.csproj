@@ -54,6 +54,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AudioPlayer.cs" />
+    <Compile Include="EventLog.cs" />
     <Compile Include="Form_NotificationsSettings.cs">
       <SubType>Form</SubType>
     </Compile>
