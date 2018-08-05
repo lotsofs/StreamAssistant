@@ -14,7 +14,6 @@ namespace StreamAssistant2
 		public Action OnCountChanged;
 
 		public string Path;
-
 		int count;
 		public int Count
 		{
@@ -32,6 +31,12 @@ namespace StreamAssistant2
 		string[] events;	// circular array
 		int nextEventIndex;
 
+		readonly string[] logFormats = new string[] {
+			"{0}  SUB X{1}",	
+			"{0}  {1} BITS",		
+			"{0}  {1}"
+		};
+
 		public EventLog() {
 			LoadSettings();
 			RebuildEventLog();
@@ -39,9 +44,17 @@ namespace StreamAssistant2
 			OnCountChanged += RebuildEventLog;
 		}
 
-		public void AddEvent(int a) {
-			
-			// stuff that needs to be written here
+		#region twitch event handling
+
+		/// <summary>
+		/// adds an event to the event log
+		/// </summary>
+		/// <param name="tEvent"></param>
+		/// <param name="name"></param>
+		/// <param name="amount"></param>
+		public void AddEvent(TwitchEvents tEvent, string name, string amount) {
+			string eventToAdd = string.Format(logFormats[(int)tEvent], name, amount);
+			events[nextEventIndex] = eventToAdd;
 
 			WriteEvents(nextEventIndex);
 			nextEventIndex--;
@@ -80,10 +93,15 @@ namespace StreamAssistant2
 			}
 			string[] currentFileContents = File.ReadAllLines(Path);
 			currentFileContents.Reverse();
-			Array.Copy(currentFileContents, events, count);
+
+			int amountToCopy = Math.Min(count, currentFileContents.Length);
+			Array.Copy(currentFileContents, events, amountToCopy);
 
 			nextEventIndex = count - 1;
+			WriteEvents(0);
 		}
+
+		#endregion
 
 		#region saveload
 

@@ -71,8 +71,10 @@ namespace StreamAssistant2
 				return;
 			}
 
+			string months = Amount(subscriptionInfo);
 			if (lastSubscriber != FirstBootText) {
 				audioPlayer.PlaySound(TwitchEvents.Subscription);
+				eventLog.AddEvent(TwitchEvents.Subscription, subscriber, months);
 			}
 			lastSubscriber = subscriber;
 		}
@@ -96,6 +98,7 @@ namespace StreamAssistant2
 
 			if (lastCheerer != FirstBootText) {
 				audioPlayer.PlaySound(TwitchEvents.Bits);
+				eventLog.AddEvent(TwitchEvents.Bits, cheerer, cheer);
 			}
 			lastCheerer = cheerer;
 			lastCheer = cheer;
@@ -121,6 +124,7 @@ namespace StreamAssistant2
 
 			if (lastDonator != FirstBootText) {
 				audioPlayer.PlaySound(TwitchEvents.Donation);
+				eventLog.AddEvent(TwitchEvents.Donation, donator, donation);
 			}
 			lastDonator = donator;
 			lastDonation = donation;
