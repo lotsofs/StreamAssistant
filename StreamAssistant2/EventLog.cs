@@ -31,6 +31,7 @@ namespace StreamAssistant2
 		string[] events;	// circular array
 		int nextEventIndex;
 
+		readonly string forceWidthBar = "==================";
 		readonly string[] logFormats = new string[] {
 			"{0}  SUB X{1}",	
 			"{0}  {1} BITS",		
@@ -79,6 +80,7 @@ namespace StreamAssistant2
 				output += events[j];
 				output += Environment.NewLine;
 			}
+			output += forceWidthBar;
 			File.WriteAllText(Path, output);
 		}
 
