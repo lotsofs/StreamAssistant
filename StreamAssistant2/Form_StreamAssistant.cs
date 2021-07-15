@@ -19,6 +19,7 @@ namespace StreamAssistant2
 		AudioPlayer audioPlayer;
 		Notifications notifications;
 		EventLog eventLog;
+		SceneManager _sceneManager;
 
 		Form_NotificationsSettings notificationsConfig;
 		Form_NotificationsViewer notificationsViewer;
@@ -27,6 +28,8 @@ namespace StreamAssistant2
 
 		bool fileSystemWatchersEnableable;
 
+		public static bool SceneSwitcherEnabled = false;
+
 		#region opening closing
 
 		public Form_StreamAssistant() {
@@ -34,6 +37,8 @@ namespace StreamAssistant2
 			audioPlayer = new AudioPlayer();
 			eventLog = new EventLog();
 			notifications = new Notifications(audioPlayer, eventLog);
+
+			_sceneManager = new SceneManager();
 
 			LoadSettings();
 		}
@@ -62,6 +67,8 @@ namespace StreamAssistant2
 			SetFileSystemWatcherPaths(appSettings["NotificationTextFilesPath"]);
 
 			notifications_enabledCheckBox.Checked = bool.Parse(appSettings["NotificationsEnabled"]);
+			sceneManager_EnabledCheckBox.Checked = bool.Parse(appSettings["SceneManagerEnabled"]);
+			SceneSwitcherEnabled = sceneManager_EnabledCheckBox.Checked;
 		}
 
 		/// <summary>
@@ -71,6 +78,7 @@ namespace StreamAssistant2
 			Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
 
 			config.AppSettings.Settings["NotificationsEnabled"].Value = notifications_enabledCheckBox.Checked.ToString();
+			config.AppSettings.Settings["SceneManagerEnabled"].Value = sceneManager_EnabledCheckBox.Checked.ToString();
 			config.AppSettings.Settings["NotificationTextFilesPath"].Value = notificationTextFilesPath;
 
 			config.Save();
@@ -199,8 +207,11 @@ namespace StreamAssistant2
 			notifications.Donation(e);
 		}
 
+
 		#endregion
 
-
+		private void sceneManager_EnabledCheckBox_CheckedChanged(object sender, EventArgs e) {
+			SceneSwitcherEnabled = sceneManager_EnabledCheckBox.Checked;
+		}
 	}
 }
