@@ -13,6 +13,7 @@ namespace StreamAssistant2 {
 		enum Files { None, CurrentSplit_Index, PreviousSplit_Sign }
 
 		FileSystemWatcher _watcher;
+		FileSystemWatcher _watcherKTANE;
 		Timer clock;
 
 		Games _currentGame = Games.None;
@@ -26,6 +27,10 @@ namespace StreamAssistant2 {
 			_watcher.Changed += _watcher_Changed;
 			_watcher.EnableRaisingEvents = true;
 			CheckCurrentGame();
+
+			_watcherKTANE = new FileSystemWatcher(@"C:\Users\w10-upgrade\AppData\LocalLow\Steel Crate Games\Keep Talking and Nobody Explodes\StreamInfo\");
+			_watcherKTANE.Changed += _watcherKTANE_Changed;
+			_watcherKTANE.EnableRaisingEvents = true;
 
 			//clock = new Timer();
 
@@ -107,12 +112,12 @@ namespace StreamAssistant2 {
 
 					if (!int.TryParse(indexS, out int index)) return;
 					index += 1;
-					if (index > 0 && index <= 13) {
-						originR = Path.Combine(directory, string.Format("Level{0:00}.png", index));
-						originL = Path.Combine(directory, string.Format("L{0:00}.png", index));
+					if (index > 0 && index <= 20) {
+						originR = Path.Combine(directory, string.Format(@"R{0:00}.png", index));
+						originL = Path.Combine(directory, string.Format(@"L{0:00}.png", index));
 					}
 					else {
-						originR = Path.Combine(directory, "Level00.png");
+						originR = Path.Combine(directory, "R00.png");
 						originL = Path.Combine(directory, "L00.png");
 					}
 					File.Copy(originR, destinationR, true);
@@ -169,5 +174,61 @@ namespace StreamAssistant2 {
 					break;
 			}
 		}
+
+		private void _watcherKTANE_Changed(object sender, FileSystemEventArgs e) {
+			int failsafe = 50;
+			switch (e.Name) {
+				case "strikes.txt":
+					int lineCount = 0;
+					while (failsafe > 0) {
+						try {
+							lineCount = File.ReadAllLines(e.FullPath).Length;
+							break;
+						}
+						catch (IOException) {
+							failsafe--;
+						}
+					}
+					if (failsafe <= 0) return;
+					if (lineCount > 0) {
+						string directoryS = @"D:\Files\Stream2021\Stream Layouts\KTANE";
+						string destinationS = Path.Combine(directoryS, "Borders_Dynamic.png");
+						string originS = Path.Combine(directoryS, "Borders_StrikeRed.png");
+						File.Copy(originS, destinationS, true);
+						File.SetLastWriteTime(destinationS, DateTime.Now);
+					}
+					break;
+				case "solvecount.txt":
+					int total = 1;
+					int solved = 0;
+					while (failsafe > 0) {
+						try {
+							string[] texts = File.ReadAllLines(e.FullPath);
+							if (texts.Length == 0) return;
+							string[] words = texts[0].Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+							int.TryParse(words[4].Trim(), out total);
+							int.TryParse(words[1].Trim(), out solved);
+							break;
+						}
+						catch (IOException) {
+							failsafe--;
+						}
+					}
+					if (failsafe <= 0) return;
+					string directoryM = @"D:\Files\Stream2021\Stream Layouts\KTANE";
+					string destinationM = Path.Combine(directoryM, "Borders_Dynamic.png");
+					string originM;
+					if (solved >= total) {
+						originM = Path.Combine(directoryM, "Borders_SolvedGreen.png");
+					}
+					else {
+						originM = Path.Combine(directoryM, "Borders_UnsolvedGrey.png");
+					}
+					File.Copy(originM, destinationM, true);
+					File.SetLastWriteTime(destinationM, DateTime.Now);
+					break;
+			}
+		}
+
 	}
 }
