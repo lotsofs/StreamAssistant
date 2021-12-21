@@ -23,7 +23,7 @@ namespace StreamAssistant2 {
 		};
 
 		public SceneManager() {
-			_watcher = new FileSystemWatcher(@"D:\Files\Stream2021\Text\Livesplit Generated\");
+			_watcher = new FileSystemWatcher(@"D:\Files\Stream2022\Text\Livesplit Generated\");
 			_watcher.Changed += _watcher_Changed;
 			_watcher.EnableRaisingEvents = true;
 			CheckCurrentGame();
@@ -38,7 +38,7 @@ namespace StreamAssistant2 {
 
 		//public void WriteTime
 
-		void CheckCurrentGame(string path = @"D:\Files\Stream2021\Text\Livesplit Generated\GameName.txt") {
+		void CheckCurrentGame(string path = @"D:\Files\Stream2022\Text\Livesplit Generated\GameName.txt") {
 
 			string gameName = "";
 
@@ -104,7 +104,7 @@ namespace StreamAssistant2 {
 					}
 					oldValues[Files.CurrentSplit_Index] = indexS;
 
-					directory = @"D:\Files\Stream2021\Stream Images\SWAT4";
+					directory = @"D:\Files\Stream2022\Images\Games\SWAT4";
 					string destinationR = Path.Combine(directory, "Dynamic_Right.png");
 					string destinationL = Path.Combine(directory, "Dynamic_Left.png");
 					string originR;
@@ -125,7 +125,7 @@ namespace StreamAssistant2 {
 					File.SetLastWriteTime(destinationR, DateTime.Now);
 					File.SetLastWriteTime(destinationL, DateTime.Now);
 					break;
-				case "PreviousSplit_Sign.txt":
+				case "PreviousSplit_RealTime_Sign.txt":
 					string value = "";
 
 					while (failsafe > 0) {
@@ -145,9 +145,11 @@ namespace StreamAssistant2 {
 					}
 					oldValues[Files.PreviousSplit_Sign] = value;
 
-					directory = @"D:\Files\Stream2021\Stream Layouts\SWAT4";
+					directory = @"D:\Files\Stream2022\Images\Games\SWAT4\Layouts";
 					string destination = Path.Combine(directory, "Borders_Dynamic.png");
 					string origin;
+
+					Debug.WriteLine(value);
 
 					switch (value) {
 						case "ahead":
@@ -157,13 +159,13 @@ namespace StreamAssistant2 {
 							origin = Path.Combine(directory, "Borders_Red.png");
 							break;
 						case "pb":
+						case "gold":
 							origin = Path.Combine(directory, "Borders_Gold.png");
 							break;
 						case "nopb":
 						case "undetermined":
 						default:
 							origin = Path.Combine(directory, "Borders_White.png");
-							break;
 							break;
 					}
 
@@ -191,7 +193,7 @@ namespace StreamAssistant2 {
 					}
 					if (failsafe <= 0) return;
 					if (lineCount > 0) {
-						string directoryS = @"D:\Files\Stream2021\Stream Layouts\KTANE";
+						string directoryS = @"D:\Files\Stream2022\Images\Games\KTANE\Borders";
 						string destinationS = Path.Combine(directoryS, "Borders_Dynamic.png");
 						string originS = Path.Combine(directoryS, "Borders_StrikeRed.png");
 						File.Copy(originS, destinationS, true);
@@ -215,7 +217,7 @@ namespace StreamAssistant2 {
 						}
 					}
 					if (failsafe <= 0) return;
-					string directoryM = @"D:\Files\Stream2021\Stream Layouts\KTANE";
+					string directoryM = @"D:\Files\Stream2022\Images\Games\KTANE\Borders";
 					string destinationM = Path.Combine(directoryM, "Borders_Dynamic.png");
 					string originM;
 					if (solved >= total) {
