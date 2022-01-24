@@ -60,6 +60,7 @@
     <Compile Include="Form_StreamAssistant.Designer.cs">
       <DependentUpon>Form_StreamAssistant.cs</DependentUpon>
     </Compile>
+    <Compile Include="Game.cs" />
     <Compile Include="ISaveable.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

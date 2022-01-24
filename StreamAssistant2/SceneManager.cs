@@ -1,42 +1,142 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Timers;
 
 namespace StreamAssistant2 {
 	class SceneManager {
-		enum Games { None, SWAT4 };
+		List<Game> _games = new List<Game> {
+			new Game(){
+				Name = "SWAT4",
+				Scenes = new List<Game.Scene> {
+					new Game.Scene("SWAT4 - Sellout Goal", 30),
+					new Game.Scene("SWAT4 - Splits Big Delta", 30),
+					new Game.Scene("SWAT4 - Splits Little Delta", 30),
+					new Game.Scene("SWAT4 - Splits Finished At", 30),
+					new Game.Scene("SWAT4 - Splits Current", 30),
+					new Game.Scene("SWAT4 - KeyCount", 30),
+				},
+				PreviousSplitScene = new Game.Scene("SWAT4 - Splits Previous", 30)
+			}
+		};
+
 		enum Files { None, CurrentSplit_Index, PreviousSplit_Sign }
+
+		bool _enabled = true;
+
+		public bool Enabled {
+			get { return _enabled; }
+			set {
+				_enabled = value;
+				Enable(_enabled);
+			}
+		}
+
+		int _previousIndex = -1;
 
 		FileSystemWatcher _watcher;
 		FileSystemWatcher _watcherKTANE;
-		Timer clock;
+		Timer _clock;
+		string _time;
 
-		Games _currentGame = Games.None;
+		int _elapsedTime;
+		int _elapsedScenes;
+		int _targetTime;
+		bool _goToPreviousScene = false;
+
+		Game _currentGame = null;
 		Dictionary<Files, string> oldValues = new Dictionary<Files, string>() {
 			{ Files.CurrentSplit_Index, "-2" },
 			{ Files.PreviousSplit_Sign, "None" }
 		};
 
 		public SceneManager() {
+			LoadSettings();
+
 			_watcher = new FileSystemWatcher(@"D:\Files\Stream2022\Text\Livesplit Generated\");
 			_watcher.Changed += _watcher_Changed;
-			_watcher.EnableRaisingEvents = true;
-			CheckCurrentGame();
+			_watcher.EnableRaisingEvents = false;
 
 			_watcherKTANE = new FileSystemWatcher(@"C:\Users\w10-upgrade\AppData\LocalLow\Steel Crate Games\Keep Talking and Nobody Explodes\StreamInfo\");
 			_watcherKTANE.Changed += _watcherKTANE_Changed;
-			_watcherKTANE.EnableRaisingEvents = true;
+			_watcherKTANE.EnableRaisingEvents = false;
 
-			//clock = new Timer();
-
+			_clock = new Timer(1000);
+			_clock.Elapsed += TimerTick;
+			_clock.AutoReset = true;
+			_clock.Enabled = true;
 		}
 
-		//public void WriteTime
+		public void Enable(bool enabled) {
+			_watcher.EnableRaisingEvents = enabled;
+			_watcherKTANE.EnableRaisingEvents = enabled;
+			if (enabled) {
+				CheckCurrentGame();
+			}
+			else {
+				string directory = @"D:\Files\Stream2022\Text\Assistant Generated";
+				File.WriteAllText(Path.Combine(directory, "TargetScene.txt"), string.Empty);
+			}
+		}
+
+		#region save load
+
+		public void SaveSettings() {
+			Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+
+			config.Save();
+		}
+
+		public void LoadSettings() {
+			SaveLoad.OnSave += SaveSettings;
+			System.Collections.Specialized.NameValueCollection appSettings = ConfigurationManager.AppSettings;
+		}
+
+		#endregion
+
+
+		void TimerTick(Object source, ElapsedEventArgs e) {
+			string directory = @"D:\Files\Stream2022\Text\Assistant Generated";
+
+			// time of day
+			string newTime = string.Format("{0}", DateTime.Now.ToString("g", CultureInfo.GetCultureInfo("de-DE")));
+			if (newTime != _time) {
+				_time = newTime;
+				File.WriteAllText(Path.Combine(directory, "TimeOfDay.txt"), newTime);
+			}
+
+			_elapsedTime++;
+			if (_currentGame == null) return;
+
+			if (_goToPreviousScene && _elapsedTime >= 5) {
+				_elapsedTime = 0;
+				File.WriteAllText(Path.Combine(directory, "TargetScene.txt"), _currentGame.PreviousSplitScene.Name);
+				_goToPreviousScene = false;
+				_targetTime = 30;
+			}
+
+			if (_elapsedTime >= _targetTime) {
+				_elapsedTime = 0;
+				_elapsedScenes++;
+				_elapsedScenes %= _currentGame.Scenes.Count;
+				File.WriteAllText(Path.Combine(directory, "TargetScene.txt"), _currentGame.Scenes[_elapsedScenes].Name);
+				// transition scene
+				_targetTime = _currentGame.Scenes[_elapsedScenes].Duration;
+			}
+
+			switch (_currentGame.Name) {
+				case "SWAT4":
+					break;
+				default:
+					break;
+			}
+		}
 
 		void CheckCurrentGame(string path = @"D:\Files\Stream2022\Text\Livesplit Generated\GameName.txt") {
 
@@ -58,10 +158,10 @@ namespace StreamAssistant2 {
 			switch (gameName) {
 				case "swat 4":
 				case "swat4":
-					_currentGame = Games.SWAT4;
+					_currentGame = _games.Find(x => x.Name == "SWAT4");
 					break;
 				default:
-					_currentGame = Games.None;
+					_currentGame = null;
 					break;
 			}
 		}
@@ -69,16 +169,16 @@ namespace StreamAssistant2 {
 		private void _watcher_Changed(object sender, FileSystemEventArgs e) {
 			if (e.Name == "GameName.txt") {
 				CheckCurrentGame(e.FullPath);
-			} 
+			}
 
-			switch (_currentGame) {
-				case Games.SWAT4:
+			if (_currentGame == null) return;
+			switch (_currentGame.Name) {
+				case "SWAT4":
 					ProcessSwat4(sender, e);
 					break;
 				default:
 					break;
 			}
-
 		}
 
 		void ProcessSwat4(object sender, FileSystemEventArgs e) {
@@ -112,6 +212,12 @@ namespace StreamAssistant2 {
 
 					if (!int.TryParse(indexS, out int index)) return;
 					index += 1;
+
+					if (index == _previousIndex + 1) {
+						_goToPreviousScene = true;
+					}
+					_previousIndex = index;
+
 					if (index > 0 && index <= 20) {
 						originR = Path.Combine(directory, string.Format(@"R{0:00}.png", index));
 						originL = Path.Combine(directory, string.Format(@"L{0:00}.png", index));
@@ -148,8 +254,6 @@ namespace StreamAssistant2 {
 					directory = @"D:\Files\Stream2022\Images\Games\SWAT4\Layouts";
 					string destination = Path.Combine(directory, "Borders_Dynamic.png");
 					string origin;
-
-					Debug.WriteLine(value);
 
 					switch (value) {
 						case "ahead":
