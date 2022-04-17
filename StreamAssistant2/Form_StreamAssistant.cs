@@ -69,5 +69,21 @@ namespace StreamAssistant2
 		private void sceneManager_EnabledCheckBox_CheckedChanged(object sender, EventArgs e) {
 			_sceneManager.Enabled = sceneManager_EnabledCheckBox.Checked;
 		}
+
+		private void sceneManager_ButtonSuspend5_Click(object sender, EventArgs e) {
+			_sceneManager.Suspend(300);
+		}
+
+		private void sceneManager_ButtonSuspend60_Click(object sender, EventArgs e) {
+			_sceneManager.Suspend(3600);
+		}
+
+		private void sceneManager_ButtonSuspend720_Click(object sender, EventArgs e) {
+			_sceneManager.Suspend(43200);
+		}
+
+		private void sceneManager_ButtonSuspend0_Click(object sender, EventArgs e) {
+			_sceneManager.Suspend(0);
+		}
 	}
 }

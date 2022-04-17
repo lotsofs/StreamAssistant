@@ -8,9 +8,9 @@ namespace StreamAssistant2 {
 	public class Game {
 		public class Scene {
 			public string Name;
-			public int Duration;
+			public float Duration;
 
-			public Scene(string name, int duration) {
+			public Scene(string name, float duration) {
 				Name = name;
 				Duration = duration;
 			}

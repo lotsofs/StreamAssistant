@@ -15,26 +15,58 @@ namespace StreamAssistant2 {
 			new Game(){
 				Name = "SWAT4",
 				Scenes = new List<Game.Scene> {
-					new Game.Scene("SWAT4 - Sellout Goal", 30),
-					new Game.Scene("SWAT4 - Splits Big Delta", 30),
-					new Game.Scene("SWAT4 - Splits Little Delta", 30),
-					new Game.Scene("SWAT4 - Splits Finished At", 30),
-					new Game.Scene("SWAT4 - Splits Current", 30),
-					new Game.Scene("SWAT4 - KeyCount", 30),
+					new Game.Scene("SWAT4 - Current Split", 30f),
+					new Game.Scene("SWAT4 - List Finished At", 15f),
+					new Game.Scene("SWAT4 - List Transition", 2.1f),
+					new Game.Scene("SWAT4 - List Big Delta", 15f),
+					new Game.Scene("SWAT4 - List Transition", 2.1f),
+					new Game.Scene("SWAT4 - List Little Delta", 15f),
+					new Game.Scene("SWAT4 - List Transition", 2.1f),
+					new Game.Scene("SWAT4 - List Gold Delta", 15f),
+					//new Game.Scene("SWAT4 - Previous Split", 10),
+					new Game.Scene("SWAT4 - Sellout Goals", 25f),
+					new Game.Scene("SWAT4 - Sellout List", 5f),
+					new Game.Scene("SWAT4 - Key Counter", 60f),
+					
 				},
-				PreviousSplitScene = new Game.Scene("SWAT4 - Splits Previous", 30)
-			}
+				PreviousSplitScene = new Game.Scene("SWAT4 - Previous Split", 25f)
+			},
+			new Game(){
+				Name = "Unreal Tournament 2004",
+				Scenes = new List<Game.Scene> {
+					new Game.Scene("UT2004 - Current Split", 30f),
+					new Game.Scene("UT2004 - List Finished At", 30f),
+					new Game.Scene("UT2004 - Sellout Goals", 25f),
+					new Game.Scene("UT2004 - Sellout List", 5f),
+					new Game.Scene("UT2004 - Key Counter", 60f),
+
+				},
+				PreviousSplitScene = new Game.Scene("UT2004 - Previous Split", 20f)
+			},
+				new Game(){
+				Name = "Age of Empires 2: Definitive Edition",
+				Scenes = new List<Game.Scene> {
+					new Game.Scene("AoE2DE - Current Split", 30f),
+					new Game.Scene("AoE2DE - List Finished At", 30f),
+					new Game.Scene("AoE2DE - Sellout Goals", 25f),
+					new Game.Scene("AoE2DE - Sellout List", 5f),
+					new Game.Scene("AoE2DE - Key Counter", 60f),
+
+				},
+				PreviousSplitScene = new Game.Scene("AoE2DE - Previous Split", 45f)
+			},
 		};
 
 		enum Files { None, CurrentSplit_Index, PreviousSplit_Sign }
+
+		const string ASSISTANT_GENERATED_DIRECTORY = @"D:\Files\Stream2022\Text\Assistant Generated";
 
 		bool _enabled = true;
 
 		public bool Enabled {
 			get { return _enabled; }
 			set {
-				_enabled = value;
-				Enable(_enabled);
+				Enable(value);
 			}
 		}
 
@@ -47,7 +79,7 @@ namespace StreamAssistant2 {
 
 		int _elapsedTime;
 		int _elapsedScenes;
-		int _targetTime;
+		float _targetTime;
 		bool _goToPreviousScene = false;
 
 		Game _currentGame = null;
@@ -58,7 +90,7 @@ namespace StreamAssistant2 {
 
 		public SceneManager() {
 			LoadSettings();
-
+			
 			_watcher = new FileSystemWatcher(@"D:\Files\Stream2022\Text\Livesplit Generated\");
 			_watcher.Changed += _watcher_Changed;
 			_watcher.EnableRaisingEvents = false;
@@ -71,9 +103,16 @@ namespace StreamAssistant2 {
 			_clock.Elapsed += TimerTick;
 			_clock.AutoReset = true;
 			_clock.Enabled = true;
+
+			System.Windows.Forms.Application.ApplicationExit += new EventHandler(Shutdown);
 		}
 
+		/// <summary>
+		/// Toggle on/off
+		/// </summary>
+		/// <param name="enabled"></param>
 		public void Enable(bool enabled) {
+			_enabled = enabled; 
 			_watcher.EnableRaisingEvents = enabled;
 			_watcherKTANE.EnableRaisingEvents = enabled;
 			if (enabled) {
@@ -83,6 +122,23 @@ namespace StreamAssistant2 {
 				string directory = @"D:\Files\Stream2022\Text\Assistant Generated";
 				File.WriteAllText(Path.Combine(directory, "TargetScene.txt"), string.Empty);
 			}
+		}
+
+		/// <summary>
+		/// When closing program reset the file
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		public void Shutdown(object sender, EventArgs e) {
+			string directory = @"D:\Files\Stream2022\Text\Assistant Generated"; 
+			File.WriteAllText(Path.Combine(directory, "TargetScene.txt"), string.Empty);
+		}
+
+		public void Suspend(int duration) {
+			_elapsedTime = 0;
+			File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetScene.txt"), "");
+			_goToPreviousScene = false;
+			_targetTime = duration;
 		}
 
 		#region save load
@@ -102,44 +158,44 @@ namespace StreamAssistant2 {
 
 
 		void TimerTick(Object source, ElapsedEventArgs e) {
-			string directory = @"D:\Files\Stream2022\Text\Assistant Generated";
-
-			// time of day
+			// time of day // TODO: Make this separate
 			string newTime = string.Format("{0}", DateTime.Now.ToString("g", CultureInfo.GetCultureInfo("de-DE")));
 			if (newTime != _time) {
 				_time = newTime;
-				File.WriteAllText(Path.Combine(directory, "TimeOfDay.txt"), newTime);
+				File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TimeOfDay.txt"), newTime);
 			}
 
+			if (!_enabled) return;
+
+			// change scenes in a timely fashion
 			_elapsedTime++;
 			if (_currentGame == null) return;
 
-			if (_goToPreviousScene && _elapsedTime >= 5) {
+			if (_goToPreviousScene && _elapsedTime >= 2.1f) {
 				_elapsedTime = 0;
-				File.WriteAllText(Path.Combine(directory, "TargetScene.txt"), _currentGame.PreviousSplitScene.Name);
+				File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetScene.txt"), _currentGame.PreviousSplitScene.Name);
 				_goToPreviousScene = false;
-				_targetTime = 30;
+				_targetTime = _currentGame.PreviousSplitScene.Duration;
 			}
 
 			if (_elapsedTime >= _targetTime) {
 				_elapsedTime = 0;
 				_elapsedScenes++;
 				_elapsedScenes %= _currentGame.Scenes.Count;
-				File.WriteAllText(Path.Combine(directory, "TargetScene.txt"), _currentGame.Scenes[_elapsedScenes].Name);
+				File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetScene.txt"), _currentGame.Scenes[_elapsedScenes].Name);
 				// transition scene
 				_targetTime = _currentGame.Scenes[_elapsedScenes].Duration;
 			}
 
-			switch (_currentGame.Name) {
-				case "SWAT4":
-					break;
-				default:
-					break;
-			}
+			//switch (_currentGame.Name) {
+			//	case "SWAT4":
+			//		break;
+			//	default:
+			//		break;
+			//}
 		}
 
 		void CheckCurrentGame(string path = @"D:\Files\Stream2022\Text\Livesplit Generated\GameName.txt") {
-
 			string gameName = "";
 
 			int failsafe = 50;
@@ -151,17 +207,23 @@ namespace StreamAssistant2 {
 				catch (IOException) {
 					failsafe--;
 				}
+				catch (IndexOutOfRangeException) {
+					// no game name set in splits file
+					_currentGame = null;
+					break;
+				}
 			}
 			if (failsafe <= 0) return;
-			gameName = gameName.ToLowerInvariant().Trim();
+			gameName = gameName.Trim();
+			string gameNameLower = gameName.ToLowerInvariant();
 
-			switch (gameName) {
+			switch (gameNameLower) {
 				case "swat 4":
 				case "swat4":
 					_currentGame = _games.Find(x => x.Name == "SWAT4");
 					break;
 				default:
-					_currentGame = null;
+					_currentGame = _games.Find(x => x.Name == gameName);
 					break;
 			}
 		}
@@ -171,7 +233,10 @@ namespace StreamAssistant2 {
 				CheckCurrentGame(e.FullPath);
 			}
 
-			if (_currentGame == null) return;
+			if (_currentGame == null) {
+				File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetScene.txt"), "");
+				return;
+			}
 			switch (_currentGame.Name) {
 				case "SWAT4":
 					ProcessSwat4(sender, e);
@@ -181,11 +246,17 @@ namespace StreamAssistant2 {
 			}
 		}
 
+		/// <summary>
+		/// Do an action based on SWAT4 livesplit text output files that have changed
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
 		void ProcessSwat4(object sender, FileSystemEventArgs e) {
 			string directory;
 			int failsafe = 50;
 			switch (e.Name) {
 				case "CurrentSplit_Index.txt":
+					// The Current Split Changed
 					string indexS = "";
 					
 					while (failsafe > 0) {
@@ -199,24 +270,26 @@ namespace StreamAssistant2 {
 					}
 					if (failsafe <= 0) return;
 
+					// Check if the scene áctually changed
 					if (oldValues[Files.CurrentSplit_Index] == indexS) {
 						break;
 					}
 					oldValues[Files.CurrentSplit_Index] = indexS;
 
+					// Tell OBS to show the 'previous split' scene if our split count went up
+					if (!int.TryParse(indexS, out int index)) return;
+					index += 1;
+					if (index > 1 && index == _previousIndex + 1) {
+						_goToPreviousScene = true;
+					}
+					_previousIndex = index;
+					
+					// Change various layout imagery
 					directory = @"D:\Files\Stream2022\Images\Games\SWAT4";
 					string destinationR = Path.Combine(directory, "Dynamic_Right.png");
 					string destinationL = Path.Combine(directory, "Dynamic_Left.png");
 					string originR;
 					string originL;
-
-					if (!int.TryParse(indexS, out int index)) return;
-					index += 1;
-
-					if (index == _previousIndex + 1) {
-						_goToPreviousScene = true;
-					}
-					_previousIndex = index;
 
 					if (index > 0 && index <= 20) {
 						originR = Path.Combine(directory, string.Format(@"R{0:00}.png", index));
@@ -232,6 +305,7 @@ namespace StreamAssistant2 {
 					File.SetLastWriteTime(destinationL, DateTime.Now);
 					break;
 				case "PreviousSplit_RealTime_Sign.txt":
+					// change the color of the layout borders
 					string value = "";
 
 					while (failsafe > 0) {

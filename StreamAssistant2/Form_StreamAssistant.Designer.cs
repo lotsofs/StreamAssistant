@@ -27,8 +27,12 @@
 		private void InitializeComponent() {
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form_StreamAssistant));
 			this.sceneManager_groupBox = new System.Windows.Forms.GroupBox();
+			this.sceneManager_ButtonSuspend5 = new System.Windows.Forms.Button();
 			this.sceneManager_Label = new System.Windows.Forms.Label();
 			this.sceneManager_EnabledCheckBox = new System.Windows.Forms.CheckBox();
+			this.sceneManager_ButtonSuspend60 = new System.Windows.Forms.Button();
+			this.sceneManager_ButtonSuspend720 = new System.Windows.Forms.Button();
+			this.sceneManager_ButtonSuspend0 = new System.Windows.Forms.Button();
 			this.sceneManager_groupBox.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -36,6 +40,10 @@
 			// 
 			this.sceneManager_groupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+			this.sceneManager_groupBox.Controls.Add(this.sceneManager_ButtonSuspend0);
+			this.sceneManager_groupBox.Controls.Add(this.sceneManager_ButtonSuspend720);
+			this.sceneManager_groupBox.Controls.Add(this.sceneManager_ButtonSuspend60);
+			this.sceneManager_groupBox.Controls.Add(this.sceneManager_ButtonSuspend5);
 			this.sceneManager_groupBox.Controls.Add(this.sceneManager_Label);
 			this.sceneManager_groupBox.Controls.Add(this.sceneManager_EnabledCheckBox);
 			this.sceneManager_groupBox.Location = new System.Drawing.Point(12, 12);
@@ -45,14 +53,24 @@
 			this.sceneManager_groupBox.TabStop = false;
 			this.sceneManager_groupBox.Text = "Scene Manager";
 			// 
+			// sceneManager_ButtonSuspend5
+			// 
+			this.sceneManager_ButtonSuspend5.Location = new System.Drawing.Point(83, 48);
+			this.sceneManager_ButtonSuspend5.Name = "sceneManager_ButtonSuspend5";
+			this.sceneManager_ButtonSuspend5.Size = new System.Drawing.Size(172, 23);
+			this.sceneManager_ButtonSuspend5.TabIndex = 3;
+			this.sceneManager_ButtonSuspend5.Text = "Suspend for 5 minutes";
+			this.sceneManager_ButtonSuspend5.UseVisualStyleBackColor = true;
+			this.sceneManager_ButtonSuspend5.Click += new System.EventHandler(this.sceneManager_ButtonSuspend5_Click);
+			// 
 			// sceneManager_Label
 			// 
 			this.sceneManager_Label.AutoSize = true;
 			this.sceneManager_Label.Location = new System.Drawing.Point(3, 39);
 			this.sceneManager_Label.Name = "sceneManager_Label";
-			this.sceneManager_Label.Size = new System.Drawing.Size(95, 13);
+			this.sceneManager_Label.Size = new System.Drawing.Size(79, 26);
 			this.sceneManager_Label.TabIndex = 1;
-			this.sceneManager_Label.Text = "I\'m hardcoding this";
+			this.sceneManager_Label.Text = "I\'m hardcoding \r\nthis";
 			// 
 			// sceneManager_EnabledCheckBox
 			// 
@@ -64,6 +82,36 @@
 			this.sceneManager_EnabledCheckBox.Text = "Enable";
 			this.sceneManager_EnabledCheckBox.UseVisualStyleBackColor = true;
 			this.sceneManager_EnabledCheckBox.CheckedChanged += new System.EventHandler(this.sceneManager_EnabledCheckBox_CheckedChanged);
+			// 
+			// sceneManager_ButtonSuspend60
+			// 
+			this.sceneManager_ButtonSuspend60.Location = new System.Drawing.Point(83, 77);
+			this.sceneManager_ButtonSuspend60.Name = "sceneManager_ButtonSuspend60";
+			this.sceneManager_ButtonSuspend60.Size = new System.Drawing.Size(172, 23);
+			this.sceneManager_ButtonSuspend60.TabIndex = 4;
+			this.sceneManager_ButtonSuspend60.Text = "Suspend for 60 minutes";
+			this.sceneManager_ButtonSuspend60.UseVisualStyleBackColor = true;
+			this.sceneManager_ButtonSuspend60.Click += new System.EventHandler(this.sceneManager_ButtonSuspend60_Click);
+			// 
+			// sceneManager_ButtonSuspend720
+			// 
+			this.sceneManager_ButtonSuspend720.Location = new System.Drawing.Point(83, 106);
+			this.sceneManager_ButtonSuspend720.Name = "sceneManager_ButtonSuspend720";
+			this.sceneManager_ButtonSuspend720.Size = new System.Drawing.Size(172, 23);
+			this.sceneManager_ButtonSuspend720.TabIndex = 5;
+			this.sceneManager_ButtonSuspend720.Text = "Suspend for 720 minutes";
+			this.sceneManager_ButtonSuspend720.UseVisualStyleBackColor = true;
+			this.sceneManager_ButtonSuspend720.Click += new System.EventHandler(this.sceneManager_ButtonSuspend720_Click);
+			// 
+			// sceneManager_ButtonSuspend0
+			// 
+			this.sceneManager_ButtonSuspend0.Location = new System.Drawing.Point(83, 19);
+			this.sceneManager_ButtonSuspend0.Name = "sceneManager_ButtonSuspend0";
+			this.sceneManager_ButtonSuspend0.Size = new System.Drawing.Size(172, 23);
+			this.sceneManager_ButtonSuspend0.TabIndex = 6;
+			this.sceneManager_ButtonSuspend0.Text = "Continue / Next";
+			this.sceneManager_ButtonSuspend0.UseVisualStyleBackColor = true;
+			this.sceneManager_ButtonSuspend0.Click += new System.EventHandler(this.sceneManager_ButtonSuspend0_Click);
 			// 
 			// Form_StreamAssistant
 			// 
@@ -85,6 +133,10 @@
 		private System.Windows.Forms.GroupBox sceneManager_groupBox;
 		private System.Windows.Forms.Label sceneManager_Label;
 		private System.Windows.Forms.CheckBox sceneManager_EnabledCheckBox;
+		private System.Windows.Forms.Button sceneManager_ButtonSuspend5;
+		private System.Windows.Forms.Button sceneManager_ButtonSuspend60;
+		private System.Windows.Forms.Button sceneManager_ButtonSuspend720;
+		private System.Windows.Forms.Button sceneManager_ButtonSuspend0;
 	}
 }
 
