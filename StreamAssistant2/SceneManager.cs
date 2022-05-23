@@ -47,11 +47,25 @@ namespace StreamAssistant2 {
 				Name = "Age of Empires 2: Definitive Edition",
 				Scenes = new List<Game.Scene> {
 					new Game.Scene("AoE2DE - Current Split", 30f),
-					new Game.Scene("AoE2DE - List Finished At", 30f),
+					new Game.Scene("AoE2DE - List Finished At", 15f),
+					new Game.Scene("AoE2DE - List Transition", 2.1f),
+					new Game.Scene("AoE2DE - List Big Delta", 15f),
+					new Game.Scene("AoE2DE - List Transition", 2.1f),
+					new Game.Scene("AoE2DE - List Little Delta", 15f),
+					new Game.Scene("AoE2DE - List Transition", 2.1f),
+					new Game.Scene("AoE2DE - List Gold Delta", 15f),
 					new Game.Scene("AoE2DE - Sellout Goals", 25f),
 					new Game.Scene("AoE2DE - Sellout List", 5f),
 					new Game.Scene("AoE2DE - Key Counter", 60f),
 
+				},
+				PreviousSplitScene = new Game.Scene("AoE2DE - Previous Split", 45f)
+			},
+			new Game(){
+				Name = "fonv",
+				Scenes = new List<Game.Scene> {
+					new Game.Scene("FONV - Sellout Goal", 30f),
+					new Game.Scene("FONV - Key Counter", 60f),
 				},
 				PreviousSplitScene = new Game.Scene("AoE2DE - Previous Split", 45f)
 			},
@@ -62,6 +76,19 @@ namespace StreamAssistant2 {
 		const string ASSISTANT_GENERATED_DIRECTORY = @"D:\Files\Stream2022\Text\Assistant Generated";
 
 		bool _enabled = true;
+
+		string _overrideGame = "";
+		public string OverrideGame {
+			get { return _overrideGame; }
+			set {
+				_overrideGame = value.Trim().ToLowerInvariant();
+				CheckCurrentGame(null);
+				if (_currentGame == null) {
+					File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetScene.txt"), "");
+					return;
+				}
+			}
+		}
 
 		public bool Enabled {
 			get { return _enabled; }
@@ -186,18 +213,20 @@ namespace StreamAssistant2 {
 				// transition scene
 				_targetTime = _currentGame.Scenes[_elapsedScenes].Duration;
 			}
-
-			//switch (_currentGame.Name) {
-			//	case "SWAT4":
-			//		break;
-			//	default:
-			//		break;
-			//}
 		}
 
 		void CheckCurrentGame(string path = @"D:\Files\Stream2022\Text\Livesplit Generated\GameName.txt") {
 			string gameName = "";
 
+			if (!string.IsNullOrEmpty(_overrideGame)) {
+				_currentGame = _games.Find(x => x.Name == _overrideGame);
+				return;
+			}
+
+			if (string.IsNullOrEmpty(path)) {
+				_currentGame = null;
+				return;
+			}
 			int failsafe = 50;
 			while (failsafe > 0) {
 				try {

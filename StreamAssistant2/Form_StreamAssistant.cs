@@ -85,5 +85,9 @@ namespace StreamAssistant2
 		private void sceneManager_ButtonSuspend0_Click(object sender, EventArgs e) {
 			_sceneManager.Suspend(0);
 		}
+
+		private void sceneManager_TextBox_TextChanged(object sender, EventArgs e) {
+			_sceneManager.OverrideGame = sceneManager_TextBox.Text;
+		}
 	}
 }
