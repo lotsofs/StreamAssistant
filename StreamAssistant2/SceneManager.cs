@@ -13,61 +13,66 @@ namespace StreamAssistant2 {
 	class SceneManager {
 		List<Game> _games = new List<Game> {
 			new Game(){
-				Name = "SWAT4",
+				Name = "swat4",
 				Scenes = new List<Game.Scene> {
-					new Game.Scene("SWAT4 - Current Split", 30f),
-					new Game.Scene("SWAT4 - List Finished At", 15f),
-					new Game.Scene("SWAT4 - List Transition", 2.1f),
-					new Game.Scene("SWAT4 - List Big Delta", 15f),
-					new Game.Scene("SWAT4 - List Transition", 2.1f),
-					new Game.Scene("SWAT4 - List Little Delta", 15f),
-					new Game.Scene("SWAT4 - List Transition", 2.1f),
-					new Game.Scene("SWAT4 - List Gold Delta", 15f),
-					//new Game.Scene("SWAT4 - Previous Split", 10),
-					new Game.Scene("SWAT4 - Sellout Goals", 25f),
-					new Game.Scene("SWAT4 - Sellout List", 5f),
-					new Game.Scene("SWAT4 - Key Counter", 60f),
+					new Game.Scene("_Scene: Splits - Current Split", 30f),
+					new Game.Scene("_Scene: Splits - List Finished At", 15f),
+					new Game.Scene("_Scene: Splits - List Transition", 2.1f),
+					new Game.Scene("_Scene: Splits - List Big Delta", 15f),
+					new Game.Scene("_Scene: Splits - List Transition", 2.1f),
+					new Game.Scene("_Scene: Splits - List Little Delta", 15f),
+					new Game.Scene("_Scene: Splits - List Transition", 2.1f),
+					new Game.Scene("_Scene: Splits - List Gold Delta", 15f),
+					new Game.Scene("_Scene: Splits - Sellout Goals", 25f),
+					new Game.Scene("_Scene: Splits - Sellout List", 5f),
+					new Game.Scene("_Scene: Splits - Key Counter", 60f),
 					
 				},
-				PreviousSplitScene = new Game.Scene("SWAT4 - Previous Split", 25f)
+				PreviousSplitScene = new Game.Scene("_Scene: Splits - Previous Split", 25f)
 			},
 			new Game(){
 				Name = "Unreal Tournament 2004",
 				Scenes = new List<Game.Scene> {
-					new Game.Scene("UT2004 - Current Split", 30f),
-					new Game.Scene("UT2004 - List Finished At", 30f),
-					new Game.Scene("UT2004 - Sellout Goals", 25f),
-					new Game.Scene("UT2004 - Sellout List", 5f),
-					new Game.Scene("UT2004 - Key Counter", 60f),
-
+					new Game.Scene("_Scene: Splits - Current Split", 30f),
+					new Game.Scene("_Scene: Splits - List Finished At", 30f),
+					new Game.Scene("_Scene: Splits - Sellout Goals", 25f),
+					new Game.Scene("_Scene: Splits - Sellout List", 5f),
+					new Game.Scene("_Scene: Splits - Key Counter", 60f),
 				},
-				PreviousSplitScene = new Game.Scene("UT2004 - Previous Split", 20f)
+				PreviousSplitScene = new Game.Scene("_Scene: Splits - Previous Split", 20f)
 			},
 				new Game(){
 				Name = "Age of Empires 2: Definitive Edition",
 				Scenes = new List<Game.Scene> {
-					new Game.Scene("AoE2DE - Current Split", 30f),
-					new Game.Scene("AoE2DE - List Finished At", 15f),
-					new Game.Scene("AoE2DE - List Transition", 2.1f),
-					new Game.Scene("AoE2DE - List Big Delta", 15f),
-					new Game.Scene("AoE2DE - List Transition", 2.1f),
-					new Game.Scene("AoE2DE - List Little Delta", 15f),
-					new Game.Scene("AoE2DE - List Transition", 2.1f),
-					new Game.Scene("AoE2DE - List Gold Delta", 15f),
-					new Game.Scene("AoE2DE - Sellout Goals", 25f),
-					new Game.Scene("AoE2DE - Sellout List", 5f),
-					new Game.Scene("AoE2DE - Key Counter", 60f),
-
+					new Game.Scene("_Scene: Splits - Current Split", 30f),
+					new Game.Scene("_Scene: Splits - List Finished At", 15f),
+					new Game.Scene("_Scene: Splits - List Transition", 2.1f),
+					new Game.Scene("_Scene: Splits - List Big Delta", 15f),
+					new Game.Scene("_Scene: Splits - List Transition", 2.1f),
+					new Game.Scene("_Scene: Splits - List Little Delta", 15f),
+					new Game.Scene("_Scene: Splits - List Transition", 2.1f),
+					new Game.Scene("_Scene: Splits - List Gold Delta", 15f),
+					new Game.Scene("_Scene: Splits - Sellout Goals", 25f),
+					new Game.Scene("_Scene: Splits - Sellout List", 5f),
+					new Game.Scene("_Scene: Splits - Key Counter", 60f),
 				},
-				PreviousSplitScene = new Game.Scene("AoE2DE - Previous Split", 45f)
+				PreviousSplitScene = new Game.Scene("_Scene: Splits - Previous Split", 45f)
 			},
+			//new Game(){
+			//	Name = "fonv",
+			//	Scenes = new List<Game.Scene> {
+			//		new Game.Scene("FONV - Sellout Goal", 30f),
+			//		new Game.Scene("FONV - Key Counter", 60f),
+			//	},
+			//	PreviousSplitScene = new Game.Scene("AoE2DE - Previous Split", 45f)
+			//},
 			new Game(){
-				Name = "fonv",
+				Name = "casual",
 				Scenes = new List<Game.Scene> {
-					new Game.Scene("FONV - Sellout Goal", 30f),
-					new Game.Scene("FONV - Key Counter", 60f),
+					new Game.Scene("_Scene: Sellout Goals", 30f),
+					new Game.Scene("_Scene: Sellout Key Counter", 60f),
 				},
-				PreviousSplitScene = new Game.Scene("AoE2DE - Previous Split", 45f)
+				PreviousSplitScene = new Game.Scene("", 0f)
 			},
 		};
 
@@ -84,7 +89,7 @@ namespace StreamAssistant2 {
 				_overrideGame = value.Trim().ToLowerInvariant();
 				CheckCurrentGame(null);
 				if (_currentGame == null) {
-					File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetScene.txt"), "");
+					File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetSource.txt"), "");
 					return;
 				}
 			}
@@ -147,7 +152,7 @@ namespace StreamAssistant2 {
 			}
 			else {
 				string directory = @"D:\Files\Stream2022\Text\Assistant Generated";
-				File.WriteAllText(Path.Combine(directory, "TargetScene.txt"), string.Empty);
+				File.WriteAllText(Path.Combine(directory, "TargetSource.txt"), string.Empty);
 			}
 		}
 
@@ -158,12 +163,12 @@ namespace StreamAssistant2 {
 		/// <param name="e"></param>
 		public void Shutdown(object sender, EventArgs e) {
 			string directory = @"D:\Files\Stream2022\Text\Assistant Generated"; 
-			File.WriteAllText(Path.Combine(directory, "TargetScene.txt"), string.Empty);
+			File.WriteAllText(Path.Combine(directory, "TargetSource.txt"), string.Empty);
 		}
 
 		public void Suspend(int duration) {
 			_elapsedTime = 0;
-			File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetScene.txt"), "");
+			File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetSource.txt"), "");
 			_goToPreviousScene = false;
 			_targetTime = duration;
 		}
@@ -200,7 +205,7 @@ namespace StreamAssistant2 {
 
 			if (_goToPreviousScene && _elapsedTime >= 2.1f) {
 				_elapsedTime = 0;
-				File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetScene.txt"), _currentGame.PreviousSplitScene.Name);
+				File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetSource.txt"), _currentGame.PreviousSplitScene.Name);
 				_goToPreviousScene = false;
 				_targetTime = _currentGame.PreviousSplitScene.Duration;
 			}
@@ -209,7 +214,7 @@ namespace StreamAssistant2 {
 				_elapsedTime = 0;
 				_elapsedScenes++;
 				_elapsedScenes %= _currentGame.Scenes.Count;
-				File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetScene.txt"), _currentGame.Scenes[_elapsedScenes].Name);
+				File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetSource.txt"), _currentGame.Scenes[_elapsedScenes].Name);
 				// transition scene
 				_targetTime = _currentGame.Scenes[_elapsedScenes].Duration;
 			}
@@ -246,15 +251,7 @@ namespace StreamAssistant2 {
 			gameName = gameName.Trim();
 			string gameNameLower = gameName.ToLowerInvariant();
 
-			switch (gameNameLower) {
-				case "swat 4":
-				case "swat4":
-					_currentGame = _games.Find(x => x.Name == "SWAT4");
-					break;
-				default:
-					_currentGame = _games.Find(x => x.Name == gameName);
-					break;
-			}
+			_currentGame = _games.Find(x => x.Name == gameName);
 		}
 
 		private void _watcher_Changed(object sender, FileSystemEventArgs e) {
@@ -263,7 +260,7 @@ namespace StreamAssistant2 {
 			}
 
 			if (_currentGame == null) {
-				File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetScene.txt"), "");
+				File.WriteAllText(Path.Combine(ASSISTANT_GENERATED_DIRECTORY, "TargetSource.txt"), "");
 				return;
 			}
 			switch (_currentGame.Name) {
