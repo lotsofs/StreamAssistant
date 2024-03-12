@@ -123,11 +123,11 @@ namespace StreamAssistant2 {
 		public SceneManager() {
 			LoadSettings();
 			
-			_watcher = new FileSystemWatcher(@"D:\Files\Stream2022\Text\Livesplit Generated\");
+			//_watcher = new FileSystemWatcher(@"D:\Files\Stream2022\Text\Livesplit Generated\");
 			_watcher.Changed += _watcher_Changed;
 			_watcher.EnableRaisingEvents = false;
 
-			_watcherKTANE = new FileSystemWatcher(@"C:\Users\w10-upgrade\AppData\LocalLow\Steel Crate Games\Keep Talking and Nobody Explodes\StreamInfo\");
+			//_watcherKTANE = new FileSystemWatcher(@"C:\Users\w10-upgrade\AppData\LocalLow\Steel Crate Games\Keep Talking and Nobody Explodes\StreamInfo\");
 			_watcherKTANE.Changed += _watcherKTANE_Changed;
 			_watcherKTANE.EnableRaisingEvents = false;
 
