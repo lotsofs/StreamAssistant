@@ -14,11 +14,13 @@ using System.Collections.Specialized;
 using System.Net.Sockets;
 using System.Net;
 using System.Runtime.Versioning;
+using Streamer.bot.Plugin.Interface;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace StreamAssistant2
 {
-	public partial class Form_StreamAssistant : Form, ISaveable
-	{
+	public partial class Form_StreamAssistant : Form, ISaveable {
 		static bool _tcpEnabled;
 		IPAddress _ipAddress;
 		int _port = 49152;
@@ -27,6 +29,8 @@ namespace StreamAssistant2
 
 		TcpClient _client;
 		TcpListener _listener;
+
+		Clock _clock = new Clock();
 
 		#region opening closing
 
@@ -74,7 +78,20 @@ namespace StreamAssistant2
 
 		#endregion
 
-		private void buttonEnable_Click(object sender, EventArgs e) {
+		private void startServer() {
+			//object[] values = { (int) 12, (long) 10653, (byte) 12, (sbyte) -5,
+			//	   16.3, "string" };
+			//foreach (var value in values) {
+			//	Type t = value.GetType();
+			//	Debug.WriteLine(t);
+			//}
+			//return;
+
+			//Type thisType = typeof(Debug);
+			//MethodInfo theMethod = thisType.GetMethod("WriteLine", new[] {typeof(string)} );
+			//theMethod.Invoke(null, new object[] { "asdf" });
+			//return;
+
 			buttonEnable.Text = "Enabled";
 			buttonEnable.Enabled = false;
 			_ipAddress = new IPAddress(0x0100007f);
@@ -84,10 +101,80 @@ namespace StreamAssistant2
 			backgroundWorkerTcp.RunWorkerAsync();
 		}
 
+		private void buttonEnable_Click(object sender, EventArgs e) {
+			startServer();
+			timerUpdate.Enabled = true;
+		}
+
+		private void HandleTrigger(string trigger) {
+			Dictionary<string, object>? variables = JsonConvert.DeserializeObject<Dictionary<string, object>>(trigger);
+			if (variables == null) return;
+			Debug.WriteLine("__source: " + variables["__source"]);
+			//foreach (string o in blah.Keys) {
+			//	if (blah[o] == null) { 
+			//		Debug.WriteLine(o + " " + "<null>"); 
+			//	}
+			//	else {
+			//		Debug.WriteLine(o + " " + blah[o].ToString());
+			//	}
+			//}
+			//Debug.WriteLine(variables["__source"].GetType());
+			switch ((long)variables["__source"]) {
+				case 103:   // TwitchSub
+					Subscriptions.HandleTwitchSub(variables);
+					break;
+				case 104:   // TwitchReSub
+					Subscriptions.HandleTwitchResub(variables);
+					break;
+				case 105:   // TwitchGiftSub
+					Subscriptions.HandleGiftSub(variables);
+					break;
+				case 106:   // TwitchGiftBomb
+					Subscriptions.HandleGiftBomb(variables);
+					break;
+				case 107:   // TwitchRaid
+					string raider = (bool)variables["isTest"] ? "Test User" : variables["userName"].ToString() ?? "Someone";
+					long raiders = (long)variables["viewers"];
+					MsgQueue.Enqueue(MsgTypes.ChatMsg, "Raid: " + raider + " (" + raiders + ")");
+					break;
+				case 133:   // TwitchChatMessage
+					ChatMessages.Process(variables);
+					break;
+				case 186:   // TwitchUpcomingAd
+					Ads.UpcomingAdAlert(variables);
+					break;
+				default:
+					break;
+			}
+		}
+
+		private string HandleMessage(string msg) {
+			string msgType = msg.Substring(0, 7);
+			string msgContent = "";
+			if (msg.Length > 8) {
+				msgContent = msg.Substring(8);
+			}
+			switch (msgType) {
+				case "QueryRs":
+					string dequeue = "NoneMsg";
+					if (MsgQueue.TryDequeue(out string? deq)) {
+						dequeue = deq;
+					}
+					return dequeue;
+					break;
+				case "Trigger":
+					HandleTrigger(msgContent);
+					break;
+				default:
+					break;
+			}
+			return null;
+		}
+
 		//private async void backgroundWorkerTcp_DoWork(object sender, DoWorkEventArgs e) {
 		private void backgroundWorkerTcp_DoWork(object sender, DoWorkEventArgs e) {
 			while (_tcpEnabled) {
-				this.buttonEnable.Invoke(new MethodInvoker(delegate () {
+				this.buttonEnable.Invoke(new System.Windows.Forms.MethodInvoker(delegate () {
 					buttonEnable.Text = "Waiting";
 				}));
 				_client = _listener.AcceptTcpClient();
@@ -96,25 +183,45 @@ namespace StreamAssistant2
 				_stw = new StreamWriter(_client.GetStream());
 				_stw.AutoFlush = true;
 
-				if (_client.Connected) {
-					buttonEnable.Invoke(new MethodInvoker(delegate () {
-						buttonEnable.Text = "Reading";
-					}));
-					try {
+				while (_client.Connected) {
+
+					//try {
 						string? s = _str.ReadLine();
-						// do something with the received information
+						string reply = HandleMessage(s);
+						if (!string.IsNullOrEmpty(reply)) {
+							_stw.WriteLine(reply);
+						}
+
 						_client.GetStream().Close();
 						_client.Close();
-					}
-					catch (Exception ex) {
-						MessageBox.Show(ex.Message.ToString());
-					}
+					//}
+					//catch (Exception ex) {
+						//MessageBox.Show(ex.Message.ToString());
+					//}
 				}
 			}
-			buttonEnable.Invoke(new MethodInvoker(delegate () {
+			buttonEnable.Invoke(new System.Windows.Forms.MethodInvoker(delegate () {
 				buttonEnable.Enabled = true;
-				buttonEnable.Text = "Reading";
+				buttonEnable.Text = "Enable";
 			}));
+		}
+
+		private void buttonTest_Click(object sender, EventArgs e) {
+			Debug.WriteLine("Bbutton");
+			_stw.WriteLine("Button");
+			//buttonEnable.Text = "Enabled";
+			//buttonEnable.Enabled = false;
+			//_ipAddress = new IPAddress(0x0100007f);
+			//_listener = new TcpListener(_ipAddress, _port);
+			//_listener.Start();
+			//_tcpEnabled = true;
+			//backgroundWorkerTcp.RunWorkerAsync();
+		}
+
+		private void timerUpdate_Tick(object sender, EventArgs e) {
+			_clock.Tick();
+			MsgQueue.TimedQueueTick();
+			Subscriptions.CheckGiftBombCount();
 		}
 	}
 }

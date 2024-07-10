@@ -25,45 +25,69 @@
 		/// the contents of this method with the code editor.
 		/// </summary>
 		private void InitializeComponent() {
+			components = new System.ComponentModel.Container();
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form_StreamAssistant));
-			this.buttonEnable = new System.Windows.Forms.Button();
-			this.backgroundWorkerTcp = new System.ComponentModel.BackgroundWorker();
-			this.SuspendLayout();
+			buttonEnable = new Button();
+			backgroundWorkerTcp = new System.ComponentModel.BackgroundWorker();
+			buttonTest = new Button();
+			timerUpdate = new System.Windows.Forms.Timer(components);
+			SuspendLayout();
 			// 
 			// buttonEnable
 			// 
-			this.buttonEnable.Font = new System.Drawing.Font("Sofia Sans Semi Condensed", 18F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.buttonEnable.Location = new System.Drawing.Point(798, 12);
-			this.buttonEnable.Name = "buttonEnable";
-			this.buttonEnable.Size = new System.Drawing.Size(121, 61);
-			this.buttonEnable.TabIndex = 0;
-			this.buttonEnable.Text = "Enable";
-			this.buttonEnable.UseVisualStyleBackColor = true;
-			this.buttonEnable.Click += new System.EventHandler(this.buttonEnable_Click);
+			buttonEnable.Font = new Font("Sofia Sans Semi Condensed", 18F, FontStyle.Regular, GraphicsUnit.Point, 0);
+			buttonEnable.Location = new Point(931, 14);
+			buttonEnable.Margin = new Padding(4, 3, 4, 3);
+			buttonEnable.Name = "buttonEnable";
+			buttonEnable.Size = new Size(141, 70);
+			buttonEnable.TabIndex = 0;
+			buttonEnable.Text = "Enable";
+			buttonEnable.UseVisualStyleBackColor = true;
+			buttonEnable.Click += buttonEnable_Click;
 			// 
 			// backgroundWorkerTcp
 			// 
-			this.backgroundWorkerTcp.DoWork += new System.ComponentModel.DoWorkEventHandler(this.backgroundWorkerTcp_DoWork);
+			backgroundWorkerTcp.DoWork += backgroundWorkerTcp_DoWork;
+			// 
+			// buttonTest
+			// 
+			buttonTest.Font = new Font("Sofia Sans Semi Condensed", 18F, FontStyle.Regular, GraphicsUnit.Point, 0);
+			buttonTest.Location = new Point(931, 99);
+			buttonTest.Margin = new Padding(4, 3, 4, 3);
+			buttonTest.Name = "buttonTest";
+			buttonTest.Size = new Size(141, 70);
+			buttonTest.TabIndex = 1;
+			buttonTest.Text = "Test";
+			buttonTest.UseVisualStyleBackColor = true;
+			buttonTest.Click += buttonTest_Click;
+			// 
+			// timerUpdate
+			// 
+			timerUpdate.Interval = 15;
+			timerUpdate.Tick += timerUpdate_Tick;
 			// 
 			// Form_StreamAssistant
 			// 
-			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.BackColor = System.Drawing.SystemColors.ControlDark;
-			this.ClientSize = new System.Drawing.Size(931, 573);
-			this.Controls.Add(this.buttonEnable);
-			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-			this.Name = "Form_StreamAssistant";
-			this.Text = "Stream Assistant";
-			this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form_StreamAssistant_FormClosing);
-			this.ResumeLayout(false);
-
+			AutoScaleDimensions = new SizeF(7F, 15F);
+			AutoScaleMode = AutoScaleMode.Font;
+			BackColor = SystemColors.ControlDark;
+			ClientSize = new Size(1086, 661);
+			Controls.Add(buttonTest);
+			Controls.Add(buttonEnable);
+			Icon = (Icon)resources.GetObject("$this.Icon");
+			Margin = new Padding(4, 3, 4, 3);
+			Name = "Form_StreamAssistant";
+			Text = "Stream Assistant";
+			FormClosing += Form_StreamAssistant_FormClosing;
+			ResumeLayout(false);
 		}
 
 		#endregion
 
 		private System.Windows.Forms.Button buttonEnable;
 		private System.ComponentModel.BackgroundWorker backgroundWorkerTcp;
+		private Button buttonTest;
+		private System.Windows.Forms.Timer timerUpdate;
 	}
 }
 

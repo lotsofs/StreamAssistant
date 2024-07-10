@@ -11,7 +11,7 @@ namespace StreamAssistant2
 		public static Action OnSave;
 
 		public static void SaveAll() {
-			OnSave.Invoke();
+			//OnSave.Invoke();
 		}
 	}
 }
