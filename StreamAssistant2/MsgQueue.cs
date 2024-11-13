@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -27,7 +28,7 @@ namespace StreamAssistant2 {
 			if (filterBadWords && type == MsgTypes.ChatMsg || type == MsgTypes.TextToS ) {
 				item = LanguageFilter.ReplaceBadWords(item);
 			}
-			
+
 			string m = string.Format("{0}:{1}", type.ToString(), item);
 			_msgQueue.Enqueue(m);
 		}
@@ -38,7 +39,11 @@ namespace StreamAssistant2 {
 			return success;
 		}
 
-		internal static void TimedEnqueue(int delayInMs, MsgTypes type, string item) {
+		internal static void TimedEnqueue(int delayInMs, MsgTypes type, string item, bool filterBadWords = true) {
+			if (filterBadWords && type == MsgTypes.ChatMsg || type == MsgTypes.TextToS) {
+				item = LanguageFilter.ReplaceBadWords(item);
+			}
+
 			string m = string.Format("{0}:{1}", type.ToString(), item);
 			_timedQueue.Add(new TimedQueueItem(m, delayInMs));
 		}

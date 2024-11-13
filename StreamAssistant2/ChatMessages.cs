@@ -99,28 +99,43 @@ namespace StreamAssistant2 {
 			}
 		}
 
-		internal static void Process(Dictionary<string, object> variables) {
+		internal static string Process(Dictionary<string, object> variables) {
 			string chatter = variables["userName"].ToString() ?? "Test User";
 			AddChatterToList(chatter);
-			
+
 			if (chatter.ToLower() == "botsofs") {
-				return;
+				return "botsofs";
 			}
 
 			CheckCommand(variables);
+			return chatter + ": " + variables["message"].ToString();
 		}
 
 		internal static void CheckCommand(Dictionary<string, object> variables) {
 			string inputMsg = variables["message"].ToString() ?? string.Empty;
 			inputMsg = inputMsg.ToLowerInvariant();
+			string user = variables["userName"].ToString() ?? "Someone";
+
+			if (user.ToLower() == "lotsofs") {
+				if (inputMsg == "!stoppaneltimer") {
+					MsgQueue.Enqueue(MsgTypes.Termint, "");
+					return;
+				}
+				else if (inputMsg.StartsWith("!changecolorrandom ")) {
+					Coloring.RandomColor();
+				}
+				else if (inputMsg.StartsWith("!changecolor ")) {
+					Coloring.ChangeColor(inputMsg.Substring(13));
+				}
+			}
+
 			foreach (ChatCommand cmd in _commands) {
 				string outputMsg = "";
 				Match match = Regex.Match(inputMsg, cmd.RegEx);
-				string user = variables["userName"].ToString() ?? "Someone";
 				if (match.Success) {
 					outputMsg = string.Format("{0} used {1}: {2}", user, cmd.Name, cmd.Output);
+					MsgQueue.Enqueue(MsgTypes.ChatMsg, outputMsg);
 				}
-				MsgQueue.Enqueue(MsgTypes.ChatMsg, outputMsg);
 			}
 		}
 		// Regex: ^((?=.*!song)|(?=.*(song))(?=.*(dynasty))).*$

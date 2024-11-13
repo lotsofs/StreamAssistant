@@ -18,12 +18,13 @@ namespace StreamAssistant2 {
 		private const string MSG_GIFT_TOTAL = "They have given {0} Gift Subs in the channel. ";
 		private const string MSG_GIFT_FIRST = "This is their first Gift Sub in the channel. ";
 		private const string MSG_GIFT_MULTIMONTH = "It's a {0} month gift. ";
-		private const string MSG_BOMB_BASIC = "{0} is gifting {1} {2} Subs to Lots Of Ess's community! ";
-		private const string MSG_BOMB_TOTAL = "They've gifted a total of {0} in the channel! ";
-		private const string MSG_BOMB_CONGRATS = "Congratulations to: ";
+		private const string MSG_BOMB_LONG = "{0} is gifting {1} {2} Subs to Lots Of Ess's community! They've gifted a total of {3} in the channel! Congratulations to: ";
+		private const string MSG_BOMB_SHORT = "{0} is gifting {1} {2} Subs to Lots Of Ess's community!";
 
 		private const string ERROR_NO_BOMBEES = "🛢️ An error occured processing batch gift sub from {0}. Expected {1} recipients, received {2}.";
 		private const string ERROR_NO_BOMBERS = "🛢️ An error occured processing batch gift subs. {0} recipients received a gift, but no such gift was given.";
+
+		private const float SUB_PAYOUT = 0.09f; // Cheapest sub (Turkey Twitch Prime). Anything extra I pocket for food.
 
 		private class GiftBomb {
 			internal long GiftCount;
@@ -47,7 +48,7 @@ namespace StreamAssistant2 {
 		// Excluding any resub additions (eg month streak, personal message)
 		private static string GenerateSubMessage(Dictionary<string, object> variables) {
 			string msg = string.Empty;
-			bool isTest = (bool)variables["isTest"];
+			bool isTest = variables.ContainsKey("isTest") && (bool)variables["isTest"]; 
 			string user = variables["userName"].ToString() ?? "Somebody";
 			if (isTest) {
 				user = "Test User";
@@ -86,7 +87,7 @@ namespace StreamAssistant2 {
 			string gifter = variables["userName"].ToString() ?? "Somebody";
 			string tier = variables["tier"].ToString() ?? "tier 0";
 			string recipientUser = variables["recipientUser"].ToString() ?? "Someone";
-			bool isTest = (bool)variables["isTest"];
+			bool isTest = variables.ContainsKey("isTest") && (bool)variables["isTest"]; 
 			if (isTest) {
 				bool anonymous = (bool)variables["anonymous"];
 				gifter = anonymous ? "Anonymous" : "Test User";
@@ -110,41 +111,42 @@ namespace StreamAssistant2 {
 		private static void AddMoneyBasedOnTier(string tier) {
 			switch (tier) {
 				case "tier 1":
-					Money.Current += 1;
+					Money.Current += SUB_PAYOUT;
 					break;
 				case "tier 2":
-					Money.Current += 2;
+					Money.Current += SUB_PAYOUT * 2;
 					break;
 				case "tier 3":
-					Money.Current += 5;
+					Money.Current += SUB_PAYOUT * 5;
 					break;
 				case "prime":
-					Money.Current += 1;
+					Money.Current += SUB_PAYOUT;
 					break;
 				default:
 					break;
 			}
 		}
 
-		internal static void HandleTwitchSub(Dictionary<string, object> variables) {
+		internal static string HandleTwitchSub(Dictionary<string, object> variables) {
 			Sound.PlaySound(Sound.Sounds.TribalHymn);
 			string msg = GenerateSubMessage(variables);
 			MsgQueue.TimedEnqueue(4100, MsgTypes.TextToS, msg);
 			//MsgQueue.Enqueue(MsgTypes.ChatMsg, msg);
+			return msg;
 		}
 
-		internal static void HandleTwitchResub(Dictionary<string, object> variables) {
+		internal static string HandleTwitchResub(Dictionary<string, object> variables) {
 			Sound.PlaySound(Sound.Sounds.TribalHymn);
 			string msg = GenerateResubMessage(variables);
 			MsgQueue.TimedEnqueue(4100, MsgTypes.TextToS, msg);
 			//MsgQueue.Enqueue(MsgTypes.ChatMsg, msg);
+			return msg;
 		}
 
-		internal static void HandleGiftSub(Dictionary<string, object> variables) {
+		internal static string HandleGiftSub(Dictionary<string, object> variables) {
 			bool fromBomb = (bool)variables["fromGiftBomb"];
 			if (fromBomb) {
-				HandleGiftSubFromBomb(variables);
-				return;
+				return "fromBomb";
 			}
 			
 			Sound.PlaySound(Sound.Sounds.TheClap);
@@ -152,16 +154,7 @@ namespace StreamAssistant2 {
 			string msg = GenerateGiftMessage(variables);
 			MsgQueue.TimedEnqueue(1000 + 4100, MsgTypes.TextToS, msg);
 			//MsgQueue.Enqueue(MsgTypes.ChatMsg, msg);
-		}
-
-		// Gift subs from a batch gift sub bomb will only play a sound.
-		// They will not cause a TTS, and will not show up on a ticker.
-		// The names will be added to a queue to be announced with the bomb itself's message.
-		private static void HandleGiftSubFromBomb(Dictionary<string, object> variables) {
-			Sound.PlaySound(Sound.Sounds.TribalHymn);
-			string recipientUser = variables["recipientUser"].ToString() ?? "Someone";
-			_giftBombees.Enqueue(recipientUser);
-			_lastWork = DateTime.Now;
+			return msg;
 		}
 
 		// When a gift bomb happens: Store it for processing later. Because gift bombs contain no recipient information
@@ -172,57 +165,24 @@ namespace StreamAssistant2 {
 			long count = (long)variables["gifts"];
 			long total = (long)variables["totalGifts"];
 
-			if ((bool)variables["isTest"]) {
+			bool isTest = variables.ContainsKey("isTest") && (bool)variables["isTest"];
+			if (isTest) {
 				gifter = "Test User";
 			}
 
-			GiftBomb bomb = new GiftBomb(gifter, count, tier, total);
-			_giftBombs.Enqueue(bomb);
-			_lastWork = DateTime.Now;
-		}
-
-		// Check whether all information is ready for a gift bomb announcement
-		internal static void CheckGiftBombCount() {
-			if (_lastWork == DateTime.MinValue) {
-				_lastWork = DateTime.Now;
-				return;
-			}
-			// Check if: Recipients in queue, but no gifters
-			if (_giftBombs.Count == 0) {
-				if (_giftBombees.Count > 0) {
-					if (DateTime.Now - _lastWork > TimeSpan.FromSeconds(30)) {
-						_giftBombees.Clear();
-						MsgQueue.Enqueue(MsgTypes.ChatMsg, string.Format(ERROR_NO_BOMBERS, _giftBombees.Count));
-						_lastWork = DateTime.Now;
-					}
+			string msg1 = string.Format(MSG_BOMB_SHORT, gifter, count, tier);
+			MsgQueue.Enqueue(MsgTypes.ChatMsg, msg1);
+			string msg2 = string.Format(MSG_BOMB_LONG, gifter, count, tier, total);
+			for (int i = 0; i < count; i++) {
+				Sound.PlaySound(Sound.Sounds.TribalHymn);
+				string giftee = "UnknownRecipient";
+				if (variables.ContainsKey("gift.recipientUserName" + i)) {
+					giftee = variables["gift.recipientUserName" + i].ToString() ?? "UnknownRecipient";
 				}
-				return;
+				msg2 += giftee + ", ";
 			}
-			long desiredCount = _giftBombs.Peek().GiftCount;
-			if (_giftBombees.Count < desiredCount) { 
-				if (DateTime.Now - _lastWork > TimeSpan.FromSeconds(30)) {
-					GiftBomb dud = _giftBombs.Dequeue();
-					_giftBombees.Clear();
-					MsgQueue.Enqueue(MsgTypes.ChatMsg, string.Format(ERROR_NO_BOMBEES, dud.Gifter, dud.GiftCount, _giftBombees.Count));
-					_lastWork = DateTime.Now;
-				}
-				return; 
-			}
-			// Bomb announcement ready
 			Sound.PlaySoundDelayed(Sound.Sounds.TheClap, 5000);
-			GiftBomb bomb = _giftBombs.Dequeue();
-			string msg = string.Format(MSG_BOMB_BASIC, bomb.Gifter, bomb.GiftCount, bomb.Tier);
-			if (bomb.TotalGifts > 0) {
-				msg += string.Format(MSG_BOMB_TOTAL, bomb.TotalGifts);
-			}
-			msg += MSG_BOMB_CONGRATS;
-			for (long i = 0; i < bomb.GiftCount; i++) {
-				if (i > 0) {
-					msg += ", ";
-				}
-				msg += _giftBombees.Dequeue();
-			}
-			_lastWork = DateTime.Now;
+			MsgQueue.TimedEnqueue(8000, MsgTypes.TextToS, msg2);
 		}
 	}
 }

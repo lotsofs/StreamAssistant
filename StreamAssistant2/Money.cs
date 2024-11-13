@@ -7,8 +7,7 @@ using System.Threading.Tasks;
 namespace StreamAssistant2 {
 	internal static class Money {
 
-		internal static float Goal = 999;
-		internal static float Current = 0;
-
+		internal static double Goal = 999;
+		internal static double Current = 0;
 	}
 }

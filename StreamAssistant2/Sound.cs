@@ -26,8 +26,14 @@ namespace StreamAssistant2 {
 					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.4f, Path.Combine(FOLDER, "theclap.mp3")));
 					break;
 				case Sounds.Team17Applauds:
+					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.75f, Path.Combine(FOLDER, "Team17-Applauds.mp3")));
+					break;
 				case Sounds.IndianAnthem:
+					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.4f, Path.Combine(FOLDER, "IndianAnthem.mp3")));
+					break;
 				case Sounds.Flush:
+					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.4f, Path.Combine(FOLDER, "Flush.wav")));
+					break;
 				default:
 					break;
 			}

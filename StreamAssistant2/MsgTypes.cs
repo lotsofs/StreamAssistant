@@ -4,4 +4,9 @@
 	TextToS,
 	PlaySfx,
 	ObsRawI,
+	RdmCncl,
+	Termint,
+	ShowSrc,
+	HideSrc,
+	HideAll,
 }

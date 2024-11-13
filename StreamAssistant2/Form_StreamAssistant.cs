@@ -17,6 +17,8 @@ using System.Runtime.Versioning;
 using Streamer.bot.Plugin.Interface;
 using System.Reflection;
 using Newtonsoft.Json;
+using Microsoft.VisualBasic;
+using Microsoft.VisualBasic.Logging;
 
 namespace StreamAssistant2
 {
@@ -38,6 +40,9 @@ namespace StreamAssistant2
 			InitializeComponent();
 
 			LoadSettings();
+
+			Games.ReadJson();
+			Coloring.ReadFiles();
 		}
 
 		/// <summary>
@@ -109,7 +114,14 @@ namespace StreamAssistant2
 		private void HandleTrigger(string trigger) {
 			Dictionary<string, object>? variables = JsonConvert.DeserializeObject<Dictionary<string, object>>(trigger);
 			if (variables == null) return;
-			Debug.WriteLine("__source: " + variables["__source"]);
+			if (!variables.ContainsKey("__source")) {
+				MsgQueue.Enqueue(MsgTypes.ChatMsg, "🚩 Received variables without a source.");
+				Debug.WriteLine(trigger);
+				return;
+			}
+			bool isTest = variables.ContainsKey("isTest") && (bool)variables["isTest"];
+			long source = (long)variables["__source"];
+			Debug.WriteLine("__source: " + source);
 			//foreach (string o in blah.Keys) {
 			//	if (blah[o] == null) { 
 			//		Debug.WriteLine(o + " " + "<null>"); 
@@ -119,33 +131,56 @@ namespace StreamAssistant2
 			//	}
 			//}
 			//Debug.WriteLine(variables["__source"].GetType());
-			switch ((long)variables["__source"]) {
+			string date = variables["actionQueuedAt"].ToString();
+			string log = string.Format("[{0}] {1}: ", date, ((EventSources)source).ToString());
+
+			switch (source) {
+				case 102:   // TwitchCheer
+					log += Cheers.Process(variables);
+					break;
 				case 103:   // TwitchSub
-					Subscriptions.HandleTwitchSub(variables);
+					log += Subscriptions.HandleTwitchSub(variables);
 					break;
 				case 104:   // TwitchReSub
-					Subscriptions.HandleTwitchResub(variables);
+					log += Subscriptions.HandleTwitchResub(variables);
 					break;
 				case 105:   // TwitchGiftSub
-					Subscriptions.HandleGiftSub(variables);
+					log += Subscriptions.HandleGiftSub(variables);
 					break;
 				case 106:   // TwitchGiftBomb
 					Subscriptions.HandleGiftBomb(variables);
 					break;
 				case 107:   // TwitchRaid
-					string raider = (bool)variables["isTest"] ? "Test User" : variables["userName"].ToString() ?? "Someone";
+					string raider = isTest ? "Test User" : variables["userName"].ToString() ?? "Someone";
 					long raiders = (long)variables["viewers"];
 					MsgQueue.Enqueue(MsgTypes.ChatMsg, "Raid: " + raider + " (" + raiders + ")");
 					break;
+				case 112:   // TwitchRewardRedemption
+					log += ChannelPoints.Process(variables);
+					break;
+				case 118:   // TwitchStreamUpdate
+				case 122:   // TwitchBroadcastUpdate
+					log += Games.ProcessChangeEvent(variables);
+					break;
 				case 133:   // TwitchChatMessage
-					ChatMessages.Process(variables);
+					log += ChatMessages.Process(variables);
+					break;
+				case 154:   // TwitchStreamOnline
+					log += Games.ProcessGoLiveEvent(variables);
 					break;
 				case 186:   // TwitchUpcomingAd
-					Ads.UpcomingAdAlert(variables);
+					log += Ads.UpcomingAdAlert(variables);
+					break;
+				case 1201:  // StreamElementsTip
+					log += Donations.Process(variables);
 					break;
 				default:
 					break;
 			}
+
+			this.textBoxIncoming.Invoke(new System.Windows.Forms.MethodInvoker(delegate () {
+				textBoxIncoming.AppendText(log + Environment.NewLine);
+			}));
 		}
 
 		private string HandleMessage(string msg) {
@@ -159,6 +194,9 @@ namespace StreamAssistant2
 					string dequeue = "NoneMsg";
 					if (MsgQueue.TryDequeue(out string? deq)) {
 						dequeue = deq;
+						this.textBoxOutgoing.Invoke(new System.Windows.Forms.MethodInvoker(delegate () {
+							textBoxOutgoing.AppendText(string.Format("[{0}] {1}{2}", DateTime.Now, deq, Environment.NewLine));
+						}));
 					}
 					return dequeue;
 					break;
@@ -186,17 +224,17 @@ namespace StreamAssistant2
 				while (_client.Connected) {
 
 					//try {
-						string? s = _str.ReadLine();
-						string reply = HandleMessage(s);
-						if (!string.IsNullOrEmpty(reply)) {
-							_stw.WriteLine(reply);
-						}
+					string? s = _str.ReadLine();
+					string reply = HandleMessage(s);
+					if (!string.IsNullOrEmpty(reply)) {
+						_stw.WriteLine(reply);
+					}
 
-						_client.GetStream().Close();
-						_client.Close();
+					_client.GetStream().Close();
+					_client.Close();
 					//}
 					//catch (Exception ex) {
-						//MessageBox.Show(ex.Message.ToString());
+					//MessageBox.Show(ex.Message.ToString());
 					//}
 				}
 			}
@@ -221,7 +259,14 @@ namespace StreamAssistant2
 		private void timerUpdate_Tick(object sender, EventArgs e) {
 			_clock.Tick();
 			MsgQueue.TimedQueueTick();
-			Subscriptions.CheckGiftBombCount();
+		}
+
+		private void label2_Click(object sender, EventArgs e) {
+
+		}
+
+		private void textBoxIncoming_TextChanged(object sender, EventArgs e) {
+
 		}
 	}
 }

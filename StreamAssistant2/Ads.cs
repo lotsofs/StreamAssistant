@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace StreamAssistant2 {
 	internal static class Ads {
-		internal static void UpcomingAdAlert(Dictionary<string, object> variables) {
+		internal static string UpcomingAdAlert(Dictionary<string, object> variables) {
 			long minutes = (long)variables["minutes"];
 			switch (minutes) {
 				case 1:
@@ -45,6 +45,7 @@ namespace StreamAssistant2 {
 				default:
 					break;
 			}
+			return minutes.ToString();
 		}
 
 	}
