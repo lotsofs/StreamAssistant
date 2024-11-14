@@ -85,14 +85,25 @@ namespace StreamAssistant2 {
 			//),
 		];
 
-		public static List<string> ChatterList = new List<string>();
+		static List<string> _chatterList = new List<string>();
+
+		public static List<string> ChatterList { 
+			get {
+				return _chatterList;
+			}
+		}
+
+		public static void ResetChatterList() {
+			MsgQueue.Enqueue(MsgTypes.ChatMsg, "Chatters Reset");
+			_chatterList.Clear();
+		}
 
 		public static void AddChatterToList(string chatter) {
-			if (ChatterList.Contains(chatter)) {
+			if (_chatterList.Contains(chatter)) {
 				return;
 			}
-			ChatterList.Add(chatter);
-			MsgQueue.Enqueue(MsgTypes.ChatMsg, "Test " + ChatterList.Count);
+			_chatterList.Add(chatter);
+			MsgQueue.Enqueue(MsgTypes.ChatMsg, "Test " + _chatterList.Count);
 			if (chatter.ToLower() == "lotsofs") {
 				MsgQueue.Enqueue(MsgTypes.ChatMsg, "YOOO BRO");
 				return;

@@ -166,6 +166,7 @@ namespace StreamAssistant2
 					log += ChatMessages.Process(variables);
 					break;
 				case 154:   // TwitchStreamOnline
+					ChatMessages.ResetChatterList();
 					log += Games.ProcessGoLiveEvent(variables);
 					break;
 				case 186:   // TwitchUpcomingAd
@@ -222,8 +223,6 @@ namespace StreamAssistant2
 				_stw.AutoFlush = true;
 
 				while (_client.Connected) {
-
-					//try {
 					string? s = _str.ReadLine();
 					string reply = HandleMessage(s);
 					if (!string.IsNullOrEmpty(reply)) {
@@ -232,10 +231,6 @@ namespace StreamAssistant2
 
 					_client.GetStream().Close();
 					_client.Close();
-					//}
-					//catch (Exception ex) {
-					//MessageBox.Show(ex.Message.ToString());
-					//}
 				}
 			}
 			buttonEnable.Invoke(new System.Windows.Forms.MethodInvoker(delegate () {
@@ -244,21 +239,13 @@ namespace StreamAssistant2
 			}));
 		}
 
-		private void buttonTest_Click(object sender, EventArgs e) {
-			Debug.WriteLine("Bbutton");
-			_stw.WriteLine("Button");
-			//buttonEnable.Text = "Enabled";
-			//buttonEnable.Enabled = false;
-			//_ipAddress = new IPAddress(0x0100007f);
-			//_listener = new TcpListener(_ipAddress, _port);
-			//_listener.Start();
-			//_tcpEnabled = true;
-			//backgroundWorkerTcp.RunWorkerAsync();
-		}
-
 		private void timerUpdate_Tick(object sender, EventArgs e) {
 			_clock.Tick();
 			MsgQueue.TimedQueueTick();
+		}
+
+		private void buttonTest_Click(object sender, EventArgs e) {
+
 		}
 
 		private void label2_Click(object sender, EventArgs e) {

@@ -34,7 +34,7 @@ namespace StreamAssistant2 {
 					}
 					r = random.Next(100);
 					if (r == 0) {
-						MsgQueue.Enqueue(MsgTypes.ChatMsg, "@LotsOfS Stop making me beg for shit >:(");
+						MsgQueue.Enqueue(MsgTypes.ChatMsg, "@LotsOfS Stop making me beg for shit >(");
 					}
 					break;
 				case 4:
