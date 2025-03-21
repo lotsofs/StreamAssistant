@@ -95,12 +95,15 @@
 			// 
 			textBoxIncoming.AcceptsReturn = true;
 			textBoxIncoming.AcceptsTab = true;
+			textBoxIncoming.BackColor = SystemColors.ControlDark;
+			textBoxIncoming.Font = new Font("Courier New", 9F, FontStyle.Bold);
 			textBoxIncoming.Location = new Point(12, 43);
 			textBoxIncoming.Multiline = true;
 			textBoxIncoming.Name = "textBoxIncoming";
+			textBoxIncoming.PlaceholderText = "<blank>";
 			textBoxIncoming.ReadOnly = true;
 			textBoxIncoming.ScrollBars = ScrollBars.Vertical;
-			textBoxIncoming.Size = new Size(370, 272);
+			textBoxIncoming.Size = new Size(912, 272);
 			textBoxIncoming.TabIndex = 6;
 			textBoxIncoming.WordWrap = false;
 			textBoxIncoming.TextChanged += textBoxIncoming_TextChanged;
@@ -109,13 +112,16 @@
 			// 
 			textBoxOutgoing.AcceptsReturn = true;
 			textBoxOutgoing.AcceptsTab = true;
+			textBoxOutgoing.BackColor = SystemColors.ControlDark;
+			textBoxOutgoing.Font = new Font("Courier New", 9F, FontStyle.Bold);
 			textBoxOutgoing.ImeMode = ImeMode.NoControl;
 			textBoxOutgoing.Location = new Point(12, 377);
 			textBoxOutgoing.Multiline = true;
 			textBoxOutgoing.Name = "textBoxOutgoing";
+			textBoxOutgoing.PlaceholderText = "<blank>";
 			textBoxOutgoing.ReadOnly = true;
 			textBoxOutgoing.ScrollBars = ScrollBars.Vertical;
-			textBoxOutgoing.Size = new Size(370, 272);
+			textBoxOutgoing.Size = new Size(912, 272);
 			textBoxOutgoing.TabIndex = 7;
 			textBoxOutgoing.WordWrap = false;
 			// 

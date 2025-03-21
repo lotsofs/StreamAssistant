@@ -43,6 +43,8 @@ namespace StreamAssistant2 {
 				if (space < SPAM_BELOW_GB && min % SPAM_INTERVAL == 0) {
 					// Spam
 					MsgQueue.Enqueue(MsgTypes.ChatMsg, string.Format(SPAM_MSG, SPAM_BELOW_GB, DRIVE_LETTER, drive.AvailableFreeSpace));
+					Sound.PlaySound(Sound.Sounds.Warning);
+					MsgQueue.Enqueue(MsgTypes.TextToS, string.Format(SPAM_MSG.Replace("⚠️⚠️⚠️🚨🚨", ""), SPAM_BELOW_GB, DRIVE_LETTER, drive.AvailableFreeSpace));
 				}
 				else if (space < WARN_BELOW_GB && min % WARN_INTERVAL == 0) {
 					// Warn

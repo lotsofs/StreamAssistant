@@ -13,6 +13,7 @@ namespace StreamAssistant2 {
 			Team17Applauds,
 			IndianAnthem,
 			Flush,
+			Warning,
 		}
 
 		private const string FOLDER = "D:\\Repositories\\Stream-Resources\\Alert Sounds\\";
@@ -34,6 +35,9 @@ namespace StreamAssistant2 {
 				case Sounds.Flush:
 					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.4f, Path.Combine(FOLDER, "Flush.wav")));
 					break;
+				case Sounds.Warning:
+					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.6f, Path.Combine(FOLDER, "Warning.wav")));
+					break;
 				default:
 					break;
 			}
@@ -50,6 +54,7 @@ namespace StreamAssistant2 {
 				case Sounds.Team17Applauds:
 				case Sounds.IndianAnthem:
 				case Sounds.Flush:
+				case Sounds.Warning:
 				default:
 					break;
 			}

@@ -43,6 +43,10 @@ namespace StreamAssistant2 {
 				case "785967e7-9b58-41eb-aa11-15fed82a72ec":
 					// Retrieve Flushed Points
 					LoadFlushes();
+					if (!_flushes.ContainsKey(userId)) {
+						MsgQueue.Enqueue(MsgTypes.ChatMsg, string.Format("🪠 Found and returned {0} chunks of {1}'s flushed channel points 🪠", 0, user), false);
+						break;
+					}
 					List<string> flushes = _flushes[userId];
 					int flushesCount = flushes.Count;
 					foreach (var fl in flushes) {
