@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET Console Launch",
+      "type": "coreclr",
+      "request": "launch",
+	  "preLaunchTask": "build",
+      "program": "${workspaceFolder}/bin/Debug/net8.0/StreamAssistantLog.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "console": "externalTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}
