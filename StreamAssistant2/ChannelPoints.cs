@@ -1,78 +1,81 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.Data.Sqlite;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Media;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace StreamAssistant2 {
 	internal static class ChannelPoints {
+		const string REWARD_ID_TRAIN = "0260c648-c3ba-4ff1-920d-dffa5431da74";
+		const string REWARD_ID_TOILET_FLUSH = "cd46e822-f288-47e6-8e8c-c56155603a0e";
+		const string REWARD_ID_TOILET_RETRIEVE = "785967e7-9b58-41eb-aa11-15fed82a72ec";
 		
-		static Dictionary<string, List<string>> _flushes = new Dictionary<string, List<string>>();
-		const string FLUSHES_FILEPATH = "D:\\Repositories\\Stream-Resources\\Bot Data\\Flushes.json";
+		internal async static Task ProcessAdd(JsonElement evt) {
+			string rewardId = evt.GetProperty("reward").GetProperty("id").GetString() ?? "";
 
-		private static void LoadFlushes() {
-			string json = File.ReadAllText(FLUSHES_FILEPATH);
-			_flushes = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(json) ?? new Dictionary<string, List<string>>();
-		}
-
-		private static void SaveFlushes() {
-			string json = JsonConvert.SerializeObject(_flushes);
-			File.WriteAllText(FLUSHES_FILEPATH, json);
-		}
-
-		internal static string Process(Dictionary<string, object> variables) {
-			string rewardId = variables["rewardId"].ToString() ?? "";
-			string userId = variables["userId"].ToString() ?? "";
-			string user = variables["user"].ToString() ?? "";
+			string flushId = evt.GetProperty("id").GetString() ?? "";
+			string userId = evt.GetProperty("user_id").GetString() ?? "";
+			string userLogin = evt.GetProperty("user_login").GetString() ?? "";
 
 			switch (rewardId) {
-				case "44006120-a6fb-4653-9257-c26e2c67f0ee":
-					// Toilet Flush
-					LoadFlushes();
-					string redemptionId = variables["redemptionId"].ToString() ?? "";
-					if (!_flushes.ContainsKey(userId)) {
-						_flushes[userId] = new List<string>();
-					}
-					_flushes[userId].Add(redemptionId);
+				case REWARD_ID_TOILET_FLUSH:
 					Sound.PlaySound(Sound.Sounds.Flush);
-					SaveFlushes();
+					await Database.InsertFlushAsync(flushId, userId, userLogin);
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully wrote flush for {userLogin}: {flushId}");
 					break;
-				case "785967e7-9b58-41eb-aa11-15fed82a72ec":
-					// Retrieve Flushed Points
-					LoadFlushes();
-					if (!_flushes.ContainsKey(userId)) {
-						MsgQueue.Enqueue(MsgTypes.ChatMsg, string.Format("🪠 Found and returned {0} chunks of {1}'s flushed channel points 🪠", 0, user), false);
-						break;
+				case REWARD_ID_TOILET_RETRIEVE:
+					var flushes = await Database.RetrieveFlushesAsync(userId);
+					if (flushes.Count == 0) {
+						TwitchIRCManager.SendMessage($"🪠 Digging through the sewers far and wide, the workers didn't find any of {userLogin}'s stuff 🪠");
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully cleared sewers for {userLogin}: NONE");
+						return;
 					}
-					List<string> flushes = _flushes[userId];
-					int flushesCount = flushes.Count;
-					foreach (var fl in flushes) {
-						// Redemption Cancel
-						MsgQueue.Enqueue(MsgTypes.RdmCncl, "44006120-a6fb-4653-9257-c26e2c67f0ee|" + fl);
+					foreach (string id in flushes) {
+						await TwitchHelixApi.UpdateRedemption(REWARD_ID_TOILET_FLUSH, id, "CANCELED");
 					}
-					_flushes[userId].Clear();
-					MsgQueue.Enqueue(MsgTypes.ChatMsg, string.Format("🪠 Found and returned {0} chunks of {1}'s flushed channel points 🪠", flushesCount, user), false);
-					SaveFlushes();
+					await Database.DeleteFlushesAsync(userId);
+					TwitchIRCManager.SendMessage($"🪠 Found and returned {flushes.Count} of {userLogin}'s flushed channel points 🪠");
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully cleared sewers for {userLogin}: {flushes.Count}");
 					break;
-				case "6fbb1ffa-555b-4e24-9cb1-f784d9f63689":
-					// Change Layout Color
-					string changeLayoutColorInput = variables["rawInput"].ToString() ?? "";
-					Coloring.ChangeColor(changeLayoutColorInput, true, true);
+				case REWARD_ID_TRAIN:
+					int r = Random.Shared.Next(0, 100);
+					Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, $"Train{r}.png"));
+					Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", true);
+					await Task.Delay(62000);
+					Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", false);
+					Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, "None.png"));
 					break;
-				case "76c02fbc-d4ad-4fb7-984d-d057c9ebb03f":
-					// Change Layout Color - Advanced
-					string changeLayoutColorAInput = variables["rawInput"].ToString() ?? "";
-					Coloring.ChangeColor(changeLayoutColorAInput, true, false);
-					break;
-				case "d1ca4789-8461-40a0-9335-e9080fd91f29":
-					// Change Layout Color - Random
-					Coloring.RandomColor();
+				default:
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unhandled channel point reward redemption id: {rewardId}");
+					ConsoleLogger.LogToFile(evt);
 					break;
 			}
-			return string.Format("{0} {1} {2}", user, rewardId, userId);
 		}
+		
+
+		// 		case "6fbb1ffa-555b-4e24-9cb1-f784d9f63689":
+		// 			// Change Layout Color
+		// 			string changeLayoutColorInput = variables["rawInput"].ToString() ?? "";
+		// 			Coloring.ChangeColor(changeLayoutColorInput, true, true);
+		// 			break;
+		// 		case "76c02fbc-d4ad-4fb7-984d-d057c9ebb03f":
+		// 			// Change Layout Color - Advanced
+		// 			string changeLayoutColorAInput = variables["rawInput"].ToString() ?? "";
+		// 			Coloring.ChangeColor(changeLayoutColorAInput, true, false);
+		// 			break;
+		// 		case "d1ca4789-8461-40a0-9335-e9080fd91f29":
+		// 			// Change Layout Color - Random
+		// 			Coloring.RandomColor();
+		// 			break;
+		// 	}
+		// 	return string.Format("{0} {1} {2}", user, rewardId, userId);
+		// }
+		
 	}
 }

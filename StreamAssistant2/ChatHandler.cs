@@ -1,25 +1,12 @@
-﻿using Streamer.bot.Plugin.Interface;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+﻿using System.Text.RegularExpressions;
 
 namespace StreamAssistant2 {
-	internal static class ChatMessages {
+	internal static class ChatHandler {
 
-		class ChatCommand {
-			internal string RegEx;
-			internal string Output;
-			internal string Name;
-
-			internal ChatCommand(string name, string regEx, string output) {
-				RegEx = regEx;
-				Output = output;
-				Name = name;
-			}
+		public class ChatMessage {
+			public string Username;
+			public string Text;
+			public string Raw;
 		}
 
 		static ChatCommand[] _commands = [
@@ -85,70 +72,107 @@ namespace StreamAssistant2 {
 			//),
 		];
 
-		static List<string> _chatterList = new List<string>();
-
-		public static List<string> ChatterList { 
-			get {
-				return _chatterList;
+		static string GetUserName(string prefix) {
+			if (string.IsNullOrEmpty(prefix)) {
+				return "";
 			}
+
+			int colonIndex = prefix.IndexOf(":");
+			if (colonIndex == -1) {
+				return "";
+			}
+
+			int exclIndex = prefix.IndexOf('!');
+			if (exclIndex == -1) {
+				return "";
+			}
+			return prefix.Substring(colonIndex+1, exclIndex-colonIndex-1).ToLower();
 		}
 
-		public static void ResetChatterList() {
-			MsgQueue.Enqueue(MsgTypes.ChatMsg, "Chatters Reset");
-			_chatterList.Clear();
-		}
+		public static void ProcessMessage(string raw) {
+			try {
+				int spaceIndex = raw.IndexOf(' ');
+				string tags = raw.StartsWith('@') ? raw.Substring(1, spaceIndex - 1) : "";
+				string content = raw.StartsWith('@') ? raw.Substring(spaceIndex + 1) : raw;
 
-		public static void AddChatterToList(string chatter) {
-			if (_chatterList.Contains(chatter)) {
+				spaceIndex = content.IndexOf(' ');
+				string target = content.Substring(0, spaceIndex);
+				string message = content.Substring(spaceIndex + 1);
+				string username = GetUserName(target);
+
+				spaceIndex = message.IndexOf(' ');
+				string messageType = message.Substring(0, spaceIndex);
+				string body = message.Substring(spaceIndex + 1);
+
+				switch (messageType) {
+					case "USERSTATE":
+						// ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ChatIncoming, message);
+						break;
+					case "PRIVMSG":
+						spaceIndex = body.IndexOf(' ');
+						string channel = body.Substring(0, spaceIndex);
+						string chatContent = body.Substring(spaceIndex + 2);
+						HandlePrivMsg(chatContent, username);
+						break;
+					case "001":
+					case "002":
+					case "003":
+					case "004":
+					case "375":
+					case "372":
+					case "376":
+						ConsoleLogger.LogToFile(raw);
+						break;
+					default:
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ChatIncoming, raw);
+						break;
+				}
+			}
+			catch (Exception ex) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error 7");
+				ConsoleLogger.LogToFile(ex);
+				// TODO: Handle
 				return;
 			}
-			_chatterList.Add(chatter);
-			MsgQueue.Enqueue(MsgTypes.ChatMsg, "Test " + _chatterList.Count);
-			if (chatter.ToLower() == "lotsofs") {
-				MsgQueue.Enqueue(MsgTypes.ChatMsg, "YOOO BRO");
-				return;
+		}
+
+		static void HandlePrivMsg(string chatContent, string username) {
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ChatIncoming, $"{username}: {chatContent}");
+
+			ChatterList.AddChatter(username);
+			if (username == "lotsofs" || username == "botsofs") {
+				CheckForAdminCommands(chatContent);
+			}
+			else {
+				CheckForCommands(chatContent, username);
 			}
 		}
 
-		internal static string Process(Dictionary<string, object> variables) {
-			string chatter = variables["userName"].ToString() ?? "Test User";
-			AddChatterToList(chatter);
-
-			if (chatter.ToLower() == "botsofs") {
-				return "botsofs";
+		static void CheckForAdminCommands(string text) {
+			if (text.StartsWith("!stoppaneltimer")) {
+				// MsgQueue.Enqueue(MsgTypes.Termint, "");
 			}
-
-			CheckCommand(variables);
-			return chatter + ": " + variables["message"].ToString();
+			else if (text.StartsWith("!changecolorrandom ")) {
+				// Coloring.RandomColor();
+			}
+			else if (text.StartsWith("!changecolor ")) {
+				// Coloring.ChangeColor(inputMsg.Substring(13));
+			}
+			else if (text.StartsWith("!test ")) {
+				string args = text.Substring(6);
+				TwitchEventSub.SendTest(args);
+			}
 		}
 
-		internal static void CheckCommand(Dictionary<string, object> variables) {
-			string inputMsg = variables["message"].ToString() ?? string.Empty;
-			inputMsg = inputMsg.ToLowerInvariant();
-			string user = variables["userName"].ToString() ?? "Someone";
-
-			if (user.ToLower() == "lotsofs") {
-				if (inputMsg == "!stoppaneltimer") {
-					MsgQueue.Enqueue(MsgTypes.Termint, "");
-					return;
-				}
-				else if (inputMsg.StartsWith("!changecolorrandom ")) {
-					Coloring.RandomColor();
-				}
-				else if (inputMsg.StartsWith("!changecolor ")) {
-					Coloring.ChangeColor(inputMsg.Substring(13));
-				}
-			}
-
+		static void CheckForCommands(string text, string username) {
 			foreach (ChatCommand cmd in _commands) {
 				string outputMsg = "";
-				Match match = Regex.Match(inputMsg, cmd.RegEx);
+				Match match = Regex.Match(text, cmd.RegEx);
 				if (match.Success) {
-					outputMsg = string.Format("{0} used {1}: {2}", user, cmd.Name, cmd.Output);
-					MsgQueue.Enqueue(MsgTypes.ChatMsg, outputMsg);
+					outputMsg = string.Format("@{0}: {2}", username, cmd.Name, cmd.Output);
+					// MsgQueue.Enqueue(MsgTypes.ChatMsg, outputMsg);
 				}
 			}
 		}
-		// Regex: ^((?=.*!song)|(?=.*(song))(?=.*(dynasty))).*$
 	}
 }

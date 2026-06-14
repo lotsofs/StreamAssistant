@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using NAudio.Wave;
 
 namespace StreamAssistant2 {
 	internal static class Sound {
@@ -16,27 +12,43 @@ namespace StreamAssistant2 {
 			Warning,
 		}
 
-		private const string FOLDER = "D:\\Repositories\\Stream-Resources\\Alert Sounds\\";
+		private const string SOUNDS_FOLDER = "D:\\Repositories\\Stream-Resources\\Alert Sounds\\";
+
+		static void PlaySound(string file, float volume = 1.0f) {
+			var audioFile = new AudioFileReader(file);
+			var outputDevice = new WaveOutEvent();
+
+			audioFile.Volume = volume;
+			
+			outputDevice.Init(audioFile);
+			outputDevice.PlaybackStopped += (_, _) => {
+				outputDevice.Dispose();
+				audioFile.Dispose();
+			};
+
+			outputDevice.Play();
+
+		}
 
 		internal static void PlaySound(Sounds s) {
 			switch (s) {
 				case Sounds.TribalHymn:
-					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.5f, Path.Combine(FOLDER, "Tribal hymn.mp3")));
+					PlaySound(Path.Combine(SOUNDS_FOLDER, "Tribal hymn.mp3"), 0.5f);
 					break;
 				case Sounds.TheClap:
-					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.4f, Path.Combine(FOLDER, "theclap.mp3")));
+					PlaySound(Path.Combine(SOUNDS_FOLDER, "theclap.mp3"), 0.4f);
 					break;
 				case Sounds.Team17Applauds:
-					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.75f, Path.Combine(FOLDER, "Team17-Applauds.mp3")));
+					PlaySound(Path.Combine(SOUNDS_FOLDER, "Team17-Applauds.mp3"), 0.75f);
 					break;
 				case Sounds.IndianAnthem:
-					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.4f, Path.Combine(FOLDER, "IndianAnthem.mp3")));
+					PlaySound(Path.Combine(SOUNDS_FOLDER, "IndianAnthem.mp3"), 0.4f);
 					break;
 				case Sounds.Flush:
-					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.4f, Path.Combine(FOLDER, "Flush.wav")));
+					PlaySound(Path.Combine(SOUNDS_FOLDER, "Flush.wav"), 0.4f);
 					break;
 				case Sounds.Warning:
-					MsgQueue.Enqueue(MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.6f, Path.Combine(FOLDER, "Warning.wav")));
+					PlaySound(Path.Combine(SOUNDS_FOLDER, "Warning.wav"), 0.6f);
 					break;
 				default:
 					break;
@@ -44,20 +56,17 @@ namespace StreamAssistant2 {
 		}
 
 		internal static void PlaySoundDelayed(Sounds s, int delayInMs) {
-			switch (s) {
-				case Sounds.TribalHymn:
-					MsgQueue.TimedEnqueue(delayInMs, MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.5f, Path.Combine(FOLDER, "Tribal hymn.mp3")));
-					break;
-				case Sounds.TheClap:
-					MsgQueue.TimedEnqueue(delayInMs, MsgTypes.PlaySfx, string.Format("{0}|{1}", 0.4f, Path.Combine(FOLDER, "theclap.mp3")));
-					break;
-				case Sounds.Team17Applauds:
-				case Sounds.IndianAnthem:
-				case Sounds.Flush:
-				case Sounds.Warning:
-				default:
-					break;
-			}
+			Clock.AddJob(new Clock.ScheduledJob {
+				GetNextRun = () => {
+					DateTime now = DateTime.UtcNow;
+					DateTime next = now + TimeSpan.FromMilliseconds(delayInMs);
+					return next;
+				},
+				Action = async () => { 
+					PlaySound(s);
+					await Task.CompletedTask; 
+				}
+			});
 		}
 
 	}

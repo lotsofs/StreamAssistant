@@ -89,8 +89,8 @@ namespace StreamAssistant2 {
 			{"arsehole", "anus"},
 			{"abo", "indigenous"},
 			// Unescape erroneously escaped characters
-			{"\\.", "." },
-			{"\\'", "'" },
+			// {"\\.", "." },
+			// {"\\'", "'" },
 		};
 
 		// Yes, this is a really dumb replacement algorithm. The "Scunthorpe problem" is a solution, not a problem.

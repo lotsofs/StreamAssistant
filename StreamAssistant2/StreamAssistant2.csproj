@@ -1,21 +1,39 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<OutputType>WinExe</OutputType>
-		<TargetFramework>net8.0-windows</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
 		<Nullable>enable</Nullable>
-		<UseWindowsForms>true</UseWindowsForms>
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.8" />
+		<PackageReference Include="NAudio" Version="2.3.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="obs-websocket-dotnet" Version="5.0.1" />
+		<PackageReference Include="System.Speech" Version="10.0.7" />
+		<PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Reference Include="Streamer.bot.Plugin.Interface">
-	    <HintPath>..\..\..\Programs\Streaming\StreamerBot\Streamer.bot.Plugin.Interface.dll</HintPath>
-	  </Reference>
+		<ProjectReference Include="..\StreamAssistantLog\StreamAssistantLog.csproj" />
 	</ItemGroup>
+	
+	<ItemGroup>
+		<None Update="secrets.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<Target Name="EnsureSecretsIniExists" BeforeTargets="BeforeBuild">
+		<Copy Condition="!Exists('secrets.json') and Exists('secrets.json.example')"
+			  SourceFiles="secrets.json.example"
+			  DestinationFiles="secrets.json" />
+	</Target>
+
+	<Target Name="PublishLogger" AfterTargets="Build">
+		<Exec Command="dotnet publish ..\StreamAssistantLog\StreamAssistantLog.csproj -c $(Configuration) -o $(OutputPath)\logger" ConsoleToMSBuild="true" IgnoreExitCode="false" />
+	</Target>
 
 </Project>
