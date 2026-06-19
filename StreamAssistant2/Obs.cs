@@ -6,11 +6,10 @@
 // using System.Text.RegularExpressions;
 // using System.Threading.Tasks;
 
-using System.Threading.Tasks;
+using System.Drawing;
+using System.Threading.Channels;
 using Newtonsoft.Json.Linq;
 using OBSWebsocketDotNet;
-using OBSWebsocketDotNet.Communication;
-using OBSWebsocketDotNet.Types;
 
 namespace StreamAssistant2 {
 	internal static class Obs {
@@ -28,6 +27,15 @@ namespace StreamAssistant2 {
 				["file"] = newFile
 			};
 			_obs.SetInputSettings(sourceName, set, true);
+		}
+
+		public static void SetFilterProperty(string sourceName, string filterName, string propertyName, JToken value) {
+			if (!ObsConnection.IsConnected()) return;
+
+			var settings = new JObject {
+				[propertyName] = value,
+			};
+			_obs.SetSourceFilterSettings(sourceName, filterName, settings, true);
 		}
 	}
 }

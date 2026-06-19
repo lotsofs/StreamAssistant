@@ -13,15 +13,11 @@ namespace StreamAssistant2
 				throw new FileNotFoundException($"Config file not found: {_path}");
 			}
 
-			var json = File.ReadAllText(_path);
+			string json = File.ReadAllText(_path);
 
 			Data = JsonSerializer.Deserialize<SecretConfigModel>(json, new JsonSerializerOptions {
 				PropertyNameCaseInsensitive = true
-			});
-
-			if (Data is null) {
-				throw new Exception();
-			}
+			}) ?? new SecretConfigModel();
 		}
 	}
 
@@ -34,6 +30,8 @@ namespace StreamAssistant2
 
 	public class DirectoriesConfig {
 		public string Trains { get; set; } = "";
+		public string Colors { get; set; } = "";
+		public string ColorSchemes { get; set; } = "";
 	}
 
 	public class ObsSocketConfig {

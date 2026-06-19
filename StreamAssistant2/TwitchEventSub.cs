@@ -20,7 +20,7 @@ namespace StreamAssistant2 {
 		
 		const string TEST_PATH = @"D:\Repositories\Stream-Resources\Input\Bot\Tests";
 
-		const bool IS_TEST = true;
+		const bool IS_TEST = false;
 
 		static string _clientId = "";
 		static string _accessToken = "";

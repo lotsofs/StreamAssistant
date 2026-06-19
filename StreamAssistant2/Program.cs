@@ -18,6 +18,7 @@ namespace StreamAssistant2
 			ConsoleHelper.SetIcon();
 
 			Config.Load();
+			Coloring.Load();
 
 			TaskCompletionSource shutdownTcs = new TaskCompletionSource();
 
@@ -62,6 +63,8 @@ namespace StreamAssistant2
 			TwitchHelixApi.Init();
 
 			TwitchEventSub.Connect();
+
+			LayoutColoring.StartWorker();
 		}
 
 		private static void DisableBot() {

@@ -15,6 +15,7 @@ namespace StreamAssistant2 {
 		const string REWARD_ID_TRAIN = "0260c648-c3ba-4ff1-920d-dffa5431da74";
 		const string REWARD_ID_TOILET_FLUSH = "cd46e822-f288-47e6-8e8c-c56155603a0e";
 		const string REWARD_ID_TOILET_RETRIEVE = "785967e7-9b58-41eb-aa11-15fed82a72ec";
+		const string REWARD_ID_COLOR_RANDOM = "d1ca4789-8461-40a0-9335-e9080fd91f29";
 		
 		internal async static Task ProcessAdd(JsonElement evt) {
 			string rewardId = evt.GetProperty("reward").GetProperty("id").GetString() ?? "";
@@ -50,6 +51,9 @@ namespace StreamAssistant2 {
 					await Task.Delay(62000);
 					Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", false);
 					Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, "None.png"));
+					break;
+				case REWARD_ID_COLOR_RANDOM:
+					LayoutColoring.ChangeToRandom();
 					break;
 				default:
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unhandled channel point reward redemption id: {rewardId}");

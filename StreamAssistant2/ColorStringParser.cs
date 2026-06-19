@@ -3,169 +3,76 @@ using System.Text.RegularExpressions;
 
 using System.Drawing;
 using Newtonsoft.Json;
+using System.Globalization;
 
 namespace StreamAssistant2 {
-	public static class Coloring {
-		public class ColorTable {
-			public Dictionary<string, NamedColor> Entries { get; set; } = [];
-		}
-		
-		public sealed record ColorEntry(string Source, string Name, string Hex1, string Hex2, string Hex3);
+	public static class ColorStringParser {
 
-		public sealed record NamedColor(string Source, string OriginalName, string Hex);
-		
-		static readonly Dictionary<string, ColorTable> _colorTables = new (new ColorNameComparer());
-		
-		public static void Load() {
-			ColorSchemes.LoadSets();
-			LoadColorTables();
-		}
+		static readonly Regex HexRegex = new(@"^#([0-9A-Fa-f]{6})$");
+		static readonly Regex RgbRegex = new(@"^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$", RegexOptions.IgnoreCase);
+		static readonly Regex PlainRgbRegex = new(@"^\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*$", RegexOptions.IgnoreCase);
+		static readonly Regex HsvRegex = new(@"^hsv\s*\(\s*(\d+)°?\s*,\s*(\d+)%?\s*,\s*(\d+)%?\s*\)$", RegexOptions.IgnoreCase);
 
-		static void LoadColorTables() {
-			_colorTables.Clear();
-			foreach (string file in Directory.EnumerateFiles(Config.Data.Directories.Colors, "*.json")) {
-				string source = Path.GetFileNameWithoutExtension(file);
-				var json = File.ReadAllText(file);
-				var dict = JsonConvert.DeserializeObject<Dictionary<string,string>>(json);
-				if (dict == null) {
-					continue;
-				}
-				_colorTables[source] = new ColorTable();
-				foreach (var (name, hex) in dict) {
-					_colorTables[source].Entries[name] = new NamedColor(source, name, hex);
+		public static string ParseEntireString(string input) {
+			// EMPTY
+			if (string.IsNullOrWhiteSpace(input)) {
+				return "";
+			}
+			string[] parts = input.Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries);
+			for (int s = 0; s < parts.Length; s++) {
+				for (int e = parts.Length - 1; e >= s; e--) {
+					string combined = string.Join(" ", parts, s, e-s+1);
+
 				}
 			}
+
 		}
 
-		public static bool TryGetNamed(string input, out ColorEntry? colorEntry) {
-			colorEntry = null;
-			if (ColorSchemes.TryGetScheme(input, out ColorSchemes.ColorSchemeData? data)) {
-				string source = data!.SetName;
-				string name = $"{data.CategoryName}:{data.SchemeName}";
-				colorEntry = new(source, name, data.Scheme.Inner, data.Scheme.Outer, data.Scheme.Text);
-				return true;
+		public static Coloring.ColorEntry? Parse(string input) {
+			// EMPTY
+			if (string.IsNullOrWhiteSpace(input)) {
+				return null;
 			}
-			return TryGetTableColor(input, out colorEntry);
-		}
 
-		public static bool TryGetTableColor(string input, out ColorEntry? colorEntry) {
-			var parts = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-			colorEntry = null;
-			if (parts.Length >= 2) {
-				string tableName = parts[0];
-				string colorName = string.Join(' ', parts.Skip(1));
-				if (!TryGetTable(tableName, out var table) && TryGetColorFromTable(table!, colorName, out NamedColor? namedColor)) {
-					string hex = namedColor!.Hex;
-					colorEntry = new(tableName, namedColor.OriginalName, hex, Darken(hex), Lighten(hex));
-					return true;
-				}
+			input = input.Trim();
+
+			// #RRGGBB
+			if (HexRegex.IsMatch(input)) {
+				return new Coloring.ColorEntry("Hex", input, input.ToUpperInvariant(), Coloring.Darken(input), Coloring.Lighten(input));
 			}
-			foreach (var key in _colorTables.Keys) {
-				var table = _colorTables[key];
-				string colorName = string.Join(' ', parts);
-				if (TryGetColorFromTable(table, colorName, out NamedColor? namedColor)) {
-					string hex = namedColor!.Hex;
-					colorEntry = new(key, namedColor.OriginalName, hex, Darken(hex), Lighten(hex));
-					return true;
-				}
+
+			// rgb(123,123,123)
+			var rgbMatch = RgbRegex.Match(input);
+			if (rgbMatch.Success) {
+				int r = int.Parse(rgbMatch.Groups[1].Value);
+				int g = int.Parse(rgbMatch.Groups[2].Value);
+				int b = int.Parse(rgbMatch.Groups[3].Value);
+				string hex = Coloring.ToHex(r,g,b);
+				return new Coloring.ColorEntry("RGB", $"rgb({r},{g},{b})", hex, Coloring.Darken(hex), Coloring.Lighten(hex));
 			}
-			return false;
-		}
 
-		public static bool TryGetTable(string tableName, out ColorTable? table) {
-			table = null;
-			return _colorTables.TryGetValue(tableName, out table);
-		}
+			// hsv(123,123,123)
+			var hsvMatch = HsvRegex.Match(input);
+			if (hsvMatch.Success) {
+				float h = float.Parse(hsvMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+				float s = float.Parse(hsvMatch.Groups[2].Value, CultureInfo.InvariantCulture) / 100f;
+				float v = float.Parse(hsvMatch.Groups[3].Value, CultureInfo.InvariantCulture) / 100f;
+				(int r, int g, int b) = Coloring.HsvToRgb(h,s,v);
+				string hex = Coloring.ToHex(r,g,b);
+				return new Coloring.ColorEntry("HSV", $"hsv({h}°,{s}%,{v}%)", hex, Coloring.Darken(hex), Coloring.Lighten(hex));
+			}
 
-		public static bool TryGetColorFromTable(ColorTable table, string colorName, out NamedColor? namedColor) {
-			namedColor = null;
-			return table.Entries.TryGetValue(colorName, out namedColor);
-		}
+			// named color
+			if (Coloring.TryGetNamed(input, out var colorEntry)) {
+				
+			}
 
-		public static ColorEntry GetRandomColor() {
-			var colors = _colorTables["encycolorpedia"].Entries;
-			int r = Random.Shared.Next(0, colors.Count);
-			var item = colors.ElementAt(r);
-			var hex = item.Value.Hex;
-			return new ColorEntry("encycolorpedia", item.Key, hex.ToUpperInvariant(), Darken(hex), Lighten(hex));
-		}
+			// system colors
 
-		#region util funcs
+			// random
 
-		public static string Darken(string hex) {
-			hex = hex.TrimStart('#');
-			int r = int.Parse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber);
-			int g = int.Parse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber);
-			int b = int.Parse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber);
-			r /= 2;
-			g /= 2;
-			b /= 2;
-			return $"#{r:X2}{g:X2}{b:X2}";
+			// none
 		}
-		public static Color Darken(Color color) {
-			return Color.FromArgb(color.R / 2, color.G / 2, color.B / 2);
-		}
-
-		public static string Lighten(string hex) {
-			hex = hex.TrimStart('#');
-			int r = int.Parse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber);
-			int g = int.Parse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber);
-			int b = int.Parse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber);
-			r += (255-r)/2;
-			g += (255-g)/2;
-			b += (255-b)/2;
-			return $"#{r:X2}{g:X2}{b:X2}";
-		}
-		public static Color Lighten(Color color) {
-			return Color.FromArgb(
-				color.R + (255 - color.R) / 2,
-				color.G + (255 - color.G) / 2,
-				color.B + (255 - color.B) / 2
-			);
-		}
-
-		public static string ToHex(Color color) {
-			return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
-		}
-		public static string ToHex(int r, int g, int b) {
-			r = Math.Clamp(r,0,255);
-			g = Math.Clamp(g,0,255);
-			b = Math.Clamp(b,0,255);
-			return $"#{r:X2}{g:X2}{b:X2}";
-		}
-
-		public static long ToOBS(string c) {
-			string hex = c.TrimStart('#');
-			uint r = uint.Parse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber);
-			uint g = uint.Parse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber);
-			uint b = uint.Parse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber);
-			return 0xFF000000L | r | (g << 8) | (b << 16);
-		}
-
-		public static (int r, int g, int b) HsvToRgb(double h, double s, double v) {
-			// https://en.wikipedia.org/wiki/HSL_and_HSV#Color_conversion_formulae
-			h = Util.TrueModulo(h, 360);
-			s = Math.Clamp(s, 0, 1);
-			v = Math.Clamp(v, 0, 1);
-			double c = v * s;
-			double hPrime = h/60;
-			double x = c * (1 - Math.Abs(hPrime%2-1));
-			
-			double r1 = 0;
-			double g1 = 0;
-			double b1 = 0;
-			if (0 <= hPrime && hPrime < 1) { r1=c; g1=x; b1=0; }
-			else if (1 <= hPrime && hPrime < 2) { r1=x; g1=c; b1=0; }
-			else if (2 <= hPrime && hPrime < 3) { r1=0; g1=c; b1=x; }
-			else if (3 <= hPrime && hPrime < 4) { r1=0; g1=x; b1=c; }
-			else if (4 <= hPrime && hPrime < 5) { r1=x; g1=0; b1=c; }
-			else if (5 <= hPrime && hPrime < 6) { r1=c; g1=0; b1=x; }
-			
-			double m = v - c;
-			return ((int)(r1+m),(int)(g1+m),(int)(b1+m));
-		}
-
-		#endregion
 
 		// public static void ChangeColor(string to, bool reportToChat = true, bool single = false) {
 		// 	List<ColorItem> colorItems = ReadColor(to);
