@@ -137,7 +137,7 @@ namespace StreamAssistant2 {
 
 			// system colors
 			Color c = Color.FromName(input);
-			if (c == Color.Empty) {
+			if (c.IsKnownColor) {
 				string hex = ToHex(c);
 				colorEntry = new ColorEntry("system", input, hex, Darken(hex), Lighten(hex));
 				return true;
