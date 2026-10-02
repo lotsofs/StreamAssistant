@@ -106,6 +106,8 @@ namespace StreamAssistant2 {
 
 				switch (messageType) {
 					case "USERSTATE":
+					case "JOIN":
+					case "PART":
 						// ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ChatIncoming, message);
 						break;
 					case "PRIVMSG":

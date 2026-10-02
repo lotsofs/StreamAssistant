@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.Text;
-using StreamAssistant2;
 
 namespace StreamAssistant2 {
 	public static class Dashboard {

@@ -26,7 +26,7 @@ namespace StreamAssistant2 {
 			Helix = ConsoleColor.Cyan,
 			EventSubNotification = ConsoleColor.DarkCyan,
 			EventSubConfusion = ConsoleColor.Blue,
-			ZDB = ConsoleColor.DarkBlue,
+			AdNotification = ConsoleColor.DarkBlue,
 			Important = ConsoleColor.Magenta,
 			ZDM = ConsoleColor.DarkMagenta,
 			None = ConsoleColor.White,

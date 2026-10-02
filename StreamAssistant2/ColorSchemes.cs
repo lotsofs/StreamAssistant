@@ -7,13 +7,25 @@ using Newtonsoft.Json;
 namespace StreamAssistant2 {
 	public static class ColorSchemes {
 		public class ThemeSet {
-			public Dictionary<string, Category> Categories { get; set; } = [];
+			Dictionary<string, Category> _categories = new(new ColorNameComparer());
+			public Dictionary<string, Category> Categories { 
+				get => _categories; 
+				set => _categories = new Dictionary<string, Category>(value, new ColorNameComparer());
+			}
 		}
 
 		public class Category {
+			Dictionary<string, Scheme> _colorSchemes = new(new ColorNameComparer());
+			Dictionary<string, string> _splitColors = new(new ColorNameComparer());
+			public Dictionary<string, Scheme> ColorSchemes { 
+				get => _colorSchemes; 
+				set => _colorSchemes = new Dictionary<string, Scheme>(value, new ColorNameComparer());
+			}
+			public Dictionary<string, string> SplitColors { 
+				get => _splitColors; 
+				set => _splitColors = new Dictionary<string, string>(value, new ColorNameComparer());
+			}
 			public string Default { get; set; } = "";
-			public Dictionary<string, Scheme> ColorSchemes { get; set; } = [];
-			public Dictionary<string, string>? SplitColors { get; set; }
 		}
 
 		public class Scheme {
@@ -58,7 +70,10 @@ namespace StreamAssistant2 {
 			string schemeName = string.Join(' ', parts.Skip(1));
 			foreach (var (setName, set) in Sets) {
 				if (!TryGetCategorySchemeInSet(set, categoryName, schemeName, out var scheme)) continue;
-				cr = new ColorSchemeData(setName, categoryName, schemeName, scheme);
+				if (string.IsNullOrWhiteSpace(schemeName)) {
+					schemeName = "default";
+				}
+				cr = new ColorSchemeData(setName, categoryName, schemeName, scheme!);
 				return true;
 			}
 			return false;
@@ -80,7 +95,10 @@ namespace StreamAssistant2 {
 			if (!TryGetSet(setName, out ThemeSet? set)) return false;
 			if (!TryGetCategorySchemeInSet(set!, categoryName, schemeName, out var scheme)) return false;
 
-			cr = new ColorSchemeData(setName, categoryName, schemeName, scheme);
+			if (string.IsNullOrWhiteSpace(schemeName)) {
+				schemeName = "default";
+			}
+			cr = new ColorSchemeData(setName, categoryName, schemeName, scheme!);
 			return true;
 		}
 
@@ -105,14 +123,6 @@ namespace StreamAssistant2 {
 
 		public static bool TryGetSet(string setName, out ThemeSet? set) {
 			return Sets.TryGetValue(setName, out set);
-		}
-		
-		public static ThemeSet? FindThemeSet(string name) {
-			return Sets.TryGetValue(name, out ThemeSet? value) ? value : null;
-		}
-
-		public static Category? FindCategory(ThemeSet set, string name) {
-			return set.Categories.TryGetValue(name, out Category? value) ? value : null;
 		}
 	}
 }

@@ -15,7 +15,6 @@ namespace StreamAssistant2 {
 		// Replacement suggestions are mine based on the definitions given.
 		// Complaints for inclusion or non-inclusion of words go their way, not mine. 
 		static Dictionary<string, string> Replacements = new Dictionary<string, string>() {
-			//{"test", "blah"},
 			{"yid", "judaist"},
 			{"wrinkly", "shriveled"},
 			{"wop", "italian"},
@@ -88,9 +87,6 @@ namespace StreamAssistant2 {
 			{"asiatic", "asian"},
 			{"arsehole", "anus"},
 			{"abo", "indigenous"},
-			// Unescape erroneously escaped characters
-			// {"\\.", "." },
-			// {"\\'", "'" },
 		};
 
 		// Yes, this is a really dumb replacement algorithm. The "Scunthorpe problem" is a solution, not a problem.

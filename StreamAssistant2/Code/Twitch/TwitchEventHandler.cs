@@ -7,21 +7,27 @@ using System.Threading.Tasks;
 
 namespace StreamAssistant2 {
 	public static class TwitchEventHandler {
-		internal static void Handle(string type, JsonElement json) {
+		internal static void Handle(string type, JsonElement evtJson) {
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, $"notification: {type}");
 			try {			
 				switch (type) {
+					case "channel.ad_break.begin":
+						_ = Ads.Process(evtJson);
+						break;
 					case "channel.chat.notification":
-						HandleChannelChatNotification(json);
+						HandleChannelChatNotification(evtJson);
 						break;
 					case "channel.channel_points_custom_reward_redemption.add":
-						_ = ChannelPoints.ProcessAdd(json);
+						_ = ChannelPoints.ProcessAdd(evtJson);
+						break;
+					case "channel.cheer":
+						_ = Cheers.Process(evtJson);
 						break;
 					default:
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"Event Sub Event happened, but is not handled in code: {type}");
 						break;
 				}
-				ConsoleLogger.LogToFile(json);
+				ConsoleLogger.LogToFile(evtJson);
 			}
 			catch (Exception ex) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error TEH1");

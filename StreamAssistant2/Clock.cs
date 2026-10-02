@@ -9,6 +9,7 @@ namespace StreamAssistant2 {
 			public Func<Task> Action;
 			public DateTime NextRun;
 			public bool Repeat;
+			public CancellationTokenSource Cancellation = new();
 		}
 
 		private static TaskCompletionSource<bool> _wakeUp = new();
@@ -48,6 +49,10 @@ namespace StreamAssistant2 {
 				}
 
 				try {
+					if (nextJob.Cancellation.IsCancellationRequested) {
+						continue;
+					}
+					
 					await nextJob.Action();
 				}
 				catch (Exception ex) {
@@ -78,7 +83,7 @@ namespace StreamAssistant2 {
 				},
 				Action = async () => { 
 					DiskSpace.CheckSpaceAndNotify();
-					await Task.CompletedTask; 
+					await Task.CompletedTask;
 				}
 			};
 			ScheduledJob clockCheck = new ScheduledJob {
@@ -93,7 +98,7 @@ namespace StreamAssistant2 {
 				},
 				Action = async () => { 
 					TwitchUptime.ClockCheck();
-					await Task.CompletedTask; 
+					await Task.CompletedTask;
 				}
 			};
 			ScheduledJob uptimeCheck = new ScheduledJob {

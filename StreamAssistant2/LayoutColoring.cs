@@ -17,11 +17,31 @@ namespace StreamAssistant2 {
 			_running = true;
 		}
 
-		public static void ChangeToRandom() {
-			Coloring.ColorEntry color = Coloring.GetRandomColor();
+		static void ChangeColor(Coloring.ColorEntry color) {
 			ColorRequest r = new ColorRequest(color.Hex1, color.Hex2, color.Hex3);
 			QueueLayoutColorChange(r);
 			TwitchIRCManager.SendMessage($"Changing to color {color.Name} [{color.Source}]: {color.Hex1} {color.Hex2} {color.Hex3}");
+		}
+
+		public static bool TryChangeToTriple(string input) {
+			if (Coloring.TryGetTriple(input, out Coloring.ColorEntry? color)) {
+				ChangeColor(color!);
+				return true;
+			}
+			return false;
+		}
+
+		public static bool TryChangeToSingle(string input) {
+			if (Coloring.TryGetSingle(input, out Coloring.ColorEntry? color)) {
+				ChangeColor(color!);
+				return true;
+			}
+			return false;
+		}
+
+		public static void ChangeToRandom() {
+			Coloring.ColorEntry color = Coloring.GetRandomColor();
+			ChangeColor(color);
 		}
 
 		public static void QueueLayoutColorChange(ColorRequest req) {

@@ -16,6 +16,8 @@ namespace StreamAssistant2 {
 		const string REWARD_ID_TOILET_FLUSH = "cd46e822-f288-47e6-8e8c-c56155603a0e";
 		const string REWARD_ID_TOILET_RETRIEVE = "785967e7-9b58-41eb-aa11-15fed82a72ec";
 		const string REWARD_ID_COLOR_RANDOM = "d1ca4789-8461-40a0-9335-e9080fd91f29";
+		const string REWARD_ID_COLOR_SINGLE = "6fbb1ffa-555b-4e24-9cb1-f784d9f63689";
+		const string REWARD_ID_COLOR_TRIPLE = "76c02fbc-d4ad-4fb7-984d-d057c9ebb03f";
 		
 		internal async static Task ProcessAdd(JsonElement evt) {
 			string rewardId = evt.GetProperty("reward").GetProperty("id").GetString() ?? "";
@@ -23,6 +25,9 @@ namespace StreamAssistant2 {
 			string flushId = evt.GetProperty("id").GetString() ?? "";
 			string userId = evt.GetProperty("user_id").GetString() ?? "";
 			string userLogin = evt.GetProperty("user_login").GetString() ?? "";
+			string userInput = evt.GetProperty("user_input").GetString() ?? "";
+
+			bool success = false;
 
 			switch (rewardId) {
 				case REWARD_ID_TOILET_FLUSH:
@@ -50,10 +55,28 @@ namespace StreamAssistant2 {
 					Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", true);
 					await Task.Delay(62000);
 					Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", false);
-					Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, "None.png"));
+					Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, "Empty.png"));
 					break;
 				case REWARD_ID_COLOR_RANDOM:
 					LayoutColoring.ChangeToRandom();
+					break;
+				case REWARD_ID_COLOR_SINGLE:
+					success = LayoutColoring.TryChangeToSingle(userInput);
+					if (success) {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Color change request fulfilled: {userInput}");
+					}
+					else {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Color change request FAILED: {userInput}");
+					}
+					break;
+				case REWARD_ID_COLOR_TRIPLE:
+					success = LayoutColoring.TryChangeToTriple(userInput);
+					if (success) {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Color change request fulfilled: {userInput}");
+					}
+					else {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Color change request FAILED: {userInput}");
+					}
 					break;
 				default:
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unhandled channel point reward redemption id: {rewardId}");
@@ -61,25 +84,5 @@ namespace StreamAssistant2 {
 					break;
 			}
 		}
-		
-
-		// 		case "6fbb1ffa-555b-4e24-9cb1-f784d9f63689":
-		// 			// Change Layout Color
-		// 			string changeLayoutColorInput = variables["rawInput"].ToString() ?? "";
-		// 			Coloring.ChangeColor(changeLayoutColorInput, true, true);
-		// 			break;
-		// 		case "76c02fbc-d4ad-4fb7-984d-d057c9ebb03f":
-		// 			// Change Layout Color - Advanced
-		// 			string changeLayoutColorAInput = variables["rawInput"].ToString() ?? "";
-		// 			Coloring.ChangeColor(changeLayoutColorAInput, true, false);
-		// 			break;
-		// 		case "d1ca4789-8461-40a0-9335-e9080fd91f29":
-		// 			// Change Layout Color - Random
-		// 			Coloring.RandomColor();
-		// 			break;
-		// 	}
-		// 	return string.Format("{0} {1} {2}", user, rewardId, userId);
-		// }
-		
 	}
 }
