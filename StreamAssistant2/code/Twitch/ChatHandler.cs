@@ -3,12 +3,6 @@
 namespace StreamAssistant2 {
 	internal static class ChatHandler {
 
-		public class ChatMessage {
-			public string Username;
-			public string Text;
-			public string Raw;
-		}
-
 		static ChatCommand[] _commands = [
 			new ChatCommand (
 				"!civilians",

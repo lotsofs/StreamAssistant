@@ -2,6 +2,9 @@
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
+// SAPI text-to-speech, OBS, drive letters and user32.dll: the bot only runs on Windows.
+[assembly: System.Runtime.Versioning.SupportedOSPlatform("windows")]
+
 namespace StreamAssistant2
 {
 	static class Program

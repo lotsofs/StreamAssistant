@@ -49,6 +49,7 @@ namespace StreamAssistant2 {
 			if (r == 0) {
 				TwitchIRCManager.SendMessage("@LotsOfS Stop making me beg for shit >(");
 			}
+			await Task.CompletedTask;
 		}
 
 		static void CreateEarlyWarning(int minutesFromNow, Func<Task> action) {

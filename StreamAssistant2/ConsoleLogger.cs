@@ -16,6 +16,13 @@ namespace StreamAssistant2 {
 		static string LogPath => Path.Combine(LogDirectory, _logName);
 		static readonly SemaphoreSlim _semaphore = new(1,1);
 		static readonly SemaphoreSlim _writeLock = new(1,1);
+		static bool _fileWritesFailing;
+
+		static readonly TimeSpan VIEWER_CONNECT_TIMEOUT = TimeSpan.FromSeconds(10);
+		static readonly TimeSpan VIEWER_RETRY_INTERVAL = TimeSpan.FromSeconds(30);
+		static Task<bool>? _connection;
+		static DateTime _nextViewerAttempt = DateTime.MinValue;
+		static bool _viewerFailing;
 
 		public enum ColorType {
 			Error = ConsoleColor.Red,
@@ -37,7 +44,7 @@ namespace StreamAssistant2 {
 		}
 
 		public static void Start() {
-			_ = StartAsync();
+			_connection ??= CreateConnectionAsync();
 		}
 		
 		public static void ColoredLine(ColorType colorType, object text) {
@@ -58,6 +65,10 @@ namespace StreamAssistant2 {
 			try {
 				Directory.CreateDirectory(Path.Combine(LogDirectory, "Custom"));
 				await File.AppendAllTextAsync(Path.Combine(LogDirectory, "Custom", fileName), text.ToString());
+				_fileWritesFailing = false;
+			}
+			catch (Exception ex) {
+				ReportFileWriteFailure(ex);
 			}
 			finally {
 				_semaphore.Release();
@@ -75,41 +86,72 @@ namespace StreamAssistant2 {
 			try {
 				Directory.CreateDirectory(LogDirectory);
 				await File.AppendAllTextAsync(LogPath, text + Environment.NewLine + Environment.NewLine);
+				_fileWritesFailing = false;
+			}
+			catch (Exception ex) {
+				ReportFileWriteFailure(ex);
 			}
 			finally {
 				_semaphore.Release();
 			}
 		}
 
-		async static Task StartAsync() {
-			await CreateConnectionAsync();
+		/// <summary>
+		/// Tells the viewer once that log files can't be written (full or missing drive), until a
+		/// write succeeds again. Goes straight to the pipe: logging it to file would fail too.
+		/// </summary>
+		static void ReportFileWriteFailure(Exception ex) {
+			Debug.WriteLine(ex);
+			if (_fileWritesFailing) {
+				return;
+			}
+			_fileWritesFailing = true;
+			_ = WriteToViewerAsync(ConsoleColor.Red, $"[{TimeStamp()}] Error LOG1: can't write log files to {LogDirectory}: {ex.Message}");
 		}
 
-		async static Task CreateConnectionAsync() {
+		/// <summary>
+		/// Starts the viewer and waits for it to connect. On failure (missing exe, no connection
+		/// within the timeout) leaves no pipe behind, logs Error LOG2 to the file once per failure
+		/// streak, and returns false; the next attempt waits VIEWER_RETRY_INTERVAL.
+		/// </summary>
+		async static Task<bool> CreateConnectionAsync() {
 			DisposePipe();
-			
+			_nextViewerAttempt = DateTime.UtcNow + VIEWER_RETRY_INTERVAL;
+
 			_pipeName = $"S.StreamAssistant.{Environment.ProcessId}";
 
 			string executable = Path.Combine(AppContext.BaseDirectory,"logger/StreamAssistantLog.exe");
 
-			Debug.WriteLine(_process);
-			_process = Process.Start(new ProcessStartInfo {
-				FileName = executable,
-				Arguments = _pipeName,
-				UseShellExecute = true
-			});
+			try {
+				_process = Process.Start(new ProcessStartInfo {
+					FileName = executable,
+					Arguments = _pipeName,
+					UseShellExecute = true
+				}) ?? throw new InvalidOperationException("Process.Start returned no process");
 
-			_pipe = new NamedPipeServerStream(
-				_pipeName,
-				PipeDirection.Out,
-				1,
-				PipeTransmissionMode.Byte,
-				PipeOptions.Asynchronous
-			);
+				_pipe = new NamedPipeServerStream(
+					_pipeName,
+					PipeDirection.Out,
+					1,
+					PipeTransmissionMode.Byte,
+					PipeOptions.Asynchronous
+				);
 
-			await _pipe.WaitForConnectionAsync();
+				using CancellationTokenSource timeout = new(VIEWER_CONNECT_TIMEOUT);
+				await _pipe.WaitForConnectionAsync(timeout.Token);
 
-			_writer = new BinaryWriter(_pipe, Encoding.UTF8, leaveOpen: true);
+				_writer = new BinaryWriter(_pipe, Encoding.UTF8, leaveOpen: true);
+				_viewerFailing = false;
+				return true;
+			}
+			catch (Exception ex) {
+				DisposePipe();
+				if (!_viewerFailing) {
+					_viewerFailing = true;
+					LogToFile($"[{TimeStamp()}] Error LOG2: couldn't start the log viewer ({executable}): {ex.Message}");
+				}
+				return false;
+			}
 		}
 		
 		static async Task ColoredLineAsync(ConsoleColor color, object text) {
@@ -118,49 +160,53 @@ namespace StreamAssistant2 {
 			}
 
 			string message = $"[{TimeStamp()}] {text}";
-			await LogToFileAsync(message);
+			// Not awaited: a failing file write must never hold up or kill the viewer line.
+			_ = LogToFileAsync(message);
+			await WriteToViewerAsync(color, message);
+		}
 
+		/// <summary>
+		/// Sends one line to the viewer. Waits for a connection attempt in progress; if there is no
+		/// viewer and it isn't time to retry, or the retry fails, the line goes to the file only.
+		/// </summary>
+		static async Task WriteToViewerAsync(ConsoleColor color, string message) {
 			await _writeLock.WaitAsync();
 			try {
-				if (_pipe == null || _writer == null || !_pipe.IsConnected) {
-					await RestartAsync();
+				if (_connection is { IsCompleted: false }) {
+					await _connection;
 				}
-				_writer.Write((byte)color);
+				if (_pipe == null || _writer == null || !_pipe.IsConnected) {
+					if (DateTime.UtcNow < _nextViewerAttempt || !await RestartAsync()) {
+						return;
+					}
+				}
+				_writer!.Write((byte)color);
 				byte[] bytes = Encoding.UTF8.GetBytes(message);
 				_writer.Write(bytes.Length);
 				_writer.Write(bytes);
 				_writer.Flush();
 			}
 			catch (Exception ex) {
+				// The viewer went away mid-write: drop the pipe so the next line reconnects.
 				LogToFile(ex);
-				await RestartAsync();
-				
-				_writer.Write((byte)color);
-				byte[] bytes = Encoding.UTF8.GetBytes(message);
-				_writer.Write(bytes.Length);
-				_writer.Write(bytes);
-				_writer.Flush();
+				DisposePipe();
 			}
 			finally {
 				_writeLock.Release();
 			}
 		}
 
-		static async Task RestartAsync() {
-			DisposePipe();
-
-
+		static Task<bool> RestartAsync() {
 			try {
-				if (!_process.HasExited) {
+				if (_process != null && !_process.HasExited) {
 					_process.Kill(true);
 				}
 			}
-			catch (InvalidOperationException ex) {
+			catch (Exception ex) {
 				LogToFile(ex);
-				// Process exited anyway
 			}
-
-			await CreateConnectionAsync();
+			_connection = CreateConnectionAsync();
+			return _connection;
 		}
 
 		static void DisposePipe() {

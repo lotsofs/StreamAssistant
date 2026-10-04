@@ -165,7 +165,8 @@ namespace StreamAssistant2 {
 				TextToSpeech.EnqueueSpeech(msg);
 			}
 			catch (Exception ex) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.None, ex);
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error SUB1");
+				ConsoleLogger.LogToFile(ex);
 			}
 		}
 		

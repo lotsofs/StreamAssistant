@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 namespace StreamAssistant2 {
 	 internal class Clock {
 		public class ScheduledJob {
-			public Func<DateTime> GetNextRun;
-			public Func<Task> Action;
+			public required Func<DateTime> GetNextRun;
+			public required Func<Task> Action;
 			public DateTime NextRun;
 			public bool Repeat;
 			public CancellationTokenSource Cancellation = new();

@@ -12,15 +12,18 @@ namespace StreamAssistant2.Tests {
 	public class RealDataSmokeTest {
 		[RealDataFact]
 		public void RealDataLoadsCompletely() {
-			ColorData.Load(ColorData.RealColors, ColorData.RealColorSchemes);
+			// [RealDataFact] only runs this when both directories are known and exist.
+			string colors = ColorData.RealColors!;
+			string colorSchemes = ColorData.RealColorSchemes!;
+			ColorData.Load(colors, colorSchemes);
 			try {
-				foreach (string file in Directory.EnumerateFiles(ColorData.RealColors, "*.json")) {
+				foreach (string file in Directory.EnumerateFiles(colors, "*.json")) {
 					string source = Path.GetFileNameWithoutExtension(file);
 					var raw = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(file))!;
 					Assert.Equal(raw.Count, ColorTableRegistry.Tables[source].Entries.Count);
 				}
 
-				foreach (string file in Directory.EnumerateFiles(ColorData.RealColorSchemes, "*.json")) {
+				foreach (string file in Directory.EnumerateFiles(colorSchemes, "*.json")) {
 					string setName = Path.GetFileNameWithoutExtension(file);
 					var categories = (JObject)JObject.Parse(File.ReadAllText(file))["Categories"]!;
 					foreach (var (categoryName, category) in categories) {

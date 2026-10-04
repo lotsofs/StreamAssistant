@@ -71,8 +71,10 @@ namespace StreamAssistant2 {
 
 		static async Task ListenLoop(CancellationToken token) {
 			try {
+				StreamReader reader = _reader ?? throw new InvalidOperationException("ListenLoop started without a connection");
+				StreamWriter writer = _writer ?? throw new InvalidOperationException("ListenLoop started without a connection");
 				while (!token.IsCancellationRequested) {
-					var message = await _reader.ReadLineAsync();
+					var message = await reader.ReadLineAsync();
 					if (message == null) {
 						throw new Exception("Received null IRC message");
 					}
@@ -80,7 +82,7 @@ namespace StreamAssistant2 {
 					_lastPingTime = DateTime.UtcNow;
 
 					if (message.StartsWith("PING")) {
-						await _writer.WriteLineAsync("PONG :tmi.twitch.tv");
+						await writer.WriteLineAsync("PONG :tmi.twitch.tv");
 						continue;
 					}
 

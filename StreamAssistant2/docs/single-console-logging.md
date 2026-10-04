@@ -225,15 +225,13 @@ because `ColoredLine` is fire-and-forget and `Dispose()` tears the pipe down imm
 
 ## Latent bugs fixed as a side effect
 
-Worth noting in the commit message. The first two are described in full in
-[robustness-fixes.md](robustness-fixes.md) as **DRV** and **NRE** — **if this change goes ahead,
-those two items should be skipped there rather than done twice**, because this design removes the
-code they describe.
+Worth noting in the commit message. The first two were already fixed in the two-process logger on
+2026-10-04; this design keeps them fixed by construction.
 
-1. A missing or full log drive silently kills all console output (robustness **DRV**). Fixed
-   structurally by the two independent channels.
-2. `NullReferenceException` thrown from inside the error handler (robustness **NRE**). The code is
-   deleted.
+1. A missing or full log drive silently killing all console output. The file write no longer gates
+   the viewer write; here the two channels are independent by design.
+2. A `NullReferenceException` inside the error handler when the viewer couldn't start. The viewer
+   start now fails cleanly and is throttled; here that code is deleted outright.
 3. **Log ordering is non-deterministic.** Fire-and-forget → `await` file IO under a semaphore → *then*
    take `_writeLock` means two concurrent callers can reach the console in the opposite order from
    their calls, and console and file order can diverge. Single-consumer channels give FIFO per sink.

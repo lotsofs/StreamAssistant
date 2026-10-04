@@ -3,7 +3,7 @@
 Every tracked item across the detail docs in this folder, by code. This file is the registry: a code can be resolved
 to its area, summary and detail location from here alone, without opening the detail docs.
 
-Refer to items by code in conversation (e.g. "do RAN", "what's left on WRN").
+Refer to items by code in conversation (e.g. "do SCL", "what's left on FTR").
 
 ## Conventions
 
@@ -18,15 +18,10 @@ Refer to items by code in conversation (e.g. "do RAN", "what's left on WRN").
 
 ## Open — defects and tasks
 
-Detail: [robustness-fixes.md](robustness-fixes.md)
+Detail: [robustness-fixes.md](robustness-fixes.md) — _none open right now._
 
 | Code | Area | Summary | Severity |
 |---|---|---|---|
-| [DRV](robustness-fixes.md#drv--log-drive-failure-kills-all-console-output) | Logging | A full or missing `D:` silently kills *all* console output — no error, bot just goes quiet | High, silent |
-| [CHN](robustness-fixes.md#chn--one-exception-logged-on-the-wrong-channel) | Logging | `Subscriptions.cs` logs an exception on `ColorType.None` instead of `Error` | Trivial |
-| [WRN](robustness-fixes.md#wrn--make-the-build-warning-clean) | Build | Compiler warnings: unused `ChatMessage` type, unused `MONEY_PER_BIT`, `CA1416` from the platform-neutral TFM | Housekeeping |
-| [NRE](robustness-fixes.md#nre--nullreferenceexception-inside-the-error-handler) | Logging | Three `CS8602` null-derefs in `ConsoleLogger`'s failure path; the handler itself throws | Medium — *skip if SCL lands* |
-| [ROT](robustness-fixes.md#rot--log-directories-grow-without-bound) | Logging | `AssistantLogs/` 133 files/33 MB, `Custom/` 585 files; nothing prunes | Housekeeping |
 
 ## Banked — designed, not started
 

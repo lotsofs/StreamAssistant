@@ -20,7 +20,7 @@ namespace StreamAssistant2 {
 		
 		static string TestPath => Path.Combine(Config.Data.Directories.BotInput, "Tests");
 
-		const bool IS_TEST = false;
+		static readonly bool IS_TEST = false;
 
 		static string _clientId = "";
 		static string _accessToken = "";
@@ -118,7 +118,7 @@ namespace StreamAssistant2 {
 					case "session_welcome":
 						KeepAliveTimer.Restart();
 						// ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, "session_welcome");
-						_sessionId = root.GetProperty("payload").GetProperty("session").GetProperty("id").GetString();
+						_sessionId = root.GetProperty("payload").GetProperty("session").GetProperty("id").GetString() ?? "";
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, $"EventSub Session Welcome. Session ID: {_sessionId}");
 						await SubscribeToEvents();
 						break;
@@ -252,7 +252,7 @@ namespace StreamAssistant2 {
 			}
 			catch (Exception ex) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error TES2");
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, ex);
+				ConsoleLogger.LogToFile(ex);
 			}
 
 			_socket = null;

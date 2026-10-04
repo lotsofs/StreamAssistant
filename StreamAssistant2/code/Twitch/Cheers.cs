@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace StreamAssistant2 {
 	internal static class Cheers {
-		static float MONEY_PER_BIT = 0.005f; // Half of earnings.
+		const float MONEY_PER_BIT = 0.005f; // Half of earnings.
 
 		internal async static Task Process(JsonElement evt) {
 			bool is_anonymous = evt.GetProperty("is_anonymous").GetBoolean();

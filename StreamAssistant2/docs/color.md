@@ -60,7 +60,7 @@ OBS animation. Requests are queued, not run directly, so they never overlap.
 ## Data files
 
 Both directories are configured in `paths.json` (`Directories.Colors`,
-`Directories.ColorSchemes`), and currently sit in `Stream-Resources\Bot Input\`. Each `*.json` file in them is loaded, and its file name becomes its
+`Directories.ColorSchemes`), currently `Stream-Resources\Colors\Tables\` and `Colors\Schemes\`. Each `*.json` file in them is loaded, and its file name becomes its
 name.
 
 **Colour tables** map names to hex. The file name (`crayola`, `encycolorpedia`, …) is the table's
@@ -101,8 +101,8 @@ Rules for the data:
 ## Loading
 
 `Coloring.Load()` runs from `Program.cs` after `ConsoleLogger.Start()` and its one-second wait for
-the viewer. It has to: loading logs on `Important` whenever it drops something, and logging before
-the viewer exists hits the NRE bug in `ConsoleLogger`. The possible lines:
+the viewer. Loading logs on `Important` whenever it drops something, and those lines belong in the
+viewer the bot started, not in one an early log line would launch on its own. The possible lines:
 
 ```
 Colour table <source>: skipped "<name>", "<value>" is not a hex colour
@@ -217,8 +217,9 @@ literal-hex input path lowercases both the colour and its displayed name. Keep n
   loaded into the static registries by `ColorDataFixture`.
 - **No parallelism:** because the registries are static, test parallelism is switched off, and a
   test that loads other data must reload the fixtures in a `finally`.
-- **Real-data smoke test:** `RealDataSmokeTest` also loads the real `Stream-Resources` colour data
-  and checks every entry survived loading. It is skipped on machines without that folder.
+- **Real-data smoke test:** `RealDataSmokeTest` also loads the real colour data from the directories
+  in the bot's own `paths.json` and checks every entry survived loading. It follows the data when it
+  moves, and is skipped (with the reason) when there's no `paths.json` or it names missing folders.
 - **Open bugs:** a newly found bug can get a test for the correct behaviour straight away, marked
   `Skip = "<code>: …"`; fixing the bug then means deleting the `Skip`.
 - **Keep fixtures valid and collision-free.** An invalid or colliding entry makes the loader call
@@ -234,8 +235,10 @@ references the built `StreamAssistant2.dll` and mirrors `Program.cs`:
 4. Send `"SHUTDOWN!"` so the viewer closes.
 
 Writing to the real log is fine, but this opens a log viewer window, so only run it with the
-user's go-ahead. Calling `ColoredLine` without `Start()` avoids the window but hits the NRE bug,
-which fills the log with exception traces. Scratch programs and tests must never stop or start the
+user's go-ahead. Calling `ColoredLine` without `Start()` doesn't avoid it: the first line launches
+the viewer itself, wherever `logger\StreamAssistantLog.exe` sits next to the running program. A
+process without that exe beside it (the test project's output, `dotnet fsi`) just logs `Error LOG2`
+to the file, and no window opens. Scratch programs and tests must never stop or start the
 running bot either; build them with `-p:BaseOutputPath=<scratch folder>` while it holds `bin/`.
 
 For behaviour neither covers, a before/after diff still works: a scratch program that loads the
