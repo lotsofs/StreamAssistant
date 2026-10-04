@@ -24,7 +24,7 @@ namespace StreamAssistant2 {
 		}
 
 		public static bool TryChangeToTriple(string input) {
-			if (Coloring.TryGetTriple(input, out Coloring.ColorEntry? color)) {
+			if (TripleColorParser.TryParse(input, out Coloring.ColorEntry? color)) {
 				ChangeColor(color!);
 				return true;
 			}
@@ -32,7 +32,7 @@ namespace StreamAssistant2 {
 		}
 
 		public static bool TryChangeToSingle(string input) {
-			if (Coloring.TryGetSingle(input, out Coloring.ColorEntry? color)) {
+			if (SingleColorParser.TryParse(input, out Coloring.ColorEntry? color)) {
 				ChangeColor(color!);
 				return true;
 			}
@@ -70,9 +70,9 @@ namespace StreamAssistant2 {
 
 		static async Task ChangeColorAsync(ColorRequest req) {
 			string filterName = "Color Correction";
-			long colInner = Coloring.ToOBS(req.Inner);
-			long colOuter = Coloring.ToOBS(req.Outer);
-			long colText = Coloring.ToOBS(req.Text);
+			long colInner = ColorUtil.ToOBS(req.Inner);
+			long colOuter = ColorUtil.ToOBS(req.Outer);
+			long colText = ColorUtil.ToOBS(req.Text);
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Changing layout color to {colInner} {colOuter} {colText}");
 
 			Obs.SetFilterProperty("Border: Colorable Inner (Transitionary)", filterName, "color_multiply", colInner);

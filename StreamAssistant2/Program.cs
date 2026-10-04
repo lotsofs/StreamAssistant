@@ -18,7 +18,6 @@ namespace StreamAssistant2
 			ConsoleHelper.SetIcon();
 
 			Config.Load();
-			Coloring.Load();
 
 			TaskCompletionSource shutdownTcs = new TaskCompletionSource();
 
@@ -34,6 +33,8 @@ namespace StreamAssistant2
 			ConsoleLogger.Start();
 			Dashboard.Start();
 			await Task.Delay(1000);
+
+			Coloring.Load();
 
 			await Database.InitAsync();
 

@@ -7,16 +7,16 @@ using Newtonsoft.Json;
 namespace StreamAssistant2 {
 	public static class ColorTables {
 		public class Table {
-			Dictionary<string, NamedColor> _entries = new(new ColorNameComparer());
+			Dictionary<string, NamedColor> _entries = new(ColorNameComparer.Instance);
 			public Dictionary<string, NamedColor> Entries { 
 				get => _entries; 
-				set => _entries = new Dictionary<string, NamedColor>(value, new ColorNameComparer());
+				set => _entries = new Dictionary<string, NamedColor>(value, ColorNameComparer.Instance);
 			}
 		}
 		
 		public sealed record NamedColor(string Source, string OriginalName, string Hex);
 		
-		public static readonly Dictionary<string, Table> Tables = new (new ColorNameComparer());
+		public static readonly Dictionary<string, Table> Tables = new (ColorNameComparer.Instance);
 
 		public static void LoadTables() {
 			Tables.Clear();
@@ -28,7 +28,11 @@ namespace StreamAssistant2 {
 					continue;
 				}
 				Tables[source] = new Table();
-				foreach (var (name, hex) in dict) {
+				foreach (var (name, value) in dict) {
+					if (!ColorUtil.TryNormalizeHex(value, out string hex)) {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Colour table {source}: skipped \"{name}\", \"{value}\" is not a hex colour");
+						continue;
+					}
 					Tables[source].Entries[name] = new NamedColor(source, name, hex);
 				}
 			}
