@@ -5,7 +5,7 @@ using System.Drawing;
 using Newtonsoft.Json;
 
 namespace StreamAssistant2 {
-	public static class ColorSchemes {
+	public static class ColorSchemeRegistry {
 		public class ThemeSet {
 			Dictionary<string, Category> _categories = new(ColorNameComparer.Instance);
 			public Dictionary<string, Category> Categories { 

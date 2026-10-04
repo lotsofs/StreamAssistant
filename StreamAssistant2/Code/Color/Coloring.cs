@@ -5,12 +5,12 @@ namespace StreamAssistant2 {
 		public sealed record ColorEntry(string Source, string Name, string Hex1, string Hex2, string Hex3);
 
 		public static void Load() {
-			ColorSchemes.LoadSets();
-			ColorTables.LoadTables();
+			ColorSchemeRegistry.LoadSets();
+			ColorTableRegistry.LoadTables();
 		}
 
 		public static ColorEntry GetRandomColor() {
-			var color = ColorTables.GetRandomColor();
+			var color = ColorTableRegistry.GetRandomColor();
 			var hex = color.Hex;
 			return new ColorEntry(color.Source, color.OriginalName, hex, Darken(hex), Lighten(hex));
 		}

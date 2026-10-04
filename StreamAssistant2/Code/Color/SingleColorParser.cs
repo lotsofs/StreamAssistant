@@ -92,18 +92,24 @@ namespace StreamAssistant2 {
 			return false;
 		}
 
+		/// <summary>
+		/// Schemes (strict only), then table colours strictly, then table colours through
+		/// ColorTable.TryGetLoose. So an exact spelling anywhere beats a loose match anywhere.
+		/// </summary>
 		static bool TryGetNamed(string input, out ColorEntry? colorEntry) {
 			colorEntry = null;
-			if (ColorSchemes.TryGetScheme(input, out ColorSchemes.ColorSchemeData? data)) {
+			if (ColorSchemeRegistry.TryGetScheme(input, out ColorSchemeRegistry.ColorSchemeData? data)) {
 				string source = data!.SetName;
 				string name = $"{data.CategoryName}:{data.SchemeName}";
 				colorEntry = new(source, name, data.Scheme.Inner, data.Scheme.Outer, data.Scheme.Text);
 				return true;
 			}
-			if (ColorTables.TryGetTableColor(input, out ColorTables.NamedColor? colorInfo)) {
-				string hex = colorInfo!.Hex;
-				colorEntry = new(colorInfo.Source, colorInfo.OriginalName, hex, Darken(hex), Lighten(hex));
-				return true;
+			foreach (bool loose in (bool[])[false, true]) {
+				if (ColorTableRegistry.TryGetTableColor(input, loose, out NamedColor? colorInfo)) {
+					string hex = colorInfo!.Hex;
+					colorEntry = new(colorInfo.Source, colorInfo.OriginalName, hex, Darken(hex), Lighten(hex));
+					return true;
+				}
 			}
 			return false;
 		}
