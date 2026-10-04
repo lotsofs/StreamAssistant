@@ -49,11 +49,6 @@ namespace StreamAssistant2 {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"QueueLayoutColorChange failed ({req.Inner}, {req.Outer}, {req.Text})");
 			}
 		}
-		public static void QueueLayoutColorChange(string inner, string outer, string text) {
-			if (!_colorChangeQueue.Writer.TryWrite(new ColorRequest(inner, outer, text))) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"QueueLayoutColorChange failed ({inner}, {outer}, {text})");
-			}
-		}
 
 		static async Task ProcessColorChangeQueueAsync() {
 			await foreach (var request in _colorChangeQueue.Reader.ReadAllAsync()) {

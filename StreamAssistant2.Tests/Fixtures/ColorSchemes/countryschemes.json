@@ -1,0 +1,10 @@
+{
+	"Categories": {
+		"Albania": {
+			"ColorSchemes": {
+				"AL": { "Inner": "#000000", "Outer": "#FF0000", "Text": "#ff0000" }
+			},
+			"Default": "AL"
+		}
+	}
+}

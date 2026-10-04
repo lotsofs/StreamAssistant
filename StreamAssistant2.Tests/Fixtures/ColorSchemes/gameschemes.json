@@ -1,0 +1,11 @@
+{
+	"Categories": {
+		"GTAVC": {
+			"ColorSchemes": {
+				"Weapon": { "Inner": "#112233", "Outer": "#445566", "Text": "#778899" },
+				"Hud": { "Inner": "#AABBCC", "Outer": "#DDEEFF", "Text": "#123456" }
+			},
+			"Default": "Hud"
+		}
+	}
+}

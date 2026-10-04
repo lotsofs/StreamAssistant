@@ -19,6 +19,11 @@
 	<ItemGroup>
 		<ProjectReference Include="..\StreamAssistantLog\StreamAssistantLog.csproj" />
 	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Lets the tests reach internal types such as Config. -->
+		<InternalsVisibleTo Include="StreamAssistant2.Tests" />
+	</ItemGroup>
 	
 	<ItemGroup>
 		<None Update="secrets.json">
