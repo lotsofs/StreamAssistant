@@ -100,9 +100,9 @@ Rules for the data:
 
 ## Loading
 
-`Coloring.Load()` runs from `Program.cs` after `ConsoleLogger.Start()` and its one-second wait for
-the viewer. Loading logs on `Important` whenever it drops something, and those lines belong in the
-viewer the bot started, not in one an early log line would launch on its own. The possible lines:
+`Coloring.Load()` is the first step of the bot's startup in `Program.cs`, run once the window has
+loaded so its lines show there. Loading logs on `Important` whenever it drops something. The
+possible lines:
 
 ```
 Colour table <source>: skipped "<name>", "<value>" is not a hex colour
@@ -228,18 +228,11 @@ literal-hex input path lowercases both the colour and its displayed name. Keep n
   `Config.Data.Directories` and call `ColorSchemeRegistry.DropDuplicateNames`.
 
 **The logging paths** aren't unit-tested. To check them for real, write a scratch program that
-references the built `StreamAssistant2.dll` and mirrors `Program.cs`:
-1. Copy the published viewer (`bin/Debug/net8.0/logger/`) next to the scratch program.
-2. Call `ConsoleLogger.Start()`, then wait a second.
-3. Point `Config.Data.Directories` at deliberately broken data and call `Coloring.Load()`.
-4. Send `"SHUTDOWN!"` so the viewer closes.
-
-Writing to the real log is fine, but this opens a log viewer window, so only run it with the
-user's go-ahead. Calling `ColoredLine` without `Start()` doesn't avoid it: the first line launches
-the viewer itself, wherever `logger\StreamAssistantLog.exe` sits next to the running program. A
-process without that exe beside it (the test project's output, `dotnet fsi`) just logs `Error LOG2`
-to the file, and no window opens. Scratch programs and tests must never stop or start the
-running bot either; build them with `-p:BaseOutputPath=<scratch folder>` while it holds `bin/`.
+references the built `StreamAssistant2.dll`, subscribes to `ConsoleLogger.LineLogged` (or just reads
+the log file), points `Config.Data.Directories` at deliberately broken data and calls
+`Coloring.Load()`. No window opens: only `Program.Main` creates one. Writing to the real log is
+fine. Scratch programs and tests must never stop or start the running bot; build them with
+`-p:BaseOutputPath=<scratch folder>` while it holds `bin/`.
 
 For behaviour neither covers, a before/after diff still works: a scratch program that loads the
 colour data and prints parser results for a fixed list of inputs, run on the build before and after

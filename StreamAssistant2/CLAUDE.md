@@ -14,7 +14,6 @@ Detail lives in the other files in [docs/](docs/), which record findings expensi
 
 - [docs/robustness-fixes.md](docs/robustness-fixes.md) — known bugs, loose ends and verification tasks, one `##` section per code.
 - [docs/color.md](docs/color.md) — how colour requests are resolved (`code/Color/`): the files, the data file formats, the single and triple parsing rules, loose matching, and how to test it. **Read it before changing anything in `code/Color/`.**
-- [docs/single-console-logging.md](docs/single-console-logging.md) — `SCL`, a designed-but-unstarted change that would delete the two-process logging described below, plus deferred items of its own.
 
 Conventions that keep the index trustworthy:
 
@@ -26,10 +25,10 @@ Conventions that keep the index trustworthy:
 ## Commands
 
 ```bash
-# Build (also builds + publishes the logger into bin/<Config>/net8.0/logger/)
+# Build (output in bin/<Config>/net8.0-windows/)
 dotnet build StreamAssistant2.csproj
 
-# Run — must run from the project dir: paths.json, secrets.json.example and icon.ico are resolved relative to cwd
+# Run — must run from the project dir: paths.json and secrets.json.example are resolved relative to cwd
 dotnet run --project StreamAssistant2.csproj
 
 # Release
@@ -39,9 +38,9 @@ dotnet build StreamAssistant2.csproj -c Release
 dotnet test ../StreamAssistant2.Tests/StreamAssistant2.Tests.csproj
 ```
 
-VS Code's `build` task and `.NET Console Launch` config (external terminal, `cwd` = workspace folder) do the same.
+VS Code's `build` task and `.NET Console Launch` config (internal console, since the app has no console window of its own; `cwd` = workspace folder) do the same.
 
-Only `code/Color/` has tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch the logger window.
+Only `code/Color/` has tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch its window.
 
 Configuration is split across two files, both read by [Config.cs](Config.cs):
 
@@ -50,22 +49,21 @@ Configuration is split across two files, both read by [Config.cs](Config.cs):
 
 The project's `.gitignore` covers `paths.json` and `secrets.json`; nothing copies either into the build output.
 
-## Two-process architecture
+## The dashboard window
 
-The app runs as **two console processes**:
+The app is a WPF program (`net8.0-windows`, `WinExe`) with one window, [MainWindow](ui/MainWindow.xaml.cs). Along the top is a status bar showing IRC ping age and EventSub keepalive age, refreshed every 250 ms and colour-coded as they approach timeout. Below it is the coloured log. More panels are expected to join it; it's a personal dashboard, not something shown on stream.
 
-1. `StreamAssistant2` — the bot. Its own console is owned by [Dashboard.cs](code/Ui/Dashboard.cs), which repaints a one-line status bar at cursor (0,0) every 15 ms showing IRC ping age and EventSub keepalive age, colour-coded as they approach timeout. **Never `Console.Write` from anywhere else in this process** — it will be trampled by the dashboard loop.
-2. `StreamAssistantLog` (`../StreamAssistantLog`) — the log viewer. Spawned as a child by [ConsoleLogger.cs](ConsoleLogger.cs), fed over a named pipe `S.StreamAssistant.<pid>`. Wire format per line: 1 byte `ConsoleColor`, `int32` length, UTF-8 bytes. The viewer exits when it receives a message ending in `SHUTDOWN!`.
+All human-readable output goes through `ConsoleLogger.ColoredLine(ColorType.X, text)`, which appends to the dated log file and raises `ConsoleLogger.LineLogged`. The window subscribes to that event and marshals each line onto the UI thread with `Dispatcher.InvokeAsync`. It keeps the last 5000 lines (the file has everything), follows the end only while scrolled to the bottom, and copies selected lines with Ctrl+C. `ColorType` is a semantic channel (`ChatIncoming`, `EventSubNotification`, `Helix`, `AdNotification`, `Error`, `Important`, …) — pick the channel that matches the event, not the colour you want. The hex colour for each channel lives in `MainWindow`'s `_logColors` table. `ConsoleLogger.LogToFile` is file-only (use it for raw JSON payloads and exceptions); `LogToCustomFile` writes one file per event under `AssistantLogs/Custom/`. If log files can't be written, `Error LOG1` appears in the window once, until a write succeeds again.
 
-So all human-readable output goes through `ConsoleLogger.ColoredLine(ColorType.X, text)`, which both appends to the daily log file and ships the line to the viewer. If the pipe is dead it kills and respawns the child process, then retries. `ColorType` is a semantic channel (`ChatIncoming`, `EventSubNotification`, `Helix`, `AdNotification`, `Error`, `Important`, …) backed by a `ConsoleColor` value — pick the channel that matches the event, not the colour you want. `ConsoleLogger.LogToFile` is file-only (use it for raw JSON payloads and exceptions); `LogToCustomFile` writes one file per event under `AssistantLogs/Custom/`.
+Bot code never touches WPF controls: it logs, and the window reads the static state it displays (`TwitchIRCManager.TimeSinceLastPing`, `TwitchEventSub.KeepAliveTimer`). A new panel follows the same pattern: poll on a `DispatcherTimer` or subscribe to an event and marshal with the window's `Dispatcher`.
 
 ## Startup and wiring
 
 [Program.cs](Program.cs) is the whole composition root — there is no DI, no service registry. Order matters:
 
-`Config.Load()` → `ConsoleLogger.Start()` → `Dashboard.Start()` → 1 s wait for the viewer to connect → `Coloring.Load()` → `Database.InitAsync()` → `Clock.Start()` + `Clock.AddGenericJobs()` → `EnableBot()` (OBS connect, IRC connect + `OnMessage += ChatHandler.ProcessMessage`, Helix init, EventSub connect, `LayoutColoring.StartWorker()`), then await Ctrl+C / ProcessExit and `DisableBot()`.
+`Main` is a synchronous `[STAThread]` method, because WPF needs the STA thread and an `async Main` loses it after the first `await`. It runs `Config.Load()` (a failure shows a message box and exits, since there is no console to print to), creates the `Application` and `MainWindow`, and runs the window. When the window has loaded, `StartBotAsync` runs **on the thread pool**: `Coloring.Load()` → `Database.InitAsync()` → `Clock.Start()` + `Clock.AddGenericJobs()` → `EnableBot()` (OBS connect, IRC connect + `OnMessage += ChatHandler.ProcessMessage`, Helix init, EventSub connect, `LayoutColoring.StartWorker()`). A startup exception logs `Error PRG1`.
 
-Anything that logs via `ColoredLine` should run after that wait. A line logged before `Start()` launches the viewer itself (`Start()` then does nothing), and lines logged while the viewer is still connecting wait for it. That is why `Coloring.Load()`, which logs skipped colour entries, sits after the wait. If the viewer can't be started at all, lines still reach the log file, `Error LOG2` is written there once, and a relaunch is tried at most every 30 s.
+Starting on the thread pool is load-bearing. Started from the UI thread, every fire-and-forget loop would capture WPF's synchronization context and run its continuations on the UI thread. Closing the window ends `Application.Run`; `Main` then posts the shutdown message to chat, logs `SHUTDOWN!` and calls `DisableBot()`.
 
 Nearly every module is a `static class` holding its own state, started once from here. This is the dominant pattern in the codebase; follow it rather than introducing instances.
 
@@ -106,8 +104,8 @@ Colour *resolution* is separate, under [code/Color/](code/Color/), and documente
 
 Two migrations are in flight; expect inconsistency and don't "clean up" either without being asked:
 
-1. **WinForms → console.** The old `Form_StreamAssistant.*` UI was deleted and replaced by the `Dashboard` + logger-process pair. `StreamAssistant2.csproj.user` still references the dead form.
-2. **Flat root → `code/<Area>/`.** [code/Color/](code/Color/), [code/Twitch/](code/Twitch/) and [code/Ui/](code/Ui/) are the new home. The folder is lowercase `code/`; on Windows a case-only rename of it has to go through `git mv` (git runs with `core.ignorecase`), and VS Code holds a handle on the folder itself, so move its subfolders rather than renaming it. Put new files under `code/<Area>/`; a sizeable set of modules (`Subscriptions.cs`, `LayoutColoring.cs`, `Clock.cs`, `Obs.cs`, …) is still at the root.
+1. **WinForms → console → WPF.** The old `Form_StreamAssistant.*` UI was deleted, replaced by a console status bar plus a separate log-viewer process, and then by the WPF window. `ConsoleLogger` keeps its name from the console era.
+2. **Flat root → `code/<Area>/`.** [code/Color/](code/Color/) and [code/Twitch/](code/Twitch/) are the new home. The folder is lowercase `code/`; on Windows a case-only rename of it has to go through `git mv` (git runs with `core.ignorecase`), and VS Code holds a handle on the folder itself, so move its subfolders rather than renaming it. Put new files under `code/<Area>/`, except WPF windows and panels (XAML plus its code-behind), which go in [ui/](ui/). A sizeable set of modules (`Subscriptions.cs`, `LayoutColoring.cs`, `Clock.cs`, `Obs.cs`, …) is still at the root.
 
 Beyond that, the repo carries a lot of commented-out code from the era when this tool was a helper for Streamer.Bot and communicated through a `MsgQueue` (~24 references, all commented). [Games.cs](Games.cs), [Donations.cs](Donations.cs), and [LeftPanel.cs](LeftPanel.cs) are entirely commented out, and the public command replies in `ChatHandler.CheckForCommands` are stubbed the same way — they parse and match, then don't send. The admin commands in `CheckForAdminCommands` work (`!test`, and the colour commands `!changecolor`, `!changecolors`, `!changecolorrandom`, which mirror the three colour rewards), except the `!stoppaneltimer` stub. `MsgQueue` no longer exists; porting one of these means routing it to `TwitchIRCManager.SendMessage`, `TextToSpeech.EnqueueSpeech`, or `LayoutColoring` instead.
 

@@ -1,0 +1,51 @@
+<Window x:Class="StreamAssistant2.MainWindow"
+		xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		Title="Stream Assistant"
+		Icon="/icon.ico"
+		Width="1100" Height="650"
+		Background="#0C0C0C"
+		FontFamily="Consolas" FontSize="13">
+	<DockPanel>
+		<Border DockPanel.Dock="Top" Background="#1E1E1E" Padding="6,4" BorderBrush="#333333" BorderThickness="0,0,0,1">
+			<TextBlock Foreground="#F2F2F2">
+				<Run Text="Twitch IRC time since last ping: " /><Run x:Name="IrcAge" />
+				<Run Text="  |  Event Sub time since last keepalive: " /><Run x:Name="EventSubAge" />
+			</TextBlock>
+		</Border>
+
+		<ListBox x:Name="LogList"
+				 Background="Transparent" BorderThickness="0"
+				 SelectionMode="Extended"
+				 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+				 VirtualizingPanel.IsVirtualizing="True"
+				 VirtualizingPanel.VirtualizationMode="Recycling">
+			<ListBox.CommandBindings>
+				<CommandBinding Command="ApplicationCommands.Copy" Executed="CopySelected" />
+			</ListBox.CommandBindings>
+			<ListBox.ItemContainerStyle>
+				<Style TargetType="ListBoxItem">
+					<Setter Property="Template">
+						<Setter.Value>
+							<ControlTemplate TargetType="ListBoxItem">
+								<Border x:Name="Row" Background="Transparent" Padding="6,0">
+									<ContentPresenter />
+								</Border>
+								<ControlTemplate.Triggers>
+									<Trigger Property="IsSelected" Value="True">
+										<Setter TargetName="Row" Property="Background" Value="#264F78" />
+									</Trigger>
+								</ControlTemplate.Triggers>
+							</ControlTemplate>
+						</Setter.Value>
+					</Setter>
+				</Style>
+			</ListBox.ItemContainerStyle>
+			<ListBox.ItemTemplate>
+				<DataTemplate>
+					<TextBlock Text="{Binding Text}" Foreground="{Binding Brush}" TextWrapping="Wrap" />
+				</DataTemplate>
+			</ListBox.ItemTemplate>
+		</ListBox>
+	</DockPanel>
+</Window>

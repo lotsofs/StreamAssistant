@@ -1,8 +1,6 @@
-﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
+using System.Windows;
 
-// SAPI text-to-speech, OBS, drive letters and user32.dll: the bot only runs on Windows.
+// SAPI text-to-speech, OBS, WPF and drive letters: the bot only runs on Windows.
 [assembly: System.Runtime.Versioning.SupportedOSPlatform("windows")]
 
 namespace StreamAssistant2
@@ -13,49 +11,47 @@ namespace StreamAssistant2
 		/// The main entry point for the application.
 		/// </summary>
 		[STAThread]
-		static async Task Main(string[] args) {
-			Console.Title = "Stream Assistant";
-			Console.CursorVisible = false;
+		static void Main(string[] args) {
+			try {
+				Config.Load();
+			}
+			catch (Exception ex) {
+				MessageBox.Show(ex.Message, "Stream Assistant", MessageBoxButton.OK, MessageBoxImage.Error);
+				return;
+			}
 
-			ConsoleHelper.DisableQuickEdit();
-			ConsoleHelper.SetIcon();
+			Application app = new();
+			MainWindow window = new();
+			// On the thread pool, so the bot's fire-and-forget loops don't pick up the UI thread's
+			// synchronization context and run their continuations on it.
+			window.Loaded += (_, _) => Task.Run(StartBotAsync);
 
-			Config.Load();
-
-			TaskCompletionSource shutdownTcs = new TaskCompletionSource();
-
-			Console.CancelKeyPress += (_, e) => {
-				e.Cancel = true;
-				shutdownTcs.TrySetResult();
-			};
-
-			AppDomain.CurrentDomain.ProcessExit += (_, _) => {
-				shutdownTcs.TrySetResult();
-			};
-
-			ConsoleLogger.Start();
-			Dashboard.Start();
-			await Task.Delay(1000);
-
-			Coloring.Load();
-
-			await Database.InitAsync();
-
-			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "STARTED!");
-
-			Clock.Start();
-			Clock.AddGenericJobs();
-
-			EnableBot();
-
-			TextToSpeech.ReportStart();
-
-			await shutdownTcs.Task;
+			app.Run(window);
 
 			TwitchIRCManager.SendMessage("🍂 Shutting Down");
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "SHUTDOWN!");
 			DisableBot();
-			ConsoleLogger.Dispose();
+		}
+
+		static async Task StartBotAsync() {
+			try {
+				Coloring.Load();
+
+				await Database.InitAsync();
+
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "STARTED!");
+
+				Clock.Start();
+				Clock.AddGenericJobs();
+
+				EnableBot();
+
+				TextToSpeech.ReportStart();
+			}
+			catch (Exception ex) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, $"Error PRG1: startup failed: {ex.Message}");
+				ConsoleLogger.LogToFile(ex);
+			}
 		}
 
 		private static void EnableBot() {
@@ -79,61 +75,6 @@ namespace StreamAssistant2
 			TwitchEventSub.Disconnect();
 		}
 
-	}
-
-	static class ConsoleHelper {
-		const int STD_INPUT_HANDLE = -10;
-
-		const uint ENABLE_QUICK_EDIT_MODE = 0x0040;
-		const uint ENABLE_EXTENDED_FLAGS = 0x0080;
-
-		const uint WM_SETICON = 0x0080;
-		const uint IMAGE_ICON = 1;
-		const uint LR_LOADFROMFILE = 0x0010;
-
-		[DllImport("kernel32.dll")]
-		static extern IntPtr GetStdHandle(int nStdHandle);
-
-		[DllImport("kernel32.dll")]
-		static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
-
-		[DllImport("kernel32.dll")]
-		static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
-
-		[DllImport("kernel32.dll")]
-		static extern IntPtr GetConsoleWindow();
-
-		[DllImport("user32.dll", CharSet = CharSet.Auto)]
-		static extern IntPtr SendMessage( IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-		[DllImport("user32.dll", CharSet = CharSet.Auto)]
-		static extern IntPtr LoadImage( IntPtr hInst, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
-
-
-		public static void DisableQuickEdit() {
-			var handle = GetStdHandle(STD_INPUT_HANDLE);
-
-			if (!GetConsoleMode(handle, out uint mode))
-				return;
-
-			mode &= ~ENABLE_QUICK_EDIT_MODE;
-			mode |= ENABLE_EXTENDED_FLAGS;
-
-			SetConsoleMode(handle, mode);
-		}
-
-		public static void SetIcon() {
-			IntPtr hIcon = LoadImage(IntPtr.Zero, "icon.ico", IMAGE_ICON, 0, 0, LR_LOADFROMFILE);
-
-			if (hIcon == IntPtr.Zero) {
-				return;
-			}
-
-			IntPtr hwnd = GetConsoleWindow();
-
-			SendMessage(hwnd, WM_SETICON, (IntPtr)0, hIcon);
-			SendMessage(hwnd, WM_SETICON, (IntPtr)1, hIcon);
-		}
 	}
 
 }

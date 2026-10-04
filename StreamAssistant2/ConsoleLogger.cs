@@ -1,54 +1,43 @@
 using System.Diagnostics;
-using System.IO.Pipes;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace StreamAssistant2 {
 	public static class ConsoleLogger {
 
-		static string? _pipeName;
-		static NamedPipeServerStream? _pipe;
-		static BinaryWriter? _writer;
-		static Process? _process;
+		/// <summary>
+		/// Every ColoredLine, timestamped, raised on the caller's thread in call order.
+		/// </summary>
+		public static event Action<ColorType, string>? LineLogged;
 
 		static string LogDirectory => Path.Combine(Config.Data.Directories.BotOutput, "AssistantLogs");
 		static readonly string _logName = DateTime.Now.ToString("yyyy-MM-dd HHmmss") + ".log";
 		static string LogPath => Path.Combine(LogDirectory, _logName);
 		static readonly SemaphoreSlim _semaphore = new(1,1);
-		static readonly SemaphoreSlim _writeLock = new(1,1);
 		static bool _fileWritesFailing;
 
-		static readonly TimeSpan VIEWER_CONNECT_TIMEOUT = TimeSpan.FromSeconds(10);
-		static readonly TimeSpan VIEWER_RETRY_INTERVAL = TimeSpan.FromSeconds(30);
-		static Task<bool>? _connection;
-		static DateTime _nextViewerAttempt = DateTime.MinValue;
-		static bool _viewerFailing;
-
+		/// <summary>
+		/// What kind of event a log line is about; the window picks each one's colour.
+		/// </summary>
 		public enum ColorType {
-			Error = ConsoleColor.Red,
-			ZDR = ConsoleColor.DarkRed,
-			ChatIncoming = ConsoleColor.Yellow,
-			ChatOutgoing = ConsoleColor.DarkYellow,
-			Notification = ConsoleColor.Green,
-			ConnectionNotification = ConsoleColor.DarkGreen,
-			Helix = ConsoleColor.Cyan,
-			EventSubNotification = ConsoleColor.DarkCyan,
-			EventSubConfusion = ConsoleColor.Blue,
-			AdNotification = ConsoleColor.DarkBlue,
-			Important = ConsoleColor.Magenta,
-			ZDM = ConsoleColor.DarkMagenta,
-			None = ConsoleColor.White,
-			ZA = ConsoleColor.Gray,
-			ZDA = ConsoleColor.DarkGray,
-			ZK = ConsoleColor.Black,
+			None,
+			Error,
+			ChatIncoming,
+			ChatOutgoing,
+			Notification,
+			ConnectionNotification,
+			Helix,
+			EventSubNotification,
+			EventSubConfusion,
+			AdNotification,
+			Important,
 		}
 
-		public static void Start() {
-			_connection ??= CreateConnectionAsync();
-		}
-		
 		public static void ColoredLine(ColorType colorType, object text) {
-			_ = ColoredLineAsync((ConsoleColor)colorType, text);
+			if (text == null) {
+				return;
+			}
+			string message = $"[{TimeStamp()}] {text}";
+			_ = LogToFileAsync(message);
+			RaiseLineLogged(colorType, message);
 		}
 
 		public static void Line(object text) {
@@ -97,8 +86,8 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Tells the viewer once that log files can't be written (full or missing drive), until a
-		/// write succeeds again. Goes straight to the pipe: logging it to file would fail too.
+		/// Shows once that log files can't be written (full or missing drive), until a write
+		/// succeeds again. Skips the file, since logging it there would fail too.
 		/// </summary>
 		static void ReportFileWriteFailure(Exception ex) {
 			Debug.WriteLine(ex);
@@ -106,134 +95,15 @@ namespace StreamAssistant2 {
 				return;
 			}
 			_fileWritesFailing = true;
-			_ = WriteToViewerAsync(ConsoleColor.Red, $"[{TimeStamp()}] Error LOG1: can't write log files to {LogDirectory}: {ex.Message}");
+			RaiseLineLogged(ColorType.Error, $"[{TimeStamp()}] Error LOG1: can't write log files to {LogDirectory}: {ex.Message}");
 		}
 
-		/// <summary>
-		/// Starts the viewer and waits for it to connect. On failure (missing exe, no connection
-		/// within the timeout) leaves no pipe behind, logs Error LOG2 to the file once per failure
-		/// streak, and returns false; the next attempt waits VIEWER_RETRY_INTERVAL.
-		/// </summary>
-		async static Task<bool> CreateConnectionAsync() {
-			DisposePipe();
-			_nextViewerAttempt = DateTime.UtcNow + VIEWER_RETRY_INTERVAL;
-
-			_pipeName = $"S.StreamAssistant.{Environment.ProcessId}";
-
-			string executable = Path.Combine(AppContext.BaseDirectory,"logger/StreamAssistantLog.exe");
-
+		static void RaiseLineLogged(ColorType type, string message) {
 			try {
-				_process = Process.Start(new ProcessStartInfo {
-					FileName = executable,
-					Arguments = _pipeName,
-					UseShellExecute = true
-				}) ?? throw new InvalidOperationException("Process.Start returned no process");
-
-				_pipe = new NamedPipeServerStream(
-					_pipeName,
-					PipeDirection.Out,
-					1,
-					PipeTransmissionMode.Byte,
-					PipeOptions.Asynchronous
-				);
-
-				using CancellationTokenSource timeout = new(VIEWER_CONNECT_TIMEOUT);
-				await _pipe.WaitForConnectionAsync(timeout.Token);
-
-				_writer = new BinaryWriter(_pipe, Encoding.UTF8, leaveOpen: true);
-				_viewerFailing = false;
-				return true;
+				LineLogged?.Invoke(type, message);
 			}
 			catch (Exception ex) {
-				DisposePipe();
-				if (!_viewerFailing) {
-					_viewerFailing = true;
-					LogToFile($"[{TimeStamp()}] Error LOG2: couldn't start the log viewer ({executable}): {ex.Message}");
-				}
-				return false;
-			}
-		}
-		
-		static async Task ColoredLineAsync(ConsoleColor color, object text) {
-			if (text == null) {
-				return;
-			}
-
-			string message = $"[{TimeStamp()}] {text}";
-			// Not awaited: a failing file write must never hold up or kill the viewer line.
-			_ = LogToFileAsync(message);
-			await WriteToViewerAsync(color, message);
-		}
-
-		/// <summary>
-		/// Sends one line to the viewer. Waits for a connection attempt in progress; if there is no
-		/// viewer and it isn't time to retry, or the retry fails, the line goes to the file only.
-		/// </summary>
-		static async Task WriteToViewerAsync(ConsoleColor color, string message) {
-			await _writeLock.WaitAsync();
-			try {
-				if (_connection is { IsCompleted: false }) {
-					await _connection;
-				}
-				if (_pipe == null || _writer == null || !_pipe.IsConnected) {
-					if (DateTime.UtcNow < _nextViewerAttempt || !await RestartAsync()) {
-						return;
-					}
-				}
-				_writer!.Write((byte)color);
-				byte[] bytes = Encoding.UTF8.GetBytes(message);
-				_writer.Write(bytes.Length);
-				_writer.Write(bytes);
-				_writer.Flush();
-			}
-			catch (Exception ex) {
-				// The viewer went away mid-write: drop the pipe so the next line reconnects.
-				LogToFile(ex);
-				DisposePipe();
-			}
-			finally {
-				_writeLock.Release();
-			}
-		}
-
-		static Task<bool> RestartAsync() {
-			try {
-				if (_process != null && !_process.HasExited) {
-					_process.Kill(true);
-				}
-			}
-			catch (Exception ex) {
-				LogToFile(ex);
-			}
-			_connection = CreateConnectionAsync();
-			return _connection;
-		}
-
-		static void DisposePipe() {
-			try { 
-				_writer?.Dispose(); 
-			} 
-			catch (Exception ex) {
-				LogToFile(ex);
-			}
-			try { 
-				_pipe?.Dispose(); 
-			} 
-			catch (Exception ex) {
-				LogToFile(ex);
-			}
-
-			_writer = null;
-			_pipe = null;
-		}
-
-		public static void Dispose() {
-			DisposePipe();
-			try {
-				_process?.Dispose();
-			}
-			catch (Exception ex) {
-				LogToFile(ex);
+				Debug.WriteLine(ex);
 			}
 		}
 
