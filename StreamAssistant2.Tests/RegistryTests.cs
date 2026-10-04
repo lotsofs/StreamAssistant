@@ -12,7 +12,7 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal(4, ColorTableRegistry.Tables["basiccolors"].Entries.Count);
 			Assert.Equal(2, ColorTableRegistry.Tables["crayola"].Entries.Count);
 			Assert.Equal(3, ColorTableRegistry.Tables["encycolorpedia"].Entries.Count);
-			Assert.Equal(8, ColorTableRegistry.Tables["loosetest"].Entries.Count);
+			Assert.Equal(9, ColorTableRegistry.Tables["loosetest"].Entries.Count);
 		}
 
 		[Fact]
@@ -78,7 +78,7 @@ namespace StreamAssistant2.Tests {
 			var dropped = ColorSchemeRegistry.DropDuplicateNames(root);
 			Assert.Equal([("", "Green Blue", "Green-Blue"), (" Other", "navy blue", "Navy-Blue")], dropped);
 
-			// What used to go wrong: the first spelling kept, but with the last entry's colours.
+			// The bug this guards against: the first spelling kept, but with the last entry's colours.
 			var set = root.ToObject<ColorSchemeRegistry.ThemeSet>()!;
 			Assert.Equal("#111111", set.Categories["green blue"].ColorSchemes["A"].Inner);
 			Assert.False(set.Categories["green blue"].ColorSchemes.ContainsKey("B"));
@@ -97,18 +97,31 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
-		public void GetRandomColor_ComesFromEncycolorpedia() {
-			Assert.Equal("encycolorpedia", Coloring.GetRandomColor().Source);
+		public void GetRandomColor_PicksFromEveryTable() {
+			// Each pick is a real entry of its table, and over enough picks every table shows up
+			// (18 fixture colours, 500 picks: missing crayola's 2 has odds around 1e-26).
+			HashSet<string> sources = [];
+			for (int i = 0; i < 500; i++) {
+				NamedColor color = ColorTableRegistry.GetRandomColor();
+				Assert.Same(color, ColorTableRegistry.Tables[color.Source].Entries[color.OriginalName]);
+				sources.Add(color.Source);
+			}
+			Assert.Equal(ColorTableRegistry.Tables.Keys.ToHashSet(), sources);
 		}
 
-		[Fact(Skip = "RND: GetRandomColor hard-codes Tables[\"encycolorpedia\"] and throws without it")]
-		public void GetRandomColor_WorksWithoutEncycolorpedia() {
-			ColorData.Load(ColorData.Fixture("ColorsWithoutEncycolorpedia"), ColorData.Fixture("ColorSchemes"));
+		[Fact]
+		public void GetRandomColor_IsARandomHexWithNoTablesAtAll() {
+			DirectoryInfo empty = Directory.CreateTempSubdirectory("colors-empty-");
+			ColorData.Load(empty.FullName, ColorData.Fixture("ColorSchemes"));
 			try {
-				Assert.NotNull(ColorTableRegistry.GetRandomColor());
+				NamedColor color = ColorTableRegistry.GetRandomColor();
+				Assert.Equal("random rgb", color.Source);
+				Assert.Matches(LowercaseHex, color.Hex);
+				Assert.Equal("random rgb", Coloring.GetRandomColor().Source);
 			}
 			finally {
 				ColorData.LoadFixtures();
+				empty.Delete();
 			}
 		}
 	}

@@ -20,7 +20,7 @@ namespace StreamAssistant2 {
 
 		/// <summary>
 		/// Accepts RRGGBB with or without a leading '#', in any case, and returns it as #rrggbb
-		/// lowercase. Used at load so everything downstream can trust table and scheme hex.
+		/// lowercase.
 		/// </summary>
 		public static bool TryNormalizeHex(string? value, out string hex) {
 			hex = "";

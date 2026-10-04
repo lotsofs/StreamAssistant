@@ -28,7 +28,7 @@ namespace StreamAssistant2 {
 				}
 				else if (folded.Any(char.IsAscii)) {
 					// Letters that don't fold (ŧ ı ð ß æ …) match 1 or 2 input letters: Straße → ^stra.{1,2}e$.
-					// A name with no ASCII letter at all gets nothing, so it can't match everything.
+					// A name with no ASCII letter at all gets neither.
 					string pattern = "^" + string.Concat(folded.Select(c => char.IsAscii(c) ? Regex.Escape(c.ToString()) : ".{1,2}")) + "$";
 					_wildcards.Add((new Regex(pattern, RegexOptions.CultureInvariant), color));
 				}

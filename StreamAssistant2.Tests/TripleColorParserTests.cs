@@ -3,7 +3,7 @@ using static StreamAssistant2.Coloring;
 
 namespace StreamAssistant2.Tests {
 	/// <summary>
-	/// The separator-weight rule documented in CLAUDE.md, against the fixture tables.
+	/// The separator-weight rule, against the fixture tables.
 	/// </summary>
 	[Collection(ColorDataCollection.Name)]
 	public class TripleColorParserTests {

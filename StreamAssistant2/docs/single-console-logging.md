@@ -1,6 +1,6 @@
 # Single-console logging with a sticky status footer
 
-**SCL — Status: banked, designed, not started.** Indexed in [TODO.md](../TODO.md).
+**SCL — Status: banked, designed, not started.** Indexed in [TODO.md](TODO.md).
 
 Remove the external `StreamAssistantLog` viewer process and show the colour-coded log in the app's own
 console window, **with the terminal's native scrolling and scrollback fully intact**.
@@ -287,7 +287,7 @@ window close button to exercise the `ProcessExit` path within the CLR's budget.
 
 ## Deferred
 
-Deliberately out of scope for this change. All eight are registered in [TODO.md](../TODO.md), which
+Deliberately out of scope for this change. All eight are registered in [TODO.md](TODO.md), which
 also records which of them depend on SCL landing first — **FTR** and **DEL** do; the other six stand
 on their own and can be done at any time.
 

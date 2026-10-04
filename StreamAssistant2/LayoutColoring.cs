@@ -24,24 +24,37 @@ namespace StreamAssistant2 {
 		}
 
 		public static bool TryChangeToTriple(string input) {
-			if (TripleColorParser.TryParse(input, out Coloring.ColorEntry? color)) {
+			bool success = TripleColorParser.TryParse(input, out Coloring.ColorEntry? color);
+			if (success) {
 				ChangeColor(color!);
-				return true;
 			}
-			return false;
+			ReportRequest(input, success);
+			return success;
 		}
 
 		public static bool TryChangeToSingle(string input) {
-			if (SingleColorParser.TryParse(input, out Coloring.ColorEntry? color)) {
+			bool success = SingleColorParser.TryParse(input, out Coloring.ColorEntry? color);
+			if (success) {
 				ChangeColor(color!);
-				return true;
 			}
-			return false;
+			ReportRequest(input, success);
+			return success;
+		}
+
+		static void ReportRequest(string input, bool success) {
+			if (success) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Color change request fulfilled: {input}");
+			}
+			else {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Color change request FAILED: {input}");
+				TwitchIRCManager.SendMessage($"🎨 Couldn't find a color called \"{input}\"");
+			}
 		}
 
 		public static void ChangeToRandom() {
 			Coloring.ColorEntry color = Coloring.GetRandomColor();
 			ChangeColor(color);
+			ReportRequest("random", true);
 		}
 
 		public static void QueueLayoutColorChange(ColorRequest req) {

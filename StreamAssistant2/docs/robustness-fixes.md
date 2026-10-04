@@ -4,7 +4,7 @@ Known defects and loose ends in the tree as it stands. Mostly independent of eac
 [single-console-logging.md](single-console-logging.md) — each can be done, tested and committed on
 its own, except where an item says otherwise.
 
-Items are indexed in [TODO.md](../TODO.md) — summaries, severities and the suggested order of work
+Items are indexed in [TODO.md](TODO.md) — summaries, severities and the suggested order of work
 live there, along with the conventions these codes follow. This file holds only the detail.
 
 ---
@@ -76,22 +76,6 @@ ordering dependency between the file sink and the console sink.
 **Verify:** point `LOG_DIRECTORY` at a path on a non-existent drive (`Z:\nope\`) and confirm the app
 still starts, still prints to the log window, and still connects to Twitch.
 
-## RAN — `random` is case-sensitive
-
-**Severity:** medium, reproduced. `random` → works; `Random` → `Color change request FAILED`.
-
-`SingleColorParser.TryParse` matches the keyword with `input == "random"`. Channel-point `user_input` is
-raw viewer text, so capitalisation is a coin flip.
-
-**Fix:** `string.Equals(input, "random", StringComparison.OrdinalIgnoreCase)`.
-
-**Test:** `SingleColorParserTests.Random_IsCaseInsensitive` is written and skipped; remove its `Skip`.
-
-Secondary, defensive only: the keyword is checked *below* the named-table and system lookups, so a
-colour-table entry literally named "random" would shadow it. None of the four JSON files under
-`Stream-Resources\Input\Bot\Colors` has one today, so moving the keyword above `TryGetNamed` changes
-nothing right now.
-
 ---
 
 ## NRE — `NullReferenceException` inside the error handler
@@ -122,62 +106,6 @@ write inside the `catch` (let the next line attempt a fresh reconnect).
 
 **Verify:** delete `bin/Debug/net8.0/logger/` and run. Expect one clear diagnostic and a functioning
 bot, not a silent stall.
-
-## CAN — System colours report the raw input as their name
-
-**Severity:** low, cosmetic.
-
-The system-colour branch of `SingleColorParser.TryParse` stores the raw `input` as the entry name, while the other
-branches store a canonical one (`colorInfo.OriginalName`). `Color.FromName` is case-insensitive and
-hands back the canonical spelling in `c.Name`, so using that would make chat say
-`Changing to color Control [system]` rather than `… color control [system]`.
-
-**Test:** `SingleColorParserTests.SystemColour_ReportsCanonicalName` is written and skipped; remove
-its `Skip`.
-
----
-
-## RND — `GetRandomColor` hard-codes one table name
-
-**Severity:** latent, reproduced.
-
-```csharp
-public static NamedColor GetRandomColor() {
-    var colors = Tables["encycolorpedia"].Entries;
-```
-
-`encycolorpedia.json` does exist in the Colors directory (52 KB), so this works today. But the key is
-the *filename* of a file in an externally-configured directory. Rename or move it and this throws
-`KeyNotFoundException` — confirmed by running `GetRandomColor` against an unloaded table set — inside
-an `async Task` that `TwitchEventHandler` discards with `_ =`, so the random-colour redemption would
-silently do nothing.
-
-Also note `Tables[...].Entries.ElementAt(r)` is O(n) over a 52 KB dictionary on every random
-redemption. Irrelevant at this call rate; mentioned only so it isn't mistaken for an index lookup.
-
-**Fix:** fall back to any loaded table (or pick a random table, then a random entry) when the
-preferred key is absent, and log `Important` if the preferred table is missing. Alternatively make the
-preferred table name a `Config` value alongside the directory itself.
-
-While there, build the pick list once in `LoadTables` as a cached `NamedColor[]`, so a random pick is
-an index lookup instead of `ElementAt`. If no tables loaded at all, return a random `#RRGGBB` (source
-`random`) rather than throwing.
-
-**Test:** `RegistryTests.GetRandomColor_WorksWithoutEncycolorpedia` is written and skipped (it loads
-a fixture set without that table); remove its `Skip`.
-
----
-
-## CMD — Port the colour chat commands
-
-**Severity:** enabler. Would make every other colour item cheap to test.
-
-`ChatHandler.CheckForAdminCommands` still has `!changecolorrandom` and `!changecolor` as commented
-Streamer.Bot-era stubs. Routing them to `LayoutColoring.TryChangeToTriple` / `TryChangeToSingle` /
-`ChangeToRandom` would make colour changes testable from chat instead of by spending channel points,
-which is what makes [RAN](#ran--random-is-case-sensitive) and
-[VFY](#vfy--finish-verifying-the-colour-paths-in-the-app) annoying to check. Broadcaster-gated, like
-`!test`.
 
 ---
 
@@ -228,31 +156,3 @@ would make DRV testable without editing source, and is a two-line change to `Dir
 `Subscriptions.cs` logs a caught exception with `ConsoleLogger.ColorType.None` (white) and passes the
 `Exception` object directly, making it the only `catch` in the tree that doesn't follow the
 `ColoredLine(ColorType.Error, "Error <code>")` + `LogToFile(ex)` convention. Bring it in line.
-
----
-
-## VFY — Finish verifying the colour paths in the app
-
-The colour resolution paths have been verified out-of-process against the compiled assembly with real
-tables loaded — `hsv()` scaling, `rgb()`, bare `r,g,b`, hex, `random`, `Control` via the system
-branch, `cornflowerblue` via `encycolorpedia`, and `asdfgh` correctly failing. What has **not** been
-exercised is the same code reached through a real redemption, because `dotnet build` cannot complete
-while `bin\Debug\net8.0\StreamAssistant2.dll` is locked by a VS debug session.
-
-- [ ] Redeem the single-colour reward (`REWARD_ID_COLOR_SINGLE` in `ChannelPoints.cs`) with
-      `hsv(210,50,80)`. Expect `Color change request fulfilled` in the logger and
-      `Changing to color hsv(210°,50%,80%) [hsv]: #6699cc …` in chat.
-- [ ] Same reward with `Control`. Expect `[system]` and `#f0f0f0`. Only the WinForms palette names
-      (`Control`, `Window`, `Highlight`, `ButtonFace`, `Desktop`) report `[system]` — every web name
-      resolves earlier through `htmlcolors.json`.
-- [ ] Spot-checks on the same path: `cornflowerblue` → table source, `#A1B2C3` → `hex` and `#a1b2c3`, `random` →
-      randomises, `asdfgh` → **FAILED** (not silently black). Every hex in the chat line should be
-      lowercase.
-- [ ] Accent-free input reaches accented names through the loose fallback. Redeem the single
-      reward with `cafe au lait`. Expect `Café au lait [encycolorpedia]` and `#a67b5b` in chat.
-- [ ] Optional: add `Stream-Resources\Input\Bot\Tests\Color Single.txt` so `!test` can reach this
-      code. None of the 19 existing payloads does — `Channel Points Custom Reward Redemption Add.txt`
-      carries a different reward id and `"user_input": "pogchamp"`.
-
----
-

@@ -7,6 +7,8 @@ namespace StreamAssistant2 {
 	public static class ColorTableRegistry {
 		public static readonly Dictionary<string, ColorTable> Tables = new (ColorNameComparer.Instance);
 
+		static NamedColor[] _randomPool = [];
+
 		public static void LoadTables() {
 			Tables.Clear();
 			foreach (string file in Directory.EnumerateFiles(Config.Data.Directories.Colors, "*.json")) {
@@ -28,6 +30,8 @@ namespace StreamAssistant2 {
 				}
 				Tables[source] = new ColorTable(entries);
 			}
+
+			_randomPool = Tables.Values.SelectMany(t => t.Entries.Values).ToArray();
 		}
 
 		/// <param name="loose">Match colour names through ColorTable.TryGetLoose instead of strictly. Table names are always strict.</param>
@@ -58,11 +62,15 @@ namespace StreamAssistant2 {
 			return loose ? table.TryGetLoose(colorName, out namedColor) : table.Entries.TryGetValue(colorName, out namedColor);
 		}
 
+		/// <summary>
+		/// A random table colour, or a random #rrggbb when no tables are loaded.
+		/// </summary>
 		public static NamedColor GetRandomColor() {
-			var colors = Tables["encycolorpedia"].Entries;
-			int r = Random.Shared.Next(0, colors.Count);
-			var item = colors.ElementAt(r);
-			return item.Value;
+			if (_randomPool.Length == 0) {
+				string hex = ColorUtil.ToHex(Random.Shared.Next(256), Random.Shared.Next(256), Random.Shared.Next(256));
+				return new NamedColor("random rgb", hex, hex);
+			}
+			return _randomPool[Random.Shared.Next(_randomPool.Length)];
 		}
 	}
 }

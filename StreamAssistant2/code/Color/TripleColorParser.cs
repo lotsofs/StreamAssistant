@@ -2,8 +2,7 @@ using static StreamAssistant2.Coloring;
 
 namespace StreamAssistant2 {
 	/// <summary>
-	/// Partitions a chat string into up to three colours (inner/outer/text). See CLAUDE.md for
-	/// the separator-weight rule; it is not guessable from the code alone.
+	/// Partitions a chat string into up to three colours (inner/outer/text).
 	/// </summary>
 	public static class TripleColorParser {
 		const int MAX_TOKENS = 32;	// Limit user input length

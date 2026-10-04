@@ -8,9 +8,9 @@ A personal Twitch stream-automation bot for the channel `lotsofs`. It talks to T
 
 ## Docs
 
-**[TODO.md](TODO.md) is the master index — start there.** It lists every tracked item by 3-letter code with its area, a one-line summary, severity, and a link to the detail. A code can be resolved from the index alone; the detail docs do not need to be opened or searched to find one. The user refers to items by code ("do RAN"). One item has a clock on it: `SEC`, credential rotation.
+**[docs/TODO.md](docs/TODO.md) is the master index — start there.** It lists every tracked item by 3-letter code with its area, a one-line summary, severity, and a link to the detail. A code can be resolved from the index alone; the detail docs do not need to be opened or searched to find one. The user refers to items by code ("do RAN"). One item has a clock on it: `SEC`, credential rotation.
 
-Detail lives in [docs/](docs/), which records findings expensive to rediscover and is the right place to add new ones:
+Detail lives in the other files in [docs/](docs/), which record findings expensive to rediscover and are the right place to add new ones:
 
 - [docs/robustness-fixes.md](docs/robustness-fixes.md) — known bugs, loose ends and verification tasks, one `##` section per code.
 - [docs/color.md](docs/color.md) — how colour requests are resolved (`code/Color/`): the files, the data file formats, the single and triple parsing rules, loose matching, and how to test it. **Read it before changing anything in `code/Color/`.**
@@ -19,7 +19,7 @@ Detail lives in [docs/](docs/), which records findings expensive to rediscover a
 Conventions that keep the index trustworthy:
 
 - Codes are three letters, stable for the life of the item, and unique across *all* files, so one code always means one thing while it exists. A code may be reused once its item is gone.
-- **Adding or removing an item means editing both places** — the index row in `TODO.md` *and* the detail section in `docs/`. They are the one permitted duplication; keep them in step.
+- **Adding or removing an item means editing both places** — the index row in `docs/TODO.md` *and* the detail section in its doc. They are the one permitted duplication; keep them in step.
 - A finished item is **deleted outright**, not annotated as done and not moved to a "fixed" list. Git history is the record; the docs describe only what is still true.
 - Items state whether a behaviour was **reproduced** by running the real compiled assembly, or only read. Don't promote a read-only observation to "reproduced" without running it.
 
@@ -104,7 +104,7 @@ Two migrations are in flight; expect inconsistency and don't "clean up" either w
 1. **WinForms → console.** The old `Form_StreamAssistant.*` UI was deleted and replaced by the `Dashboard` + logger-process pair. `StreamAssistant2.csproj.user` still references the dead form.
 2. **Flat root → `code/<Area>/`.** [code/Color/](code/Color/), [code/Twitch/](code/Twitch/) and [code/Ui/](code/Ui/) are the new home. The folder is lowercase `code/`; on Windows a case-only rename of it has to go through `git mv` (git runs with `core.ignorecase`), and VS Code holds a handle on the folder itself, so move its subfolders rather than renaming it. Put new files under `code/<Area>/`; a sizeable set of modules (`Subscriptions.cs`, `LayoutColoring.cs`, `Clock.cs`, `Obs.cs`, …) is still at the root.
 
-Beyond that, the repo carries a lot of commented-out code from the era when this tool was a helper for Streamer.Bot and communicated through a `MsgQueue` (~24 references, all commented). [Games.cs](Games.cs), [Donations.cs](Donations.cs), and [LeftPanel.cs](LeftPanel.cs) are entirely commented out, and the admin chat commands in `ChatHandler.CheckForAdminCommands` plus the public command replies in `CheckForCommands` are mostly stubbed the same way — they parse and match, then don't send. `MsgQueue` no longer exists; porting one of these means routing it to `TwitchIRCManager.SendMessage`, `TextToSpeech.EnqueueSpeech`, or `LayoutColoring` instead.
+Beyond that, the repo carries a lot of commented-out code from the era when this tool was a helper for Streamer.Bot and communicated through a `MsgQueue` (~24 references, all commented). [Games.cs](Games.cs), [Donations.cs](Donations.cs), and [LeftPanel.cs](LeftPanel.cs) are entirely commented out, and the public command replies in `ChatHandler.CheckForCommands` are stubbed the same way — they parse and match, then don't send. The admin commands in `CheckForAdminCommands` work (`!test`, and the colour commands `!changecolor`, `!changecolors`, `!changecolorrandom`, which mirror the three colour rewards), except the `!stoppaneltimer` stub. `MsgQueue` no longer exists; porting one of these means routing it to `TwitchIRCManager.SendMessage`, `TextToSpeech.EnqueueSpeech`, or `LayoutColoring` instead.
 
 ## External dependencies at runtime
 

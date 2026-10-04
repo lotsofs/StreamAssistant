@@ -71,8 +71,8 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
-		public void Random_PicksFromEncycolorpedia() {
-			Assert.Equal("encycolorpedia", Parse("random").Source);
+		public void Random_PicksATableColour() {
+			Assert.True(ColorTableRegistry.Tables.ContainsKey(Parse("random").Source));
 		}
 
 		[Theory]
@@ -128,14 +128,33 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal("#000007", Parse("Красный").Hex1);
 		}
 
-		[Fact(Skip = "RAN: the random keyword is matched case-sensitively")]
-		public void Random_IsCaseInsensitive() {
-			Assert.Equal("encycolorpedia", Parse("Random").Source);
+		[Theory]
+		[InlineData("Random")]
+		[InlineData("RANDOM")]
+		[InlineData("  random  ")]
+		public void Random_IsCaseInsensitive(string input) {
+			Assert.True(ColorTableRegistry.Tables.ContainsKey(Parse(input).Source));
 		}
 
-		[Fact(Skip = "CAN: system colours report the raw input as their name")]
-		public void SystemColour_ReportsCanonicalName() {
-			Assert.Equal("Control", Parse("control").Name);
+		[Fact]
+		public void Random_IsNotShadowedByAColourName() {
+			// loosetest has "Rándom", which folds to "random"; the keyword must still win. Rándom is
+			// itself in the random pool, so one pick could be it: the loose match would return it
+			// every time, the keyword shouldn't.
+			HashSet<string> names = [];
+			for (int i = 0; i < 50; i++) {
+				names.Add(Parse("random").Name);
+			}
+			Assert.True(names.Count > 1, "\"random\" always resolved to the same colour");
+			Assert.Equal("#000008", Parse("Rándom").Hex1);   // still reachable by its exact spelling
+		}
+
+		[Theory]
+		[InlineData("control")]
+		[InlineData("CONTROL")]
+		[InlineData("Control")]
+		public void SystemColour_ReportsCanonicalName(string input) {
+			Assert.Equal("Control", Parse(input).Name);
 		}
 	}
 }

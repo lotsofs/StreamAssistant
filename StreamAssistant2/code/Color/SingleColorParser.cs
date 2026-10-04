@@ -6,7 +6,7 @@ using static StreamAssistant2.Coloring;
 
 namespace StreamAssistant2 {
 	/// <summary>
-	/// Resolves one colour from a chat string. See CLAUDE.md for the order the forms are tried in.
+	/// Resolves one colour from a chat string.
 	/// </summary>
 	public static partial class SingleColorParser {
 		[GeneratedRegex(@"^#([0-9A-Fa-f]{6})$")]
@@ -27,6 +27,12 @@ namespace StreamAssistant2 {
 			}
 
 			input = input.Trim();
+
+			// random
+			if (string.Equals(input, "random", StringComparison.OrdinalIgnoreCase)) {
+				colorEntry = GetRandomColor();
+				return true;
+			}
 
 			// #RRGGBB
 			if (HexRegex().IsMatch(input)) {
@@ -78,13 +84,7 @@ namespace StreamAssistant2 {
 			Color c = Color.FromName(input);
 			if (c.IsKnownColor) {
 				string hex = ToHex(c);
-				colorEntry = new ColorEntry("system", input, hex, Darken(hex), Lighten(hex));
-				return true;
-			}
-
-			// random
-			if (input == "random") {
-				colorEntry = GetRandomColor();
+				colorEntry = new ColorEntry("system", c.Name, hex, Darken(hex), Lighten(hex));
 				return true;
 			}
 

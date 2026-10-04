@@ -16,6 +16,29 @@ Three channel-point rewards in [ChannelPoints.cs](../code/Twitch/ChannelPoints.c
 | `REWARD_ID_COLOR_TRIPLE` | `LayoutColoring.TryChangeToTriple` | up to three colours, via `TripleColorParser` |
 | `REWARD_ID_COLOR_RANDOM` | `LayoutColoring.ChangeToRandom` | none; a random table colour |
 
+The admins (`lotsofs`, `botsofs`) can trigger the same three paths from chat without spending
+points, via `ChatHandler.CheckForAdminCommands`: `!changecolor <text>` (single),
+`!changecolors <text>` (triple) and `!changecolorrandom`. Command names are case-sensitive.
+
+After a colour reward, `ChannelPoints.CloseColorRedemption` closes the redemption through Helix:
+`FULFILLED` when the colour resolved, `CANCELED` (which refunds the points) when it didn't. If the
+Helix call fails, it logs `Error CP1`. The chat commands never touch Helix.
+
+**Helix only allows this for rewards created by the bot's own client id.** A reward made in the
+Twitch dashboard gets a 403 here. The three colour rewards were therefore recreated through the API
+on 2026-10-04, and their IDs are the `REWARD_ID_COLOR_*` constants in `ChannelPoints.cs`. If a
+colour reward is ever recreated in the dashboard, refunds break again. Of the bot's other rewards,
+only *Flush your points down the toilet* is bot-created; that's the one whose redemptions it
+refunds.
+
+`TryChangeToSingle`, `TryChangeToTriple` and `ChangeToRandom` report the outcome themselves, so a
+reward and a chat command behave the same and callers only decide what to do with the returned
+`bool`:
+- **Success:** log `Color change request fulfilled: <text>` (the random path logs `random`), and
+  post `Changing to color <name> [<source>]: <hex> <hex> <hex>` in chat.
+- **Failure:** log `Color change request FAILED: <text>`, and post
+  `🎨 Couldn't find a color called "<text>"` in chat.
+
 Every path ends in a `ColorEntry`: a source, a display name, and three hex colours for the layout's
 inner, outer and text parts (`Hex1`/`Hex2`/`Hex3`). `LayoutColoring` posts the
 `Changing to color …` chat line, converts the hex with `ColorUtil.ToOBS`, and queues the multi-second
@@ -91,19 +114,25 @@ Colour scheme <set> <category>: skipped "<scheme>", not all of "<inner>" "<outer
 
 Scheme files are deduplicated as raw JSON (`ColorSchemeRegistry.DropDuplicateNames`) before they
 are deserialised. Otherwise Newtonsoft's dictionary indexer would keep the first spelling with the
-last entry's colours.
+last entry's colours. The scheme dictionaries (`Categories`, `ColorSchemes`, `SplitColors`) are
+get-only: Newtonsoft fills the existing instance through the getter, which is what keeps the
+`ColorNameComparer` on them.
 
 ## Resolving one colour
 
 [SingleColorParser.TryParse](../code/Color/SingleColorParser.cs) tries, in order:
-1. `#RRGGBB`
-2. `rgb(...)`
-3. `hsv(...)`
-4. bare `r,g,b`
-5. named lookups (below)
-6. `System.Drawing` known colours. In practice this only adds the WinForms palette (`Control`,
+1. the `random` keyword, in any case. It comes first so no colour name can shadow it, not even
+   loosely: a table entry `Rándom` would otherwise fold to `random`. The colour is picked uniformly
+   from every entry of every loaded table, or is a random `#rrggbb` (source `random rgb`) if no tables
+   are loaded at all. The pick list is built once in `LoadTables`.
+   The random reward and `!changecolorrandom` use the same pick.
+2. `#RRGGBB`
+3. `rgb(...)`
+4. `hsv(...)`
+5. bare `r,g,b`
+6. named lookups (below)
+7. `System.Drawing` known colours. In practice this only adds the WinForms palette (`Control`,
    `Highlight` and friends), since the JSON tables already cover every web name.
-7. the `random` keyword
 
 `rgb()`, `hsv()` and bare `r,g,b` accept **either commas or spaces** between components. That's
 what lets the triple parser join a span with spaces and still match a literal a viewer wrote with
@@ -190,8 +219,8 @@ literal-hex input path lowercases both the colour and its displayed name. Keep n
   test that loads other data must reload the fixtures in a `finally`.
 - **Real-data smoke test:** `RealDataSmokeTest` also loads the real `Stream-Resources` colour data
   and checks every entry survived loading. It is skipped on machines without that folder.
-- **Open bugs:** each has a test for the correct behaviour, marked `Skip = "<code>: …"`. Fixing the
-  bug means deleting the `Skip`.
+- **Open bugs:** a newly found bug can get a test for the correct behaviour straight away, marked
+  `Skip = "<code>: …"`; fixing the bug then means deleting the `Skip`.
 - **Keep fixtures valid and collision-free.** An invalid or colliding entry makes the loader call
   `ConsoleLogger`, which writes to the real log directory.
 - **Internals:** the main csproj has `InternalsVisibleTo StreamAssistant2.Tests`, so tests can set
@@ -204,8 +233,10 @@ references the built `StreamAssistant2.dll` and mirrors `Program.cs`:
 3. Point `Config.Data.Directories` at deliberately broken data and call `Coloring.Load()`.
 4. Send `"SHUTDOWN!"` so the viewer closes.
 
-Writing to the real log is fine. Calling `ColoredLine` without `Start()` hits the NRE bug instead,
-and fills the log with exception traces.
+Writing to the real log is fine, but this opens a log viewer window, so only run it with the
+user's go-ahead. Calling `ColoredLine` without `Start()` avoids the window but hits the NRE bug,
+which fills the log with exception traces. Scratch programs and tests must never stop or start the
+running bot either; build them with `-p:BaseOutputPath=<scratch folder>` while it holds `bin/`.
 
 For behaviour neither covers, a before/after diff still works: a scratch program that loads the
 colour data and prints parser results for a fixed list of inputs, run on the build before and after
@@ -214,11 +245,6 @@ drives OBS.
 
 ## Open issues
 
-Tracked in [robustness-fixes.md](robustness-fixes.md):
-[RAN](robustness-fixes.md#ran--random-is-case-sensitive) (`Random` is not recognised),
-[CAN](robustness-fixes.md#can--system-colours-report-the-raw-input-as-their-name) (system colours
-echo the raw input), [RND](robustness-fixes.md#rnd--getrandomcolor-hard-codes-one-table-name)
-(`GetRandomColor` hard-codes `encycolorpedia`),
-[CMD](robustness-fixes.md#cmd--port-the-colour-chat-commands) (the `!changecolor` chat commands
-are stubs) and [VFY](robustness-fixes.md#vfy--finish-verifying-the-colour-paths-in-the-app) (the
-paths still need checking through real redemptions).
+Colour bugs are tracked like every other item: a section in
+[robustness-fixes.md](robustness-fixes.md) and a row in the [TODO.md](TODO.md) index, under area
+Colour.

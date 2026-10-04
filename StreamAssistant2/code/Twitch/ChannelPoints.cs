@@ -15,14 +15,14 @@ namespace StreamAssistant2 {
 		const string REWARD_ID_TRAIN = "0260c648-c3ba-4ff1-920d-dffa5431da74";
 		const string REWARD_ID_TOILET_FLUSH = "cd46e822-f288-47e6-8e8c-c56155603a0e";
 		const string REWARD_ID_TOILET_RETRIEVE = "785967e7-9b58-41eb-aa11-15fed82a72ec";
-		const string REWARD_ID_COLOR_RANDOM = "d1ca4789-8461-40a0-9335-e9080fd91f29";
-		const string REWARD_ID_COLOR_SINGLE = "6fbb1ffa-555b-4e24-9cb1-f784d9f63689";
-		const string REWARD_ID_COLOR_TRIPLE = "76c02fbc-d4ad-4fb7-984d-d057c9ebb03f";
+		const string REWARD_ID_COLOR_RANDOM = "bc78e213-6818-464d-8d5f-3408e9bd2413";
+		const string REWARD_ID_COLOR_SINGLE = "ad70a9d9-12fa-44dd-a3fb-dde21ebc4ec1";
+		const string REWARD_ID_COLOR_TRIPLE = "30168c08-09f6-4557-ab49-b7eaed212978";
 		
 		internal async static Task ProcessAdd(JsonElement evt) {
 			string rewardId = evt.GetProperty("reward").GetProperty("id").GetString() ?? "";
 
-			string flushId = evt.GetProperty("id").GetString() ?? "";
+			string redemptionId = evt.GetProperty("id").GetString() ?? "";
 			string userId = evt.GetProperty("user_id").GetString() ?? "";
 			string userLogin = evt.GetProperty("user_login").GetString() ?? "";
 			string userInput = evt.GetProperty("user_input").GetString() ?? "";
@@ -32,8 +32,8 @@ namespace StreamAssistant2 {
 			switch (rewardId) {
 				case REWARD_ID_TOILET_FLUSH:
 					Sound.PlaySound(Sound.Sounds.Flush);
-					await Database.InsertFlushAsync(flushId, userId, userLogin);
-					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully wrote flush for {userLogin}: {flushId}");
+					await Database.InsertFlushAsync(redemptionId, userId, userLogin);
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully wrote flush for {userLogin}: {redemptionId}");
 					break;
 				case REWARD_ID_TOILET_RETRIEVE:
 					var flushes = await Database.RetrieveFlushesAsync(userId);
@@ -59,29 +59,33 @@ namespace StreamAssistant2 {
 					break;
 				case REWARD_ID_COLOR_RANDOM:
 					LayoutColoring.ChangeToRandom();
+					await CloseColorRedemption(rewardId, redemptionId, true);
 					break;
 				case REWARD_ID_COLOR_SINGLE:
 					success = LayoutColoring.TryChangeToSingle(userInput);
-					if (success) {
-						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Color change request fulfilled: {userInput}");
-					}
-					else {
-						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Color change request FAILED: {userInput}");
-					}
+					await CloseColorRedemption(rewardId, redemptionId, success);
 					break;
 				case REWARD_ID_COLOR_TRIPLE:
 					success = LayoutColoring.TryChangeToTriple(userInput);
-					if (success) {
-						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Color change request fulfilled: {userInput}");
-					}
-					else {
-						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Color change request FAILED: {userInput}");
-					}
+					await CloseColorRedemption(rewardId, redemptionId, success);
 					break;
 				default:
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unhandled channel point reward redemption id: {rewardId}");
 					ConsoleLogger.LogToFile(evt);
 					break;
+			}
+		}
+
+		/// <summary>
+		/// Marks a colour redemption fulfilled, or refunds it when the colour wasn't found.
+		/// </summary>
+		static async Task CloseColorRedemption(string rewardId, string redemptionId, bool success) {
+			try {
+				await TwitchHelixApi.UpdateRedemption(rewardId, redemptionId, success ? "FULFILLED" : "CANCELED");
+			}
+			catch (Exception ex) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error CP1");
+				ConsoleLogger.LogToFile(ex);
 			}
 		}
 	}

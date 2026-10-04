@@ -151,18 +151,30 @@ namespace StreamAssistant2 {
 		}
 
 		static void CheckForAdminCommands(string text) {
-			if (text.StartsWith("!stoppaneltimer")) {
-				// MsgQueue.Enqueue(MsgTypes.Termint, "");
-			}
-			else if (text.StartsWith("!changecolorrandom ")) {
-				// Coloring.RandomColor();
-			}
-			else if (text.StartsWith("!changecolor ")) {
-				// Coloring.ChangeColor(inputMsg.Substring(13));
-			}
-			else if (text.StartsWith("!test ")) {
-				string args = text.Substring(6);
-				TwitchEventSub.SendTest(args);
+			// "!command the rest" → command and its argument; the argument may be empty.
+			int spaceIndex = text.IndexOf(' ');
+			string command = spaceIndex < 0 ? text : text[..spaceIndex];
+			string argument = spaceIndex < 0 ? "" : text[(spaceIndex + 1)..].Trim();
+
+			switch (command) {
+				case "!stoppaneltimer":
+					// MsgQueue.Enqueue(MsgTypes.Termint, "");
+					break;
+				// The colour commands mirror the three channel-point colour rewards.
+				case "!changecolor":
+					LayoutColoring.TryChangeToSingle(argument);
+					break;
+				case "!changecolors":
+					LayoutColoring.TryChangeToTriple(argument);
+					break;
+				case "!changecolorrandom":
+					LayoutColoring.ChangeToRandom();
+					break;
+				case "!test":
+					if (argument.Length > 0) {
+						TwitchEventSub.SendTest(argument);
+					}
+					break;
 			}
 		}
 

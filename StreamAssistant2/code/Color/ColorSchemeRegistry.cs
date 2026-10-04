@@ -2,8 +2,6 @@
 
 namespace StreamAssistant2 {
 	public static class ColorSchemeRegistry {
-		// Get-only: Newtonsoft fills these existing dictionaries through the getter, which keeps
-		// the comparer. Duplicate names are removed before deserialising (see DropDuplicateNames).
 		public class ThemeSet {
 			public Dictionary<string, Category> Categories { get; } = new(ColorNameComparer.Instance);
 		}
@@ -42,9 +40,8 @@ namespace StreamAssistant2 {
 
 		/// <summary>
 		/// Removes category and scheme names that ColorNameComparer.Instance treats as equal to an
-		/// earlier one ("Green-Blue" then "Green Blue"), keeping the first, as colour tables do.
-		/// Without this the dictionary indexer would keep the first spelling with the last entry's
-		/// colours. Returns what was dropped so the caller can log it.
+		/// earlier one ("Green-Blue" then "Green Blue"), keeping the first. Returns what was dropped
+		/// so the caller can log it.
 		/// </summary>
 		internal static List<(string Where, string Dropped, string Kept)> DropDuplicateNames(JObject root) {
 			List<(string, string, string)> dropped = [];
