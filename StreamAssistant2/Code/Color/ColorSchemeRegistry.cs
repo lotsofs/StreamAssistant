@@ -1,30 +1,16 @@
-﻿// using Newtonsoft.Json;
-using System.Text.RegularExpressions;
-
-using System.Drawing;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json.Linq;
 
 namespace StreamAssistant2 {
 	public static class ColorSchemeRegistry {
+		// Get-only: Newtonsoft fills these existing dictionaries through the getter, which keeps
+		// the comparer. Duplicate names are removed before deserialising (see DropDuplicateNames).
 		public class ThemeSet {
-			Dictionary<string, Category> _categories = new(ColorNameComparer.Instance);
-			public Dictionary<string, Category> Categories { 
-				get => _categories; 
-				set => _categories = new Dictionary<string, Category>(value, ColorNameComparer.Instance);
-			}
+			public Dictionary<string, Category> Categories { get; } = new(ColorNameComparer.Instance);
 		}
 
 		public class Category {
-			Dictionary<string, Scheme> _colorSchemes = new(ColorNameComparer.Instance);
-			Dictionary<string, string> _splitColors = new(ColorNameComparer.Instance);
-			public Dictionary<string, Scheme> ColorSchemes { 
-				get => _colorSchemes; 
-				set => _colorSchemes = new Dictionary<string, Scheme>(value, ColorNameComparer.Instance);
-			}
-			public Dictionary<string, string> SplitColors { 
-				get => _splitColors; 
-				set => _splitColors = new Dictionary<string, string>(value, ColorNameComparer.Instance);
-			}
+			public Dictionary<string, Scheme> ColorSchemes { get; } = new(ColorNameComparer.Instance);
+			public Dictionary<string, string> SplitColors { get; } = new(ColorNameComparer.Instance);
 			public string Default { get; set; } = "";
 		}
 
@@ -42,11 +28,47 @@ namespace StreamAssistant2 {
 			Sets.Clear();
 			foreach (string file in Directory.EnumerateFiles(Config.Data.Directories.ColorSchemes, "*.json")) {
 				string name = Path.GetFileNameWithoutExtension(file);
-				var json = File.ReadAllText(file);
-				var ts = JsonConvert.DeserializeObject<ThemeSet>(json);
+				JObject root = JObject.Parse(File.ReadAllText(file));
+				foreach (var (where, dropped, kept) in DropDuplicateNames(root)) {
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Colour scheme {name}{where}: skipped \"{dropped}\", same name as \"{kept}\"");
+				}
+				var ts = root.ToObject<ThemeSet>();
 				if (ts != null) {
 					NormalizeHex(name, ts);
 					Sets[name] = ts;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Removes category and scheme names that ColorNameComparer.Instance treats as equal to an
+		/// earlier one ("Green-Blue" then "Green Blue"), keeping the first, as colour tables do.
+		/// Without this the dictionary indexer would keep the first spelling with the last entry's
+		/// colours. Returns what was dropped so the caller can log it.
+		/// </summary>
+		internal static List<(string Where, string Dropped, string Kept)> DropDuplicateNames(JObject root) {
+			List<(string, string, string)> dropped = [];
+			if (root["Categories"] is not JObject categories) {
+				return dropped;
+			}
+			DropDuplicates(categories, "", dropped);
+			foreach (JProperty category in categories.Properties()) {
+				if (category.Value["ColorSchemes"] is JObject schemes) {
+					DropDuplicates(schemes, $" {category.Name}", dropped);
+				}
+			}
+			return dropped;
+		}
+
+		static void DropDuplicates(JObject names, string where, List<(string, string, string)> dropped) {
+			Dictionary<string, string> firstSpelling = new(ColorNameComparer.Instance);
+			foreach (JProperty property in names.Properties().ToList()) {
+				if (firstSpelling.TryGetValue(property.Name, out string? kept)) {
+					dropped.Add((where, property.Name, kept));
+					property.Remove();
+				}
+				else {
+					firstSpelling[property.Name] = property.Name;
 				}
 			}
 		}
@@ -94,6 +116,8 @@ namespace StreamAssistant2 {
 		/// <returns></returns>
 		public static bool TryGetCategorySchemeInAnySet(string[] parts, out ColorSchemeData? cr) {
 			cr = null;
+			if (parts.Length < 1) return false;
+
 			string categoryName = parts[0];
 			string schemeName = string.Join(' ', parts.Skip(1));
 			foreach (var (setName, set) in Sets) {

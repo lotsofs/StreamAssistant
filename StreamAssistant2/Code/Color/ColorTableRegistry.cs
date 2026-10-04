@@ -1,7 +1,3 @@
-// using Newtonsoft.Json;
-using System.Text.RegularExpressions;
-
-using System.Drawing;
 using Newtonsoft.Json;
 
 namespace StreamAssistant2 {
@@ -45,10 +41,9 @@ namespace StreamAssistant2 {
 					return true;
 				}
 			}
-			foreach (var key in Tables.Keys) {
-				var table = Tables[key];
-				string colorName = string.Join(' ', parts);
-				if (TryGetColorFromTable(table, colorName, loose, out namedColor)) {
+			string fullName = string.Join(' ', parts);
+			foreach (var table in Tables.Values) {
+				if (TryGetColorFromTable(table, fullName, loose, out namedColor)) {
 					return true;
 				}
 			}
