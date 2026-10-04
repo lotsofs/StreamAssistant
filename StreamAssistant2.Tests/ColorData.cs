@@ -8,8 +8,8 @@ namespace StreamAssistant2.Tests {
 	/// Points Config at a colour data directory and loads it into the static registries.
 	/// </summary>
 	public static class ColorData {
-		public const string RealColors = @"D:\Repositories\Stream-Resources\Input\Bot\Colors";
-		public const string RealColorSchemes = @"D:\Repositories\Stream-Resources\Input\Bot\ColorSchemes";
+		public const string RealColors = @"D:\Repositories\Stream-Resources\Bot Input\Colors";
+		public const string RealColorSchemes = @"D:\Repositories\Stream-Resources\Bot Input\ColorSchemes";
 
 		public static string Fixture(string name) => Path.Combine(AppContext.BaseDirectory, "Fixtures", name);
 

@@ -59,8 +59,8 @@ OBS animation. Requests are queued, not run directly, so they never overlap.
 
 ## Data files
 
-Both directories are configured in `secrets.json` (`Directories.Colors`,
-`Directories.ColorSchemes`). Each `*.json` file in them is loaded, and its file name becomes its
+Both directories are configured in `paths.json` (`Directories.Colors`,
+`Directories.ColorSchemes`), and currently sit in `Stream-Resources\Bot Input\`. Each `*.json` file in them is loaded, and its file name becomes its
 name.
 
 **Colour tables** map names to hex. The file name (`crayola`, `encycolorpedia`, …) is the table's

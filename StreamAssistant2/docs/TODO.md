@@ -22,7 +22,6 @@ Detail: [robustness-fixes.md](robustness-fixes.md)
 
 | Code | Area | Summary | Severity |
 |---|---|---|---|
-| [SEC](robustness-fixes.md#sec--credentials-in-a-past-transcript) | Security | Live Twitch tokens read into a past transcript; rotate the pair | Act soon |
 | [DRV](robustness-fixes.md#drv--log-drive-failure-kills-all-console-output) | Logging | A full or missing `D:` silently kills *all* console output — no error, bot just goes quiet | High, silent |
 | [CHN](robustness-fixes.md#chn--one-exception-logged-on-the-wrong-channel) | Logging | `Subscriptions.cs` logs an exception on `ColorType.None` instead of `Error` | Trivial |
 | [WRN](robustness-fixes.md#wrn--make-the-build-warning-clean) | Build | Compiler warnings: unused `ChatMessage` type, unused `MONEY_PER_BIT`, `CA1416` from the platform-neutral TFM | Housekeeping |
@@ -46,6 +45,5 @@ Detail: [single-console-logging.md § Deferred](single-console-logging.md#deferr
 | [UTF](single-console-logging.md#deferred) | `Console.OutputEncoding = UTF8` so the bot's emoji render | No |
 | [BUF](single-console-logging.md#deferred) | Hold one `StreamWriter` instead of open/append/close per log line | No |
 | [TTL](single-console-logging.md#deferred) | Put the status metrics in the window title | No |
-| [CFG](single-console-logging.md#deferred) | Move `LOG_DIRECTORY` into `secrets.json` alongside the other paths; see ROT | No |
 | [FTR](single-console-logging.md#deferred) | Grow the status footer to 2–3 stat lines | **Yes** |
 | [DEL](single-console-logging.md#deferred) | Delete the `StreamAssistantLog` project once nothing launches it | **Yes** |

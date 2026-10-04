@@ -8,13 +8,13 @@ A personal Twitch stream-automation bot for the channel `lotsofs`. It talks to T
 
 ## Docs
 
-**[docs/TODO.md](docs/TODO.md) is the master index — start there.** It lists every tracked item by 3-letter code with its area, a one-line summary, severity, and a link to the detail. A code can be resolved from the index alone; the detail docs do not need to be opened or searched to find one. The user refers to items by code ("do RAN"). One item has a clock on it: `SEC`, credential rotation.
+**[docs/TODO.md](docs/TODO.md) is the master index — start there.** It lists every tracked item by 3-letter code with its area, a one-line summary, severity, and a link to the detail. A code can be resolved from the index alone; the detail docs do not need to be opened or searched to find one. The user refers to items by code ("do RAN").
 
 Detail lives in the other files in [docs/](docs/), which record findings expensive to rediscover and are the right place to add new ones:
 
 - [docs/robustness-fixes.md](docs/robustness-fixes.md) — known bugs, loose ends and verification tasks, one `##` section per code.
 - [docs/color.md](docs/color.md) — how colour requests are resolved (`code/Color/`): the files, the data file formats, the single and triple parsing rules, loose matching, and how to test it. **Read it before changing anything in `code/Color/`.**
-- [docs/single-console-logging.md](docs/single-console-logging.md) — `SCL`, a designed-but-unstarted change that would delete the two-process logging described below, plus eight deferred items of its own.
+- [docs/single-console-logging.md](docs/single-console-logging.md) — `SCL`, a designed-but-unstarted change that would delete the two-process logging described below, plus deferred items of its own.
 
 Conventions that keep the index trustworthy:
 
@@ -29,7 +29,7 @@ Conventions that keep the index trustworthy:
 # Build (also builds + publishes the logger into bin/<Config>/net8.0/logger/)
 dotnet build StreamAssistant2.csproj
 
-# Run — must run from the project dir: secrets.json and icon.ico are resolved relative to cwd
+# Run — must run from the project dir: paths.json, secrets.json.example and icon.ico are resolved relative to cwd
 dotnet run --project StreamAssistant2.csproj
 
 # Release
@@ -43,7 +43,12 @@ VS Code's `build` task and `.NET Console Launch` config (external terminal, `cwd
 
 Only `code/Color/` has tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch the logger window.
 
-`secrets.json` is gitignored (it is the entire `.gitignore`); a `BeforeBuild` target copies `secrets.json.example` over it if missing, so a fresh clone builds but will fail at `Config.Load()` until real values are filled in. The example file documents the full shape.
+Configuration is split across two files, both read by [Config.cs](Config.cs):
+
+- **`paths.json`**, in the project folder: the `directories` block (`BotInput`, `BotOutput`, `Trains`, `Colors`, `ColorSchemes`). It isn't secret, just machine-specific, so it is gitignored and a `BeforeBuild` target creates it from the tracked `paths.json.example` when missing.
+- **`secrets.json`**, in `Directories.BotInput` (`D:\Repositories\Stream-Resources\Bot Input`), *outside* this repository: `obs`, `twitchAuth`, `twitchIds` and `twitchTestNames`. On first start, if it's missing, `Config.Load()` copies the tracked `secrets.json.example` there and stops with a message asking for the real values. `Stream-Resources` is its own git repo, so that file must be ignored there. Never read or print its values; check for "set or empty" if needed.
+
+The project's `.gitignore` covers `paths.json` and `secrets.json`; nothing copies either into the build output.
 
 ## Two-process architecture
 
@@ -73,9 +78,9 @@ Message parsing is hand-rolled on both sides: [ChatHandler.ProcessMessage](code/
 
 **Adding an EventSub event requires two edits:** add the subscription descriptor to `TwitchEventSubSubscription.Subscriptions` (type, version, and which condition ids it needs), and add a `case` in [TwitchEventHandler.Handle](code/Twitch/TwitchEventHandler.cs). Unhandled types log on the `EventSubConfusion` channel instead of failing. `channel.chat.notification` fans out a second level in `HandleChannelChatNotification` on `notice_type` (`sub`, `resub`, `sub_gift`, `community_sub_gift`) into [Subscriptions.cs](Subscriptions.cs).
 
-`TwitchEventSub.SendTest("<name>")` replays a saved payload from `Stream-Resources\Input\Bot\Tests\<name>.txt` straight into the handler — this is the test harness, triggered in chat by the broadcaster with `!test <name>`. `IS_TEST` + `TestBroadcasterId` redirect user-scoped subscriptions to another channel.
+`TwitchEventSub.SendTest("<name>")` replays a saved payload from `<BotInput>\Tests\<name>.txt` straight into the handler — this is the test harness, triggered in chat by the broadcaster with `!test <name>`. `IS_TEST` + `TestBroadcasterId` redirect user-scoped subscriptions to another channel.
 
-[TwitchHelixApi.cs](code/Twitch/TwitchHelixApi.cs) is the outbound REST side (currently only redemption status updates). Note EventSub keeps its own `HttpClient` for subscribing, separate from this one. Tokens come from `secrets.json` and are never refreshed at runtime despite `RefreshToken` being present.
+[TwitchHelixApi.cs](code/Twitch/TwitchHelixApi.cs) is the outbound REST side (currently only redemption status updates). Note EventSub keeps its own `HttpClient` for subscribing, separate from this one. Tokens come from `<BotInput>\secrets.json` and are never refreshed at runtime despite `RefreshToken` being present.
 
 ## Scheduling
 
@@ -87,7 +92,7 @@ Message parsing is hand-rolled on both sides: [ChatHandler.ProcessMessage](code/
 
 Layout recolouring is a multi-second animated sequence (set filters on the transitionary sources, cross-fade, then set the real ones), so it must not overlap. [LayoutColoring.cs](LayoutColoring.cs) therefore serializes requests through an unbounded `Channel<ColorRequest>` consumed by one worker started at boot. Enqueue via `TryChangeToSingle` / `TryChangeToTriple` / `ChangeToRandom`; don't call `ChangeColorAsync` directly.
 
-Colour *resolution* is separate, under [code/Color/](code/Color/), and documented in full in [docs/color.md](docs/color.md). Read that before touching it: the triple parser's separator-weight rule in particular is not guessable from the code. In short, `SingleColorParser` turns one chat string into a colour (hex, `rgb()`, `hsv()`, bare `r,g,b`, a named scheme or table colour, a system colour, or `random`), with a loose fallback that folds accents and treats odd letters as wildcards. `TripleColorParser` splits a string into up to three such colours. The registries load the colour tables and scheme files named in `secrets.json`. Two invariants bite most often: every hex the colour code produces is lowercase `#rrggbb`, and the triple parser ranks spans by *mean* separator weight; don't "simplify" that to a sum.
+Colour *resolution* is separate, under [code/Color/](code/Color/), and documented in full in [docs/color.md](docs/color.md). Read that before touching it: the triple parser's separator-weight rule in particular is not guessable from the code. In short, `SingleColorParser` turns one chat string into a colour (hex, `rgb()`, `hsv()`, bare `r,g,b`, a named scheme or table colour, a system colour, or `random`), with a loose fallback that folds accents and treats odd letters as wildcards. `TripleColorParser` splits a string into up to three such colours. The registries load the colour tables and scheme files from the directories in `paths.json`. Two invariants bite most often: every hex the colour code produces is lowercase `#rrggbb`, and the triple parser ranks spans by *mean* separator weight; don't "simplify" that to a sum.
 
 ## Conventions
 
@@ -108,4 +113,4 @@ Beyond that, the repo carries a lot of commented-out code from the era when this
 
 ## External dependencies at runtime
 
-Hardcoded absolute paths, mostly under `D:\Repositories\Stream-Resources\`: logs (`Bot Data\AssistantLogs\`), SQLite db (`Bot Data\streamAssistant.db`), alert sounds (`Alert Sounds\`), EventSub test payloads (`Input\Bot\Tests\`). Colour tables, colour schemes, and train images are configurable in `secrets.json`. [DiskSpace.cs](DiskSpace.cs) watches drive `A:\` and falls back to the first drive if absent. [TwitchUptime.cs](TwitchUptime.cs) scrapes stream uptime from `decapi.me` rather than Helix, and rate-limits itself to one request per 5 s. TTS requires the `Microsoft Catherine` SAPI voice to be installed — `SpeechSynthesizer.SelectVoice` throws in the static constructor if it is missing.
+Paths come from `paths.json` and all sit under `D:\Repositories\Stream-Resources\`. Under `BotInput` (`Bot Input\`): `secrets.json`, colour tables (`Colors\`), colour schemes (`ColorSchemes\`) and EventSub test payloads (`Tests\`). Under `BotOutput` (`Bot Output\`): logs (`AssistantLogs\`) and the SQLite db (`streamAssistant.db`). Train images have their own `Trains` entry. The one path still hard-coded is the alert sounds folder (`Stream-Resources\Alert Sounds\`, in `Sound.cs`). [DiskSpace.cs](DiskSpace.cs) watches drive `A:\` and falls back to the first drive if absent. [TwitchUptime.cs](TwitchUptime.cs) scrapes stream uptime from `decapi.me` rather than Helix, and rate-limits itself to one request per 5 s. TTS requires the `Microsoft Catherine` SAPI voice to be installed — `SpeechSynthesizer.SelectVoice` throws in the static constructor if it is missing.

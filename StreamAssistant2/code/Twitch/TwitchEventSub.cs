@@ -18,7 +18,7 @@ namespace StreamAssistant2 {
 			SocketDied,
 		}
 		
-		const string TEST_PATH = @"D:\Repositories\Stream-Resources\Input\Bot\Tests";
+		static string TestPath => Path.Combine(Config.Data.Directories.BotInput, "Tests");
 
 		const bool IS_TEST = false;
 
@@ -266,7 +266,7 @@ namespace StreamAssistant2 {
 
 		internal static void SendTest(string fileName) {
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, "Test Notification");
-			string path = Path.Combine(TEST_PATH, $"{fileName}.txt");
+			string path = Path.Combine(TestPath, $"{fileName}.txt");
 			if (!File.Exists(path)) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, "No such file");
 				return;

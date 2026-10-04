@@ -11,8 +11,9 @@ namespace StreamAssistant2 {
 		static BinaryWriter? _writer;
 		static Process? _process;
 
-		const string LOG_DIRECTORY = @"D:\Repositories\Stream-Resources\Bot Data\AssistantLogs\";
-		static string _logPath = Path.Combine(LOG_DIRECTORY, DateTime.Now.ToString("yyyy-MM-dd HHmmss")+".log");
+		static string LogDirectory => Path.Combine(Config.Data.Directories.BotOutput, "AssistantLogs");
+		static readonly string _logName = DateTime.Now.ToString("yyyy-MM-dd HHmmss") + ".log";
+		static string LogPath => Path.Combine(LogDirectory, _logName);
 		static readonly SemaphoreSlim _semaphore = new(1,1);
 		static readonly SemaphoreSlim _writeLock = new(1,1);
 
@@ -55,8 +56,8 @@ namespace StreamAssistant2 {
 			await _semaphore.WaitAsync();
 
 			try {
-				Directory.CreateDirectory(Path.Combine(LOG_DIRECTORY, "Custom"));
-				await File.AppendAllTextAsync(Path.Combine(LOG_DIRECTORY, "Custom", fileName), text.ToString());
+				Directory.CreateDirectory(Path.Combine(LogDirectory, "Custom"));
+				await File.AppendAllTextAsync(Path.Combine(LogDirectory, "Custom", fileName), text.ToString());
 			}
 			finally {
 				_semaphore.Release();
@@ -72,8 +73,8 @@ namespace StreamAssistant2 {
 			await _semaphore.WaitAsync();
 
 			try {
-				Directory.CreateDirectory(LOG_DIRECTORY);
-				await File.AppendAllTextAsync(_logPath, text + Environment.NewLine + Environment.NewLine);
+				Directory.CreateDirectory(LogDirectory);
+				await File.AppendAllTextAsync(LogPath, text + Environment.NewLine + Environment.NewLine);
 			}
 			finally {
 				_semaphore.Release();

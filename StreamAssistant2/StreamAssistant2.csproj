@@ -25,16 +25,10 @@
 		<InternalsVisibleTo Include="StreamAssistant2.Tests" />
 	</ItemGroup>
 	
-	<ItemGroup>
-		<None Update="secrets.json">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-	</ItemGroup>
-
-	<Target Name="EnsureSecretsIniExists" BeforeTargets="BeforeBuild">
-		<Copy Condition="!Exists('secrets.json') and Exists('secrets.json.example')"
-			  SourceFiles="secrets.json.example"
-			  DestinationFiles="secrets.json" />
+	<Target Name="EnsurePathsJsonExists" BeforeTargets="BeforeBuild">
+		<Copy Condition="!Exists('paths.json') and Exists('paths.json.example')"
+			  SourceFiles="paths.json.example"
+			  DestinationFiles="paths.json" />
 	</Target>
 
 	<Target Name="PublishLogger" AfterTargets="Build">

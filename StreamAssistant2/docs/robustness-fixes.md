@@ -9,23 +9,6 @@ live there, along with the conventions these codes follow. This file holds only 
 
 ---
 
-## SEC — Credentials in a past transcript
-
-`secrets.json` was read in full during the 2026-10-02 session, so the live Twitch `accessToken` /
-`refreshToken` and the OBS `socketPassword` are in that session's transcript. That session confirmed
-all four values differ from `secrets.json.example`, i.e. they are real rather than placeholders.
-
-- [ ] Rotate the Twitch token pair in the dev console. The OBS password is only reachable on
-      `127.0.0.1`, so it is lower risk.
-
-Gitignoring the file was the right call; this is purely about the transcript. (Later sessions have
-read only the `directories` block, so the tokens have not been re-exposed.)
-
-Related: the `refreshToken` is loaded but never used, so the bot cannot survive the ~4 h expiry of a
-Twitch user access token without a manual edit. Noted in `CLAUDE.md` as well.
-
----
-
 ## DRV — Log drive failure kills all console output
 
 **Severity:** the bot goes quiet with no indication why — and the trigger is a condition this project
@@ -39,8 +22,9 @@ await LogToFileAsync(message);      // <-- throws here and nothing below ever ru
 await _writeLock.WaitAsync();
 ```
 
-`LogToFileAsync` does `Directory.CreateDirectory(LOG_DIRECTORY)` against the hard-coded
-`D:\Repositories\Stream-Resources\Bot Data\AssistantLogs\`, then `File.AppendAllTextAsync`. If `D:`
+`LogToFileAsync` does `Directory.CreateDirectory(LogDirectory)`, which is
+`<BotOutput>\AssistantLogs` (`D:\Repositories\Stream-Resources\Bot Output\AssistantLogs`), then
+`File.AppendAllTextAsync`. If `D:`
 is disconnected, read-only or **full**, that throws. Because `ColoredLine` is fire-and-forget
 (`_ = ColoredLineAsync(...)`), the exception is captured into a discarded `Task`: no console output,
 no file entry, no stack trace. The only symptom is the log window going quiet while the bot keeps
@@ -73,7 +57,8 @@ ordering dependency between the file sink and the console sink.
 > this structurally via two independent channels, and this item should be skipped rather than done
 > twice. Do it here only if that plan stays banked.
 
-**Verify:** point `LOG_DIRECTORY` at a path on a non-existent drive (`Z:\nope\`) and confirm the app
+**Verify:** point `BotOutput` in `paths.json` at a path on a non-existent drive (`Z:\nope\`) and
+confirm the app
 still starts, still prints to the log window, and still connects to Twitch.
 
 ---
@@ -142,10 +127,6 @@ its own `Directory.CreateDirectory` call. Nothing prunes either.
 files older than N days (`Clock.AddGenericJobs` is the place, and `Clock` already supports one-shot
 jobs); or move `Custom/` writes into the SQLite database that `Database.cs` already manages, which is
 a better fit for per-event records than 585 loose files.
-
-Related: `LOG_DIRECTORY` is a hard-coded absolute path in `ConsoleLogger.cs`, while the comparable
-Colors / ColorSchemes / Trains paths all live in `secrets.json` under `directories`. Moving it there
-would make DRV testable without editing source, and is a two-line change to `DirectoriesConfig`.
 
 ---
 

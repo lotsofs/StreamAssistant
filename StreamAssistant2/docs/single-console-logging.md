@@ -199,10 +199,11 @@ ever been healthy" rather than editing the Twitch classes.
 - Delete the `ItemGroup` containing the `ProjectReference` to `StreamAssistantLog`. Nothing uses its
   types; the only source reference is the `logger/StreamAssistantLog.exe` path being deleted.
 - Delete the `PublishLogger` target. This also removes a nested `dotnet publish` from every build.
-- Leave `EnsureSecretsIniExists` and the `secrets.json` item alone. `StreamAssistant2.sln` needs no
+- Leave the `EnsurePathsJsonExists` target alone. `StreamAssistant2.sln` needs no
   change — it never contained the logger project.
 - `.vscode/launch.json` needs no change: keep `"console": "externalTerminal"` (a real console with
-  real scrollback) and `cwd` = project dir (`secrets.json` and `icon.ico` are relative).
+  real scrollback) and `cwd` = project dir (`paths.json`, `secrets.json.example` and `icon.ico`
+  are relative).
 - **Manual step:** `dotnet clean` will not remove `bin/<cfg>/net8.0/logger/`, because an `Exec`
   produced it. Delete it by hand so a stale `StreamAssistantLog.exe` doesn't later suggest the viewer
   is still wired up.
@@ -287,9 +288,9 @@ window close button to exercise the `ProcessExit` path within the CLR's budget.
 
 ## Deferred
 
-Deliberately out of scope for this change. All eight are registered in [TODO.md](TODO.md), which
-also records which of them depend on SCL landing first — **FTR** and **DEL** do; the other six stand
-on their own and can be done at any time.
+Deliberately out of scope for this change. All of them are registered in [TODO.md](TODO.md), which
+also records which depend on SCL landing first — **FTR** and **DEL** do; the others stand on their
+own and can be done at any time.
 
 - **ALR — Band-crossing alert lines.** A coloured log line when IRC/EventSub degrades or recovers,
   debounced, with the startup false-positive suppressed. Puts connection health in the dated log for
@@ -313,9 +314,6 @@ on their own and can be done at any time.
 - **DEL — Delete the `StreamAssistantLog` project.** Unwired by this change but kept on disk. If it is
   ever removed, first document the wire format somewhere durable (1 byte `ConsoleColor`, int32 LE
   length, UTF-8 payload); `ConsoleLogger.cs` is currently its only specification.
-- **CFG — `LOG_DIRECTORY` into `Config`.** A hard-coded absolute `D:\` path, while the comparable
-  Colors / ColorSchemes / Trains paths already live in `secrets.json` under `directories`. See
-  **ROT** in [robustness-fixes.md](robustness-fixes.md).
 
 ## Follow-up for `CLAUDE.md`
 

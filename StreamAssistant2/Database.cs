@@ -9,14 +9,12 @@ using Newtonsoft.Json;
 
 namespace StreamAssistant2 {
 	internal static class Database {
-		const string DIRECTORY = "D:\\Repositories\\Stream-Resources\\Bot Data";
-		
 		static string _dbPath = "";
 
 		static string _connectionString = "";
 		
 		internal async static Task InitAsync() {
-			_dbPath = Path.Combine(DIRECTORY, "streamAssistant.db");
+			_dbPath = Path.Combine(Config.Data.Directories.BotOutput, "streamAssistant.db");
 			_connectionString = new SqliteConnectionStringBuilder { DataSource = _dbPath }.ToString();
 
 			await using var connection = new SqliteConnection(_connectionString);
