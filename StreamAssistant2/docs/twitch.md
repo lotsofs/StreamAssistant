@@ -143,7 +143,8 @@ calls it.
 2. `ConnectOnce` (new socket, connect, post `🟣 ES Connected`), restart the keepalive stopwatch
 3. `ListenLoop` until something sets an exit reason
 4. exceptions log `Error TES1: <reason>` plus the exception to the file; a loop that ends without a
-   reason logs `Error TES3`
+   reason logs `Error TES3`. Every exit then logs `EventSub session ended: <reason> (socket <state>,
+   close <code> <name> "<description>")` on `EventSubConfusion`
 5. `CleanupSession`: a graceful close handshake only when the reason is `CancelRequested`, otherwise
    `Abort()`; then `_sessionId` cleared and the stopwatch restarted (`Error TES2` if cleanup throws)
 6. post `💥 ES Disconnected` to chat, wait 3 s, go again
@@ -167,7 +168,9 @@ At the top of each iteration it checks that the socket is `Open` and that the st
 (Twitch's default keepalive is 10 s). That check only runs *between* messages: `ReceiveAsync` has no
 timeout, so total silence on a live-looking socket blocks forever.
 
-`SessionExitReason` says why a session ended, so the reconnect log line is useful:
+`SessionExitReason` says why a session ended, and the `EventSub session ended` line reports it for every
+exit. When a Close frame arrives, `ReceiveFullMessage` also logs `EventSub closed the socket:` with the
+close code and description (Twitch uses 4xxx codes to say why):
 
 | Reason | Set when |
 |---|---|

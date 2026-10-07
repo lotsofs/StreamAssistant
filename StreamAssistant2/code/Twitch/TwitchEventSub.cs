@@ -72,6 +72,7 @@ namespace StreamAssistant2 {
 				if (_exitReason == SessionExitReason.None) {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error TES3: Listen loop exited with no provided reason.");
 				}
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"EventSub session ended: {_exitReason} ({DescribeSocket()})");
 				await CleanupSession(_exitReason == SessionExitReason.CancelRequested);
 				TwitchIRCManager.SendMessage("💥 ES Disconnected");
 				await Task.Delay(3000, token);
@@ -161,6 +162,8 @@ namespace StreamAssistant2 {
 				}
 				result = await _socket!.ReceiveAsync(buffer, token);
 				if (result.MessageType == WebSocketMessageType.Close) {
+					string close = FormatClose(result.CloseStatus, result.CloseStatusDescription);
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"EventSub closed the socket: {close}");
 					_exitReason = SessionExitReason.SocketClosed;
 					return "";
 				}
@@ -258,6 +261,21 @@ namespace StreamAssistant2 {
 			_socket = null;
 			_sessionId = "";
 			KeepAliveTimer.Restart();
+		}
+
+		static string DescribeSocket() {
+			if (_socket == null) {
+				return "no socket";
+			}
+			string close = FormatClose(_socket.CloseStatus, _socket.CloseStatusDescription);
+			return $"socket {_socket.State}, close {close}";
+		}
+
+		static string FormatClose(WebSocketCloseStatus? status, string? description) {
+			if (status == null) {
+				return "none";
+			}
+			return $"{(int)status} {status} \"{description}\"";
 		}
 
 		static bool IsSocketAlive() {

@@ -123,10 +123,11 @@ What is *not* known is why the new connection is closed. Candidates, none confir
 
 ### Plan
 
-1. **Instrument first** (small, safe, worth keeping). In `ReceiveFullMessage`, when a Close frame arrives,
-   log `result.CloseStatus` and `result.CloseStatusDescription` on `EventSubConfusion`. In
-   `StartConnectionLoop`, log one line for **every** session exit saying the reason (today only
-   exceptions and `None` are logged). Ship that; the next daily reconnect will say why.
+1. **Read the instrumentation.** Every session exit now logs `EventSub session ended: <reason> (socket
+   <state>, close …)`, and a Close frame logs `EventSub closed the socket: <code> …`
+   ([twitch.md](twitch.md#eventsub)). Once the bot has run through a daily reconnect with this build,
+   read those lines around the second `Connecting to` to see which candidate above it is. Not yet
+   observed live.
 2. **Fix per Twitch's documented flow**, informed by what step 1 logs:
    - On `session_reconnect`, **don't clean up first.** Connect a second socket to `reconnect_url` while
      the first stays open.
