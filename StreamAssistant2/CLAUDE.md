@@ -10,10 +10,22 @@ A personal Twitch stream-automation bot for the channel `lotsofs`. It talks to T
 
 **[docs/TODO.md](docs/TODO.md) is the master index — start there.** It lists every tracked item by 3-letter code with its area, a one-line summary, severity, and a link to the detail. A code can be resolved from the index alone; the detail docs do not need to be opened or searched to find one. The user refers to items by code ("do RAN").
 
-Detail lives in the other files in [docs/](docs/), which record findings expensive to rediscover and are the right place to add new ones:
+Detail lives in the other files in [docs/](docs/), which record findings expensive to rediscover and are the right place to add new ones. Read the one for the area you are touching before changing it:
 
+- [docs/architecture.md](docs/architecture.md) — startup order, threading model, file-by-file map, data flows. Start here when new to the tree.
+- [docs/twitch.md](docs/twitch.md) — IRC, EventSub and Helix in depth: credentials, session lifecycle, chat parsing, the subscription table, the `!test` harness.
+- [docs/events.md](docs/events.md) — what each event and channel-point reward does: subs, gift bombs, cheers, ads, flush/train/colour rewards.
+- [docs/obs.md](docs/obs.md) — OBS connection, the wrappers, and the layout-recolouring queue and animation.
+- [docs/infrastructure.md](docs/infrastructure.md) — config, logging, periodic work, database, sound, TTS, language filter, disk-space and uptime watchdogs.
+- [docs/dashboard.md](docs/dashboard.md) — the WPF window, its status thresholds, and how to add a panel.
+- [docs/reference.md](docs/reference.md) — error-code catalogue and every hardcoded value (paths, URLs, OBS names, timings).
+- [docs/development.md](docs/development.md) — build/run/test, working beside a running bot, scratch-program verification, recipes for common changes.
+- [docs/gotchas.md](docs/gotchas.md) — the things that bite, one line each, with pointers.
+- [docs/legacy.md](docs/legacy.md) — commented-out and unused code, its history, and how to port a `MsgQueue` call.
 - [docs/robustness-fixes.md](docs/robustness-fixes.md) — known bugs, loose ends and verification tasks, one `##` section per code.
 - [docs/color.md](docs/color.md) — how colour requests are resolved (`code/Color/`): the files, the data file formats, the single and triple parsing rules, loose matching, and how to test it. **Read it before changing anything in `code/Color/`.**
+
+Only `TODO.md` and `robustness-fixes.md` hold tracked items; the rest describe how things are. When code changes a described behaviour, hardcoded value or error code, update the doc in the same change.
 
 Conventions that keep the index trustworthy:
 
@@ -40,7 +52,7 @@ dotnet test ../StreamAssistant2.Tests/StreamAssistant2.Tests.csproj
 
 VS Code's `build` task and `.NET Console Launch` config (internal console, since the app has no console window of its own; `cwd` = workspace folder) do the same.
 
-Only `code/Color/` has tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch its window.
+Only `code/Color/` and the scheduling logic (`DiskSpace.AlertState`, `ClockMarks`, `Ads.RunScheduleAsync`) have tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch its window.
 
 Configuration is split across two files, both read by [Config.cs](Config.cs):
 
@@ -61,7 +73,7 @@ Bot code never touches WPF controls: it logs, and the window reads the static st
 
 [Program.cs](Program.cs) is the whole composition root — there is no DI, no service registry. Order matters:
 
-`Main` is a synchronous `[STAThread]` method, because WPF needs the STA thread and an `async Main` loses it after the first `await`. It runs `Config.Load()` (a failure shows a message box and exits, since there is no console to print to), creates the `Application` and `MainWindow`, and runs the window. When the window has loaded, `StartBotAsync` runs **on the thread pool**: `Coloring.Load()` → `Database.InitAsync()` → `Clock.Start()` + `Clock.AddGenericJobs()` → `EnableBot()` (OBS connect, IRC connect + `OnMessage += ChatHandler.ProcessMessage`, Helix init, EventSub connect, `LayoutColoring.StartWorker()`). A startup exception logs `Error PRG1`.
+`Main` is a synchronous `[STAThread]` method, because WPF needs the STA thread and an `async Main` loses it after the first `await`. It runs `Config.Load()` (a failure shows a message box and exits, since there is no console to print to), creates the `Application` and `MainWindow`, and runs the window. When the window has loaded, `StartBotAsync` runs **on the thread pool**: `Coloring.Load()` → `Database.InitAsync()` → `DiskSpace.Start()` + `TwitchUptime.Start()` → `EnableBot()` (OBS connect, IRC connect + `OnMessage += ChatHandler.ProcessMessage`, Helix init, EventSub connect, `LayoutColoring.StartWorker()`). A startup exception logs `Error PRG1`.
 
 Starting on the thread pool is load-bearing. Started from the UI thread, every fire-and-forget loop would capture WPF's synchronization context and run its continuations on the UI thread. Closing the window ends `Application.Run`; `Main` then posts the shutdown message to chat, logs `SHUTDOWN!` and calls `DisableBot()`.
 
@@ -82,7 +94,7 @@ Message parsing is hand-rolled on both sides: [ChatHandler.ProcessMessage](code/
 
 ## Scheduling
 
-[Clock.cs](Clock.cs) is a single cooperative scheduler: a list of `ScheduledJob { GetNextRun, Action, Repeat, Cancellation }`, a loop that sleeps until the earliest `NextRun`, and a `TaskCompletionSource` wake-up so `AddJob` can interrupt the sleep. Use it for anything time-based — delayed sounds (`Sound.PlaySoundDelayed`) and the ad pre-warnings in [Ads.cs](code/Twitch/Ads.cs) both do, and `Ads` keeps handles to its pending jobs so a new ad break can cancel the previous round of warnings. The generic jobs (disk-space check, clock check, uptime poll) are registered in `AddGenericJobs`.
+There is no scheduler. Anything time-based is an `async` loop in the module that owns it, started fire-and-forget from `Program.StartBotAsync` and written like the connection loops: wait, work inside a try/catch that logs an `Error` code, repeat. `DiskSpace.Start()` runs the disk-space check on every whole minute (alerting through a pure `AlertState` that fires on clock marks), and `TwitchUptime.Start()` runs the midnight date post and the uptime poll. The ad pre-warnings are one method, `Ads.RunScheduleAsync`, run per ad break on a `CancellationTokenSource`; a new ad break cancels the previous round. Keep the *decision* (is it due?) in a pure function so it can be tested.
 
 ## OBS and the colouring pipeline
 
@@ -95,7 +107,7 @@ Colour *resolution* is separate, under [code/Color/](code/Color/), and documente
 ## Conventions
 
 - **Formatting**: tabs, and opening brace on the same line (`.editorconfig`: `csharp_new_line_before_open_brace = none`), including for types and methods. `else`/`catch` on the line after the closing brace.
-- **Fire-and-forget**: sync entry points wrap async work as `_ = DoThingAsync();` (see `ConsoleLogger.ColoredLine`, `TwitchIRCManager.SendMessage`, `Clock.Start`). Deliberate — handlers must not block the IRC/EventSub read loops. The async body is responsible for catching and logging its own exceptions.
+- **Fire-and-forget**: sync entry points wrap async work as `_ = DoThingAsync();` (see `ConsoleLogger.ColoredLine`, `TwitchIRCManager.SendMessage`, `DiskSpace.Start`). Deliberate — handlers must not block the IRC/EventSub read loops. The async body is responsible for catching and logging its own exceptions, or the call goes through `FireForget.Run(code, what, () => ...)`, which does it.
 - **Error handling**: `catch` → `ConsoleLogger.ColoredLine(ColorType.Error, "Error <short code>")` + `LogToFile(ex)`, then recover. The short codes (`Error 7`, `Error TES1`, `Error Obs29`) are ad-hoc grep handles, not a scheme.
 - **The build is warning-free** — bot and test project, 0 warnings — so keep it that way rather than suppressing. Nullable is enabled and implicit usings are on (several files still carry full `using System...` blocks). Both assemblies are marked `[assembly: SupportedOSPlatform("windows")]`, which is what keeps the Windows-only SAPI calls from raising CA1416.
 - Chat text is run through [LanguageFilter.ReplaceBadWords](LanguageFilter.cs) before being spoken by TTS. The file documents its own naive substring approach and why that's acceptable here.
@@ -105,7 +117,7 @@ Colour *resolution* is separate, under [code/Color/](code/Color/), and documente
 Two migrations are in flight; expect inconsistency and don't "clean up" either without being asked:
 
 1. **WinForms → console → WPF.** The old `Form_StreamAssistant.*` UI was deleted, replaced by a console status bar plus a separate log-viewer process, and then by the WPF window. `ConsoleLogger` keeps its name from the console era.
-2. **Flat root → `code/<Area>/`.** [code/Color/](code/Color/) and [code/Twitch/](code/Twitch/) are the new home. The folder is lowercase `code/`; on Windows a case-only rename of it has to go through `git mv` (git runs with `core.ignorecase`), and VS Code holds a handle on the folder itself, so move its subfolders rather than renaming it. Put new files under `code/<Area>/`, except WPF windows and panels (XAML plus its code-behind), which go in [ui/](ui/). A sizeable set of modules (`Subscriptions.cs`, `LayoutColoring.cs`, `Clock.cs`, `Obs.cs`, …) is still at the root.
+2. **Flat root → `code/<Area>/`.** [code/Color/](code/Color/) and [code/Twitch/](code/Twitch/) are the new home. The folder is lowercase `code/`; on Windows a case-only rename of it has to go through `git mv` (git runs with `core.ignorecase`), and VS Code holds a handle on the folder itself, so move its subfolders rather than renaming it. Put new files under `code/<Area>/`, except WPF windows and panels (XAML plus its code-behind), which go in [ui/](ui/). A sizeable set of modules (`Subscriptions.cs`, `LayoutColoring.cs`, `Obs.cs`, …) is still at the root.
 
 Beyond that, the repo carries a lot of commented-out code from the era when this tool was a helper for Streamer.Bot and communicated through a `MsgQueue` (~24 references, all commented). [Games.cs](Games.cs), [Donations.cs](Donations.cs), and [LeftPanel.cs](LeftPanel.cs) are entirely commented out, and the public command replies in `ChatHandler.CheckForCommands` are stubbed the same way — they parse and match, then don't send. The admin commands in `CheckForAdminCommands` work (`!test`, and the colour commands `!changecolor`, `!changecolors`, `!changecolorrandom`, which mirror the three colour rewards), except the `!stoppaneltimer` stub. `MsgQueue` no longer exists; porting one of these means routing it to `TwitchIRCManager.SendMessage`, `TextToSpeech.EnqueueSpeech`, or `LayoutColoring` instead.
 

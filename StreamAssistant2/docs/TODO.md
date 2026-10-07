@@ -18,9 +18,12 @@ Refer to items by code in conversation (e.g. "do ALR").
 
 ## Open — defects and tasks
 
-Detail: [robustness-fixes.md](robustness-fixes.md)
+Detail and a plan for each: [robustness-fixes.md](robustness-fixes.md). Plans note their dependencies at the top of that file.
 
 | Code | Area | Summary | Severity |
 |---|---|---|---|
+| [DCD](robustness-fixes.md#dcd--dead-connections-are-never-recycled) | Twitch | IRC and EventSub reads have no timeout; a silently dead socket is shown red but never replaced | Medium |
+| [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` never succeeds: the new connection closes within ms and the bot falls back to a fresh session, losing events for ~7 s. Seen in the logs; cause unknown, instrument first | Medium |
+| [SBM](robustness-fixes.md#sbm--subscription-message-defects) | Alerts | Missing separator in the `sub` sentence, inverted tier test in the bomb sentence, bomb entries never removed | Low |
 | [ALR](robustness-fixes.md#alr--log-line-when-a-connection-degrades-or-recovers) | Logging | Log line when IRC/EventSub degrades or recovers, debounced | Low |
 | [BUF](robustness-fixes.md#buf--buffered-log-file-writes) | Logging | Hold one `StreamWriter` instead of open/append/close per log line | Low |
