@@ -16,13 +16,16 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `PRG1` | `Program.StartBotAsync` | A startup step threw (message appended). Common cause: the TTS voice is missing | the bot stays half-started |
 | `1` | `TwitchIRCManager.StartConnectionLoop` | IRC connect or listen failed | waits 3 s, reconnects |
 | `TIRC2` | `TwitchIRCManager.ListenLoop` | IRC connection lost (always followed by `1`) | rethrows to the loop |
-| `3` | `FireForget.Run` (from `TwitchIRCManager.SendMessage`) | Writing a chat message failed | message dropped |
+| `TIRC3` | `FireForget.Run` (from `TwitchIRCManager.SendMessage`) | Writing a chat message failed | message dropped |
 | `7` | `ChatHandler.ProcessMessage` | A raw IRC line couldn't be parsed, **or** a command handler threw synchronously (including the colour commands) | line dropped |
 | `TES1` | `TwitchEventSub.StartConnectionLoop` | The EventSub session ended with an exception; suffix is the `SessionExitReason` | cleanup, 3 s, reconnect |
 | `TES2` | `TwitchEventSub.CleanupSession` | Closing the old socket threw | continues |
 | `TES3` | `TwitchEventSub.StartConnectionLoop` | The listen loop exited without setting a reason | cleanup, reconnect |
 | `TEH1` | `TwitchEventHandler.Handle` | The dispatch itself threw synchronously (not the handlers, which `Run` wraps) | event dropped |
-| `TEH2` | `FireForget.Run` (from `TwitchEventHandler`) | An async handler threw, before or after its first `await`; the message names the event or notice type | rest of that alert skipped |
+| `TEH_adb`, `TEH_cpcrra`, `TEH_c` | `FireForget.Run` (from `TwitchEventHandler.Handle`) | The ad-break, redemption or cheer handler threw, before or after its first `await`; the message names the event type | rest of that alert skipped |
+| `TEH_CN_s`, `TEH_CN_rs`, `TEH_CN_sg`, `TEH_CN_csg` | `FireForget.Run` (from `TwitchEventHandler.HandleChannelChatNotification`) | The sub, resub, sub-gift or gift-bomb handler threw; the message names the notice type | rest of that alert skipped |
+| `TEV1` | `FireForget.Run` (from `TestEventRunner.Run`) | Feeding a `!test` script's events into the handler threw | rest of that test not sent |
+| `TRN1` | `FireForget.Run` (from the `!train` command) | The train threw (OBS calls no-op when disconnected, so rarely) | train skipped |
 | `SUB1` | `Subscriptions.HandleCommunitySubGiftNotif` | The gift-bomb announcement threw (the only handler with its own catch) | no announcement |
 | `CP1` | `ChannelPoints.CloseColorRedemption` | Helix refused to fulfil or cancel a colour redemption (often a 403; see [color.md](color.md)) | redemption left open |
 | `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | An OBS call threw during a colour change; the message is logged next | worker moves to the next request |
@@ -74,7 +77,7 @@ Single-user software, so these are constants in code rather than settings.
 |---|---|
 | `D:\Repositories\Stream-Resources\Alert Sounds\`, the only path not in `paths.json` | `Sound` |
 | Drive `A:\` (falls back to the first drive) | `DiskSpace` |
-| `Tests` under `Directories.BotInput`, `AssistantLogs` and `AssistantLogs\Custom` under `BotOutput`, `streamAssistant.db` under `BotOutput` | `TwitchEventSub`, `ConsoleLogger`, `Database` |
+| `AssistantLogs` and `AssistantLogs\EventSubs` under `BotOutput`, `streamAssistant.db` under `BotOutput` | `ConsoleLogger`, `TestReplay` (reads `EventSubs`), `Database` |
 
 ### Channel-point rewards
 

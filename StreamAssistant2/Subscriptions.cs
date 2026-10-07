@@ -11,11 +11,10 @@ namespace StreamAssistant2 {
 		internal static async Task HandleSubNotif(JsonElement n) {
 			// bool chatter_is_anonymous = n.GetProperty("chatter_is_anonymous").GetBoolean();
 			// string chatter_user_login = n.GetProperty("chatter_user_login").GetString() ?? (chatter_is_anonymous ? "Anonymous" : "Unknown User");
-			string chatter_user_login = n.GetProperty("chatter_user_login").GetString() ?? "Unknown User";
-			JsonElement sub = n.GetProperty("sub");
-			int sub_tier = int.Parse(sub.GetProperty("sub_tier").GetString() ?? "0")/1000;
-			bool is_prime = sub.GetProperty("is_prime").GetBoolean();
-			int duration_months = sub.GetProperty("duration_months").GetInt32();
+			string chatter_user_login = n.ReadString("chatter_user_login", "Unknown User");
+			int sub_tier = n.ReadInt("sub.sub_tier") / 1000;
+			bool is_prime = n.ReadBool("sub.is_prime");
+			int duration_months = n.ReadInt("sub.duration_months");
 
 			string msg = $"{chatter_user_login} subscribed";
 			if (is_prime) {
@@ -34,17 +33,14 @@ namespace StreamAssistant2 {
 		}
 
 		internal static async Task HandleResubNotif(JsonElement n) {
-			string chatter_user_login = n.GetProperty("chatter_user_login").GetString() ?? "Unknown User";
-			JsonElement resub = n.GetProperty("resub");
-			int sub_tier = int.Parse(resub.GetProperty("sub_tier").GetString() ?? "0")/1000;
-			bool is_prime = resub.GetProperty("is_prime").GetBoolean();
-			int cumulative_months = resub.GetProperty("cumulative_months").GetInt32();
-			int duration_months = resub.GetProperty("duration_months").GetInt32();
-			int streak_months = resub.TryGetProperty("streak_months", out var prop) && prop.ValueKind == JsonValueKind.Number ? prop.GetInt32() : 0;
-			bool is_gift = resub.GetProperty("is_gift").GetBoolean();
-			JsonElement message = n.GetProperty("message");
-			string text = message.GetProperty("text").GetString() ?? "";
-			text = LanguageFilter.ReplaceBadWords(text);
+			string chatter_user_login = n.ReadString("chatter_user_login", "Unknown User");
+			int sub_tier = n.ReadInt("resub.sub_tier") / 1000;
+			bool is_prime = n.ReadBool("resub.is_prime");
+			int cumulative_months = n.ReadInt("resub.cumulative_months");
+			int duration_months = n.ReadInt("resub.duration_months");
+			int streak_months = n.ReadInt("resub.streak_months");
+			bool is_gift = n.ReadBool("resub.is_gift");
+			string text = LanguageFilter.ReplaceBadWords(n.ReadString("message.text"));
 
 			if (is_gift) {
 				TwitchIRCManager.SendMessage("🎁");
@@ -78,9 +74,8 @@ namespace StreamAssistant2 {
 		}
 
 		internal static async Task HandleSubGiftNotif(JsonElement n) {
-			JsonElement sub_gift = n.GetProperty("sub_gift");
-			string community_gift_id = sub_gift.GetProperty("community_gift_id").GetString() ?? "";
-			string recipient_user_login = sub_gift.GetProperty("recipient_user_login").GetString() ?? "Unknown User";
+			string community_gift_id = n.ReadString("sub_gift.community_gift_id");
+			string recipient_user_login = n.ReadString("sub_gift.recipient_user_login", "Unknown User");
 			if (!string.IsNullOrEmpty(community_gift_id)) {
 				// Gift sub from bomb. Could happen before or after the bomb notif itself.
 				if (!_giftBombs.TryGetValue(community_gift_id, out var bomb)) {
@@ -95,10 +90,11 @@ namespace StreamAssistant2 {
 			}
 
 			// Targeted gift sub
-			string chatter_user_login = n.GetProperty("chatter_user_login").GetString() ?? "Unknown User";
-			int sub_tier = int.Parse(sub_gift.GetProperty("sub_tier").GetString() ?? "0")/1000;
-			int cumulative_total = sub_gift.GetProperty("cumulative_total").GetInt32();
-			int duration_months = sub_gift.GetProperty("duration_months").GetInt32();
+			bool chatter_is_anonymous = n.ReadBool("chatter_is_anonymous");
+			string chatter_user_login = n.ReadString("chatter_user_login", chatter_is_anonymous ? "Anonymous" : "Unknown User");
+			int sub_tier = n.ReadInt("sub_gift.sub_tier") / 1000;
+			int cumulative_total = n.ReadInt("sub_gift.cumulative_total");
+			int duration_months = n.ReadInt("sub_gift.duration_months");
 					
 			string msg = $"{chatter_user_login} gifted a tier {sub_tier} sub to {recipient_user_login}";
 			if (cumulative_total > 1) {
@@ -121,13 +117,12 @@ namespace StreamAssistant2 {
 		internal static async Task HandleCommunitySubGiftNotif(JsonElement n) {
 			try {
 				n = n.Clone(); // Clone element so it doesn't get disposed
-				JsonElement community_sub_gift = n.GetProperty("community_sub_gift");
-				string id = community_sub_gift.GetProperty("id").GetString() ?? "";
+				string id = n.ReadString("community_sub_gift.id");
 				if (string.IsNullOrEmpty(id)) {
 					TwitchIRCManager.SendMessage("Something went wrong with the commie gift sub");
 					return;
 				}
-				int total = community_sub_gift.GetProperty("total").GetInt32();
+				int total = n.ReadInt("community_sub_gift.total");
 				if (!_giftBombs.TryGetValue(id, out var bomb)) {
 					bomb = new CommunityGiftSub(id);
 					_giftBombs[id] = bomb;
@@ -137,10 +132,10 @@ namespace StreamAssistant2 {
 
 				// Get this data before the await or the JsonElement will be disposed in the meantime.
 				// A bit redundant since we're already cloning n anyway.
-				int sub_tier = int.Parse(community_sub_gift.GetProperty("sub_tier").GetString() ?? "0")/1000;
-				int cumulative_total = community_sub_gift.GetProperty("cumulative_total").GetInt32();
-				bool chatter_is_anonymous = n.GetProperty("chatter_is_anonymous").GetBoolean();
-				string chatter_user_login = n.GetProperty("chatter_user_login").GetString() ?? (chatter_is_anonymous ? "Anonymous" : "Unknown User");
+				int sub_tier = n.ReadInt("community_sub_gift.sub_tier") / 1000;
+				int cumulative_total = n.ReadInt("community_sub_gift.cumulative_total");
+				bool chatter_is_anonymous = n.ReadBool("chatter_is_anonymous");
+				string chatter_user_login = n.ReadString("chatter_user_login", chatter_is_anonymous ? "Anonymous" : "Unknown User");
 				
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.None, $"Before await");
 				var recipients = await bomb.WaitForRecipientsAsync();

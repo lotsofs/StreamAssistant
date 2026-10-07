@@ -7,9 +7,9 @@ namespace StreamAssistant2 {
 		static CancellationTokenSource? _warnings;
 
 		internal async static Task Process(JsonElement evt) {
-			string is_automatic = evt.GetProperty("is_automatic").GetString() ?? "false";
-			int duration_seconds = int.Parse(evt.GetProperty("duration_seconds").GetString() ?? "0");
-			string auto = is_automatic == "true" ? "automatic" : "manual";
+			bool is_automatic = evt.ReadBool("is_automatic");
+			int duration_seconds = evt.ReadInt("duration_seconds");
+			string auto = is_automatic ? "automatic" : "manual";
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.AdNotification, $"Running {auto} ad ({duration_seconds} seconds)");
 			await Task.Delay(duration_seconds * 1000);
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.AdNotification, $"Ad break over");

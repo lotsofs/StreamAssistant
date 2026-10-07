@@ -127,6 +127,7 @@ transport classes and the colour code (the test project reaches internals throug
 | [Ads.cs](../code/Twitch/Ads.cs) | Ad-break handling and chat warnings |
 | [Cheers.cs](../code/Twitch/Cheers.cs) | Bits alert |
 | [CommunityGiftSub.cs](../code/Twitch/CommunityGiftSub.cs) | Collects the recipients of one gift bomb |
+| [TestEvents/](../code/Twitch/TestEvents/) | `!test` scripts: simulated events built in code (`TestEventRunner`, `TestArgs`, one file per area) |
 
 All of this is covered in [twitch.md](twitch.md) and [events.md](events.md).
 
@@ -139,6 +140,11 @@ next minute, next local midnight) for the periodic loops. See [infrastructure.md
 
 [FireForget.cs](../code/Util/FireForget.cs): `FireForget.Run(code, what, work)` starts an async body
 without awaiting it and logs a throw as `Error <code>: <what> failed`. Used for EventSub handlers and chat sends.
+
+[JsonElementExtensions.cs](../code/Util/JsonElementExtensions.cs): `ReadString`, `ReadInt`, `ReadBool` and `ReadElement` on
+`JsonElement`, reading by dotted path (`"sub.sub_tier"`) and returning a fallback for a missing step, a
+`null` or the wrong kind. `ReadInt` and `ReadBool` also accept numeric and boolean strings. Every EventSub
+payload read goes through these.
 
 ### `code/Color/`
 

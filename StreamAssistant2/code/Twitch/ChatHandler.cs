@@ -165,9 +165,10 @@ namespace StreamAssistant2 {
 					LayoutColoring.ChangeToRandom();
 					break;
 				case "!test":
-					if (argument.Length > 0) {
-						TwitchEventSub.SendTest(argument);
-					}
+					TestEventRunner.Run(argument);
+					break;
+				case "!train":
+					FireForget.Run("TRN1", "train", ChannelPoints.RunTrainAsync);
 					break;
 			}
 		}

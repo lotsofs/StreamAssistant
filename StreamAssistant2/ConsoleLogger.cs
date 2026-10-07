@@ -44,16 +44,21 @@ namespace StreamAssistant2 {
 			ColoredLine(ColorType.None, text);
 		}
 
-		public static void LogToCustomFile(object text, string fileName) {
-			_ = LogToCustomFileAsync(text, fileName);
+		/// <summary>
+		/// AssistantLogs\EventSubs: one file per real EventSub event, read back by !test replay.
+		/// </summary>
+		public static string EventSubDirectory => Path.Combine(LogDirectory, "EventSubs");
+
+		public static void LogToEventSubFile(object text, string fileName) {
+			_ = LogToEventSubFileAsync(text, fileName);
 		}
 
-		static async Task LogToCustomFileAsync(object text, string fileName) {
+		static async Task LogToEventSubFileAsync(object text, string fileName) {
 			await _semaphore.WaitAsync();
 
 			try {
-				Directory.CreateDirectory(Path.Combine(LogDirectory, "Custom"));
-				await File.AppendAllTextAsync(Path.Combine(LogDirectory, "Custom", fileName), text.ToString());
+				Directory.CreateDirectory(EventSubDirectory);
+				await File.AppendAllTextAsync(Path.Combine(EventSubDirectory, fileName), text.ToString());
 				_fileWritesFailing = false;
 			}
 			catch (Exception ex) {

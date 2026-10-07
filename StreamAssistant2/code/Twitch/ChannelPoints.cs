@@ -19,24 +19,33 @@ namespace StreamAssistant2 {
 		const string REWARD_ID_COLOR_SINGLE = "ad70a9d9-12fa-44dd-a3fb-dde21ebc4ec1";
 		const string REWARD_ID_COLOR_TRIPLE = "30168c08-09f6-4557-ab49-b7eaed212978";
 		
-		internal async static Task ProcessAdd(JsonElement evt) {
-			string rewardId = evt.GetProperty("reward").GetProperty("id").GetString() ?? "";
+		/// <param name="isTest">From !test (a replay): leave the toilet database and the real redemptions alone.</param>
+		internal async static Task ProcessAdd(JsonElement evt, bool isTest = false) {
+			string rewardId = evt.ReadString("reward.id");
 
-			string redemptionId = evt.GetProperty("id").GetString() ?? "";
-			string userId = evt.GetProperty("user_id").GetString() ?? "";
-			string userLogin = evt.GetProperty("user_login").GetString() ?? "";
-			string userInput = evt.GetProperty("user_input").GetString() ?? "";
+			string redemptionId = evt.ReadString("id");
+			string userId = evt.ReadString("user_id");
+			string userLogin = evt.ReadString("user_login");
+			string userInput = evt.ReadString("user_input");
 
 			bool success = false;
 
 			switch (rewardId) {
 				case REWARD_ID_TOILET_FLUSH:
 					Sound.PlaySound(Sound.Sounds.Flush);
+					if (isTest) {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Test flush for {userLogin}: not written to the database ({redemptionId})");
+						break;
+					}
 					await Database.InsertFlushAsync(redemptionId, userId, userLogin);
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully wrote flush for {userLogin}: {redemptionId}");
 					break;
 				case REWARD_ID_TOILET_RETRIEVE:
 					var flushes = await Database.RetrieveFlushesAsync(userId);
+					if (isTest) {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Test retrieve for {userLogin}: would return {flushes.Count} flush(es); database, Helix and chat left alone");
+						break;
+					}
 					if (flushes.Count == 0) {
 						TwitchIRCManager.SendMessage($"🪠 Digging through the sewers far and wide, the workers didn't find any of {userLogin}'s stuff 🪠");
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully cleared sewers for {userLogin}: NONE");
@@ -50,24 +59,19 @@ namespace StreamAssistant2 {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully cleared sewers for {userLogin}: {flushes.Count}");
 					break;
 				case REWARD_ID_TRAIN:
-					int r = Random.Shared.Next(0, 100);
-					Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, $"Train{r}.png"));
-					Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", true);
-					await Task.Delay(62000);
-					Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", false);
-					Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, "Empty.png"));
+					await RunTrainAsync();
 					break;
 				case REWARD_ID_COLOR_RANDOM:
 					LayoutColoring.ChangeToRandom();
-					await CloseColorRedemption(rewardId, redemptionId, true);
+					await CloseColorRedemption(rewardId, redemptionId, true, isTest);
 					break;
 				case REWARD_ID_COLOR_SINGLE:
 					success = LayoutColoring.TryChangeToSingle(userInput);
-					await CloseColorRedemption(rewardId, redemptionId, success);
+					await CloseColorRedemption(rewardId, redemptionId, success, isTest);
 					break;
 				case REWARD_ID_COLOR_TRIPLE:
 					success = LayoutColoring.TryChangeToTriple(userInput);
-					await CloseColorRedemption(rewardId, redemptionId, success);
+					await CloseColorRedemption(rewardId, redemptionId, success, isTest);
 					break;
 				default:
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unhandled channel point reward redemption id: {rewardId}");
@@ -77,11 +81,28 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Marks a colour redemption fulfilled, or refunds it when the colour wasn't found.
+		/// Shows a random train image on stream for 62 seconds.
 		/// </summary>
-		static async Task CloseColorRedemption(string rewardId, string redemptionId, bool success) {
+		internal static async Task RunTrainAsync() {
+			int r = Random.Shared.Next(0, 100);
+			Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, $"Train{r}.png"));
+			Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", true);
+			await Task.Delay(62000);
+			Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", false);
+			Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, "Empty.png"));
+		}
+
+		/// <summary>
+		/// Marks a colour redemption fulfilled, or refunds it when the colour wasn't found. Only logs for a test.
+		/// </summary>
+		static async Task CloseColorRedemption(string rewardId, string redemptionId, bool success, bool isTest) {
+			string status = success ? "FULFILLED" : "CANCELED";
+			if (isTest) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Test colour redemption: would mark {redemptionId} {status}; Helix not called");
+				return;
+			}
 			try {
-				await TwitchHelixApi.UpdateRedemption(rewardId, redemptionId, success ? "FULFILLED" : "CANCELED");
+				await TwitchHelixApi.UpdateRedemption(rewardId, redemptionId, status);
 			}
 			catch (Exception ex) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error CP1");

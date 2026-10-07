@@ -42,7 +42,7 @@ The owner runs the bot from the editor with F5, often while a stream is on. So:
 - **Writing to the real log folder is fine.**
 - **Scratch programs and tests must never touch Twitch or OBS.** Anything that reaches
   `TwitchIRCManager.SendMessage`, `LayoutColoring` (which posts to chat *and* drives OBS) or
-  `TwitchEventSub.SendTest` (which runs real handlers) is off limits unless the owner asks.
+  `TestEventRunner.Run` (which runs real handlers) is off limits unless the owner asks.
 - **Don't run `git add`, `commit` or `push`** unless explicitly asked. Reading git state is fine.
 
 ## Verification, by area

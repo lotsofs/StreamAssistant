@@ -104,4 +104,7 @@ and still announces in chat as though it happened. Read, not reproduced.
 
 The train reward ([events.md](events.md#channel-point-rewards)) shows a PNG over the layout: it sets the
 `Image: Train` input's file, enables it in `!Scene: Basics Colored`, waits 62 s, disables it and resets
-the file to `Empty.png`. It bypasses `LayoutColoring`'s queue entirely.
+the file to `Empty.png`. It bypasses `LayoutColoring`'s queue entirely. The code is
+`ChannelPoints.RunTrainAsync`, shared by the reward and the `!train` admin command. Two trains within 62 s
+cut each other short (TRX), and its OBS calls run on the read loop that started it (OSY); both are in
+[TODO.md](TODO.md).

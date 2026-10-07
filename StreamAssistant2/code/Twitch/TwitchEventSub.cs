@@ -18,8 +18,6 @@ namespace StreamAssistant2 {
 			SocketDied,
 		}
 		
-		static string TestPath => Path.Combine(Config.Data.Directories.BotInput, "Tests");
-
 		static readonly bool IS_TEST = false;
 
 		static string _clientId = "";
@@ -112,23 +110,21 @@ namespace StreamAssistant2 {
 
 				using var doc = JsonDocument.Parse(json);
 				var root = doc.RootElement;
-				var metadata = root.GetProperty("metadata");
-				var messageType = metadata.GetProperty("message_type").GetString();
+				string messageType = root.ReadString("metadata.message_type");
 
 				switch (messageType) {
 					case "session_welcome":
 						KeepAliveTimer.Restart();
 						// ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, "session_welcome");
-						_sessionId = root.GetProperty("payload").GetProperty("session").GetProperty("id").GetString() ?? "";
+						_sessionId = root.ReadString("payload.session.id");
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, $"EventSub Session Welcome. Session ID: {_sessionId}");
 						await SubscribeToEvents();
 						break;
 					case "notification":
 						KeepAliveTimer.Restart();
 						// ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, "notification");
-						JsonElement payload = root.GetProperty("payload");
-						string subscriptionType = payload.GetProperty("subscription").GetProperty("type").ToString();
-						JsonElement event_element = payload.GetProperty("event");
+						string subscriptionType = root.ReadString("payload.subscription.type");
+						JsonElement event_element = root.ReadElement("payload.event");
 						TwitchEventHandler.Handle(subscriptionType, event_element);
 						break;
 					case "session_keepalive":
@@ -137,7 +133,8 @@ namespace StreamAssistant2 {
 						break;
 					case "session_reconnect":
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, "EventSub sent session_reconnect");
-						_pendingReconnectUrl = root.GetProperty("payload").GetProperty("session").GetProperty("reconnect_url").GetString();
+						string reconnectUrl = root.ReadString("payload.session.reconnect_url");
+						_pendingReconnectUrl = reconnectUrl.Length > 0 ? reconnectUrl : null;
 						_exitReason = SessionExitReason.ReconnectRequested;
 						return;
 					default:
@@ -280,19 +277,6 @@ namespace StreamAssistant2 {
 
 		static bool IsSocketAlive() {
 			return _socket != null && _socket.State == WebSocketState.Open;
-		}
-
-		internal static void SendTest(string fileName) {
-			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, "Test Notification");
-			string path = Path.Combine(TestPath, $"{fileName}.txt");
-			if (!File.Exists(path)) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, "No such file");
-				return;
-			}
-			JsonElement payload = JsonDocument.Parse(File.ReadAllText(path)).RootElement;
-			string subscriptionType = payload.GetProperty("subscription").GetProperty("type").ToString();
-			JsonElement event_element = payload.GetProperty("event");
-			TwitchEventHandler.Handle(subscriptionType, event_element);
 		}
 	}
 }

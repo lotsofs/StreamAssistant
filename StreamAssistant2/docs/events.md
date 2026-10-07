@@ -22,8 +22,11 @@ After the switch it appends the raw event JSON to the day's log file.
 
 Chat notifications fan out on `notice_type`: `sub`, `resub`, `sub_gift`, `community_sub_gift`.
 Anything else (raids, announcements, `bits_badge_tier`, `charity_donation`, …) logs `Unhandled chat
-notice event` with the type, system message and text. Every chat notification, handled or not, is first
-written pretty-printed to `AssistantLogs\Custom\<notice_type>_<timestamp>.log`.
+notice event` with the type, system message and text. Like every real EventSub event, each chat
+notification, handled or not, is first written pretty-printed to
+`AssistantLogs\EventSubs\<notice_type>_<timestamp>.log` by `TwitchEventHandler.DumpEvent` (not `!test`
+events; `!test replay` reads these back, see [twitch.md](twitch.md#the-test-harness)). Two in the same
+millisecond share the file, the second appended.
 
 ## The alert pattern
 
@@ -35,8 +38,8 @@ finish before TTS starts.
 - `TextToSpeech.EnqueueSpeech(text)` joins the single speech queue, so alerts never talk over each
   other, though their *sounds* can overlap.
 
-Each handler is an `async Task` started with `FireForget.Run("TEH2", type, () => Handler(evt))`, which
-logs anything it throws as `Error TEH2` (see [twitch.md](twitch.md#adding-an-eventsub-event)). A handler
+Each handler is an `async Task` started with `FireForget.Run("<code>", type, () => Handler(evt))`, which
+logs anything it throws as `Error <code>`, one `TEH_…` code per handler (see [twitch.md](twitch.md#adding-an-eventsub-event)). A handler
 that throws stops there, so the rest of its alert doesn't happen.
 
 ## Subscriptions
@@ -55,6 +58,11 @@ All in [Subscriptions.cs](../Subscriptions.cs). The tier is `int.Parse(sub_tier)
 The resub deliberately omits `duration_months` from the sentence; a code comment says it shows the
 streak by mistake.
 
+**Anonymous gifters.** Twitch sends an anonymous gift (bomb or targeted) with `chatter_is_anonymous: true`,
+`chatter_user_login: null` and `cumulative_total: null`. Both gift handlers say "Anonymous" for the name
+and read `cumulative_total` (like `streak_months`) with `ReadInt`, which treats null or missing as 0
+([JsonElementExtensions](../code/Util/JsonElementExtensions.cs)), so the total sentence is simply left out.
+
 ### Gift bombs
 
 A bomb is one `community_sub_gift` notification (id, total, gifter) plus one `sub_gift` notification per
@@ -69,8 +77,12 @@ keyed by that id.
   recipients have arrived. A slow bomb is announced with a partial list.
 - Entries are never removed from `_giftBombs`. The dictionary has no lock (`_giftBombsLock` is declared
   and unused, as are `_giftees` and `_giftBombWaiters`), which is safe today only because both handlers
-  touch it before their first `await`, i.e. on the EventSub read loop. A `!test` replay runs on the IRC
-  thread instead.
+  touch it before their first `await`, i.e. on the EventSub read loop. A `!test` script's first event
+  runs on the IRC thread and the rest on the thread pool, one at a time, so it never races itself.
+- A single gift "to the community" is a bomb of one: a `community_sub_gift` with `total: 1` plus one
+  `sub_gift` carrying its id.
+- `!test bomb <n>` simulates a whole bomb, including recipients first (`late`) and a short bomb that waits
+  out the 10 s (`missing <k>`). See [twitch.md](twitch.md#the-test-harness).
 
 ### Known message defects
 
@@ -90,8 +102,8 @@ are leftovers (commented out).
 
 On `channel.ad_break.begin`:
 
-1. read `is_automatic` and `duration_seconds` (both read as **strings**; the code calls `GetString()` on
-   them, so a payload carrying real booleans or numbers would throw, silently), log
+1. read `is_automatic` and `duration_seconds` with `ReadBool` and `ReadInt`, which accept Twitch's strings
+   (`"true"`, `"60"`) as well as real booleans and numbers, log
    `Running automatic|manual ad (N seconds)` on `AdNotification`
 2. wait the ad's duration, log `Ad break over`
 3. cancel the previous round's `CancellationTokenSource` (the old pending warnings stop) and swap in a fresh one
@@ -120,10 +132,10 @@ constants are listed in [reference.md](reference.md#channel-point-rewards)). An 
 
 | Reward | Does |
 |---|---|
-| Toilet flush | play `Flush`, insert a row in `flushes` (redemption id, user id, login, time), log it |
-| Toilet retrieve | look up that user's flushes; none → chat `🪠 … didn't find any of <user>'s stuff`; else `CANCELED` each flushed redemption through Helix (refunding it), delete the rows, chat `🪠 Found and returned N … 🪠` |
-| Train | pick a random `Train0.png`–`Train99.png` from `Directories.Trains`, show it in OBS, wait 62 s, hide it, point the source back at `Empty.png` |
-| Colour random / single / triple | call `LayoutColoring`, then close the redemption (`FULFILLED`, or `CANCELED` if the colour didn't resolve) |
+| Toilet flush | play `Flush`, insert a row in `flushes` (redemption id, user id, login, time), log it. From `!test`: sound only, no row |
+| Toilet retrieve | look up that user's flushes; none → chat `🪠 … didn't find any of <user>'s stuff`; else `CANCELED` each flushed redemption through Helix (refunding it), delete the rows, chat `🪠 Found and returned N … 🪠`. From `!test`: only logs how many it would return |
+| Train | pick a random `Train0.png`–`Train99.png` from `Directories.Trains`, show it in OBS, wait 62 s, hide it, point the source back at `Empty.png`. Lives in `ChannelPoints.RunTrainAsync`; the admin command `!train` runs it without a redemption |
+| Colour random / single / triple | call `LayoutColoring`, then close the redemption (`FULFILLED`, or `CANCELED` if the colour didn't resolve). From `!test`: recolours, but only logs the status instead of calling Helix |
 
 ### How the flush pair works
 
@@ -138,8 +150,8 @@ Things the code doesn't cover, read not reproduced:
 - If one `UpdateRedemption` call fails (say a flushed redemption was already cancelled by hand), the
   exception ends the loop *before* `DeleteFlushesAsync`, so the rows stay and every later retrieve hits
   the same failing id first.
-- Two overlapping train redemptions race on the same source: the first one's cleanup hides the second
-  one's image early.
+- Two overlapping trains (reward or `!train`) race on the same source: the first one's cleanup hides
+  the second one's image early. Tracked as TRX in [TODO.md](TODO.md).
 
 ### Reward-side requirements
 

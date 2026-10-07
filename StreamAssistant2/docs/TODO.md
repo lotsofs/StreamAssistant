@@ -26,4 +26,5 @@ Detail and a plan for each: [robustness-fixes.md](robustness-fixes.md). Plans no
 | [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` never succeeds: the new connection closes within ms and the bot falls back to a fresh session, losing events for ~7 s. Seen in the logs; cause unknown, logging added, read it after the next reconnect | Medium |
 | [SBM](robustness-fixes.md#sbm--subscription-message-defects) | Alerts | Missing separator in the `sub` sentence, inverted tier test in the bomb sentence, bomb entries never removed | Low |
 | [ALR](robustness-fixes.md#alr--log-line-when-a-connection-degrades-or-recovers) | Logging | Log line when IRC/EventSub degrades or recovers, debounced | Low |
-| [BUF](robustness-fixes.md#buf--buffered-log-file-writes) | Logging | Hold one `StreamWriter` instead of open/append/close per log line | Low |
+| [TRX](robustness-fixes.md#trx--overlapping-trains-hide-each-other) | OBS | Two trains within 62 s share one source: the first one's cleanup hides the second early. `!train` makes this easy to trigger | Low |
+| [OSY](robustness-fixes.md#osy--train-obs-calls-run-on-the-read-loops) | OBS | The train's OBS calls run synchronously on the EventSub or IRC thread; a slow OBS stalls reading | Low |

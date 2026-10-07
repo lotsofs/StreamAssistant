@@ -203,9 +203,9 @@ arrive before `SetExpected`, after it, and never (times out with the partial lis
 entries and keeps new ones. These touch only pure functions and `CommunityGiftSub`, so nothing posts to
 chat or plays sound.
 
-**Verify (owner, off-stream):** `!test` replays of saved `sub_*.log` payloads from
-`AssistantLogs\Custom\` (wrap each in the `{"subscription":…,"event":…}` envelope, see
-[twitch.md](twitch.md#the-test-harness)). The spoken text is logged as `TTS Enqueue: …`, so the result
+**Verify (owner, off-stream):** `!test replay <file>` of saved `sub_…`, `resub_…` and
+`community_sub_gift_…` files from `AssistantLogs\EventSubs\`, plus `!test sub` / `resub` / `bomb` for the
+variants the logs lack (see [twitch.md](twitch.md#the-test-harness)). The spoken text is logged as `TTS Enqueue: …`, so the result
 can be read without listening. These replays do play sounds and speak.
 
 **Docs when done:** the table and the "Known message defects" subsection in
@@ -261,44 +261,43 @@ the reconnect that follows with one recovery line.
 **Docs when done:** the thresholds in [dashboard.md](dashboard.md#the-status-bar) and
 [reference.md](reference.md#thresholds), and a line in [infrastructure.md](infrastructure.md#periodic-work).
 
-## BUF — Buffered log file writes
+## TRX — Overlapping trains hide each other
 
-`ConsoleLogger.LogToFileAsync` opens, appends and closes the log file for every line, on the
-per-chat-message hot path. Holding one `StreamWriter` and flushing when the queue drains would be
-cheaper. Deferred because it trades away durability of the log tail on a hard kill (stopping the
-debugger kills the process without running shutdown). Read, not measured.
+`ChannelPoints.RunTrainAsync` sets `Image: Train` to a random image, shows it, waits 62 s, then hides it
+and resets it to `Empty.png`. A second train started inside that window swaps the image, and the first
+run's cleanup then hides it about 62 s after the *first* start, cutting the second one short. Both the
+reward and the `!train` admin command call it. Read, not reproduced.
 
 ### Plan
 
-1. **Measure first.** A scratch program that calls `ConsoleLogger.ColoredLine` 10,000 times and times it,
-   before and after. If the saving doesn't justify the durability trade, close BUF with the
-   measurement written into this section instead of changing code. (Real chat rates are low; the case for
-   the change is mostly bursts such as a gift bomb or a log-heavy test replay.)
-2. **Design if it goes ahead.** Replace the per-line `File.AppendAllTextAsync` for the *main* log with a
-   single-reader `Channel<string>` and one writer task holding a `StreamWriter` opened for append with
-   `FileShare.Read`, so the log can still be tailed in an editor.
-   - The writer awaits one line, writes it, then keeps writing while `TryRead` succeeds, and **flushes when
-     the channel is empty**. That keeps the exposure to a hard kill to the lines still queued, a
-     few milliseconds' worth, instead of a whole buffer.
-   - Entries keep today's format: the text followed by a blank line.
-   - The channel also gives true FIFO ordering, which the semaphore only roughly does.
-   - Leave `LogToCustomFile` as open/append/close: it is rare and one file per event.
-3. **Failures.** On an `IOException` the writer drops its stream, raises `Error LOG1` once through the
-   existing `ReportFileWriteFailure` (still file-free), and reopens on the next line, so a drive that
-   comes back resumes without a restart. Keep the "once until a write succeeds" behaviour.
-4. **Shutdown.** Add `ConsoleLogger.FlushAsync(TimeSpan)` that completes the channel and waits for the writer;
-   call it at the end of `Program.Main` after `DisableBot()`, so the `SHUTDOWN!` line survives. A hard kill
-   still loses the lines in flight; the docs should say so.
-5. The log file's name is still fixed at first use; `LogPath` is unchanged.
+Pick one, owner's call:
 
-**Tests:** the logger writes to `Config.Data.Directories.BotOutput`, so a test can point that at a
-temp directory: many concurrent `LogToFile` calls arrive complete and in per-thread order; a
-`FlushAsync` leaves everything on disk; a read-only target raises `Error LOG1` once, then recovers when
-made writable.
+- **Queue:** serialise trains through a single worker, like `LayoutColoring`, so each gets its full 62 s.
+- **Extend:** keep a generation counter or `CancellationTokenSource`; a new train cancels the previous
+  run's pending cleanup and restarts the 62 s, so only the last one hides the source.
+- **Ignore:** drop the second train while one is showing, and log it.
 
-**Verify:** run the 10,000-line scratch program against both builds and compare; open the log in an
-editor mid-run to confirm it can be read while open.
+**Verify:** `!train` twice a few seconds apart, then watch whether the second image stays up its full time.
 
-**Docs when done:** the "Writes" bullet in [infrastructure.md](infrastructure.md#logging), the log-hot-path
-bullet in [gotchas.md](gotchas.md#logging) (the durability note changes), and
-[development.md](development.md) if it mentions the scratch-program recipe.
+**Docs when done:** the Train row and the overlap bullet in [events.md](events.md), and the Train section
+in [obs.md](obs.md#train).
+
+## OSY — Train OBS calls run on the read loops
+
+Handlers are invoked synchronously up to their first `await`, by design, so they can read the
+`JsonElement` before it's disposed. `RunTrainAsync` calls `Obs.SetImageSource` and `Obs.SetSourceEnabled`
+before its first `await`, so those run on the EventSub listen loop (the reward) or the IRC read thread
+(`!train`). The `Obs` wrappers are synchronous, so a slow or hung obs-websocket call stalls reading for
+that long. The colour rewards and commands are not affected: they only enqueue onto `LayoutColoring`'s
+channel, whose worker runs on the thread pool. Read, not reproduced; how long a call can block hasn't been
+measured.
+
+### Plan
+
+1. **Measure first:** time the `Obs` wrapper calls with OBS running, idle and busy. If they're consistently
+   a few ms, close this item and record the measurement in [obs.md](obs.md).
+2. **If not:** start `RunTrainAsync` with `await Task.Yield()` (it reads no JSON, so the lifetime rule
+   doesn't apply), moving its OBS calls off the read loop.
+
+**Docs when done:** [obs.md](obs.md#train) and the handler-threading note in
+[twitch.md](twitch.md#adding-an-eventsub-event).

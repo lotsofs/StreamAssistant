@@ -60,7 +60,7 @@ item in [TODO.md](TODO.md)).
 
 **Writing**: `SendMessage(string)` is fire-and-forget. `SendMessageAsync` returns silently if the writer
 is null (not connected yet), writes `PRIVMSG #lotsofs :<text>`, and logs `> <text>` on `ChatOutgoing`.
-A write failure logs `Error 3` (via `FireForget.Run`). There is no rate limiting, no length limiting (Twitch drops messages over
+A write failure logs `Error TIRC3` (via `FireForget.Run`). There is no rate limiting, no length limiting (Twitch drops messages over
 500 characters) and no queue, so bursts of `SendMessage` calls (a gift bomb sends one per recipient) go
 out as fast as they are called.
 
@@ -111,7 +111,8 @@ Command is the first word (case-sensitive); the rest, trimmed, is the argument.
 | `!changecolor <text>` | `LayoutColoring.TryChangeToSingle` |
 | `!changecolors <text>` | `LayoutColoring.TryChangeToTriple` |
 | `!changecolorrandom` | `LayoutColoring.ChangeToRandom` |
-| `!test <name>` | `TwitchEventSub.SendTest(name)`; ignored without an argument |
+| `!test <script> …` | `TestEventRunner.Run`: simulated events, see [the test harness](#the-test-harness) |
+| `!train` | `ChannelPoints.RunTrainAsync`, the train reward without a redemption (`Error TRN1` if it throws) |
 | `!stoppaneltimer` | stub (its `MsgQueue` call is commented out) |
 
 ### Public commands
@@ -227,36 +228,90 @@ Two edits:
 
 For `channel.chat.notification` sub-types, add a `case` to `HandleChannelChatNotification` instead.
 
+**Reading fields.** Use the [JsonElementExtensions](../code/Util/JsonElementExtensions.cs):
+`evt.ReadString("sub_gift.recipient_user_login", "Unknown User")`, `evt.ReadInt("sub.sub_tier") / 1000`,
+`evt.ReadBool("is_anonymous")`, `evt.ReadElement("payload.event")`. A missing step, a `null` or the wrong kind gives
+the fallback rather than throwing, since Twitch sends `null` for absent values. The envelope in
+`ListenLoop` is read the same way. Then add a `!test` script for the event (see [the test harness](#the-test-harness)).
+
 **The JSON lifetime rule.** `ListenLoop` disposes its `JsonDocument` at the end of each iteration, and
 handlers receive a `JsonElement` into it. A handler that is `async` must read every property it needs
 *before its first `await`*, or call `evt.Clone()` first (as `HandleCommunitySubGiftNotif` does), or it
 will hit `ObjectDisposedException` after the delay. All the current handlers follow one of these.
 
-**Exceptions in handlers.** Handlers are started with `FireForget.Run("TEH2", type, () => Handler(evt))`,
-which awaits the handler inside a try/catch and logs a throw as `Error TEH2`. The handler is invoked
+**Exceptions in handlers.** Handlers are started with `FireForget.Run("<code>", type, () => Handler(evt))`,
+which awaits the handler inside a try/catch and logs a throw as `Error <code>: <type> failed`. Each call
+site has its own code: `TEH_adb`, `TEH_cpcrra` and `TEH_c` in `Handle`, `TEH_CN_s`, `TEH_CN_rs`,
+`TEH_CN_sg` and `TEH_CN_csg` in `HandleChannelChatNotification` ([reference.md](reference.md#error-codes)). The handler is invoked
 synchronously, so its part before the first `await` still runs on the listen loop and can read the
 `JsonElement`. `Handle`'s own try/catch (`Error TEH1`) covers only the dispatch. `HandleCommunitySubGiftNotif`
-keeps its own `Error SUB1` catch. `SendMessage` uses the same helper (`Error 3`). Other fire-and-forget sites (`ConsoleLogger`, the
+keeps its own `Error SUB1` catch. `SendMessage` uses the same helper (`Error TIRC3`). Other fire-and-forget sites (`ConsoleLogger`, the
 `LayoutColoring` and `TextToSpeech` workers, the `DiskSpace` and `TwitchUptime` loops, the connection
 loops) catch their own exceptions.
 
 ### The test harness
 
-`TwitchEventSub.SendTest("<name>")` reads `<BotInput>\Tests\<name>.txt` and feeds it straight into
-`TwitchEventHandler.Handle`, bypassing the socket. In chat an admin runs `!test <name>`.
+`!test <script> [arguments]` (admin only) builds simulated EventSub events in code and feeds them to
+`TwitchEventHandler.Handle`, bypassing the socket. The scripts live in
+[code/Twitch/TestEvents/](../code/Twitch/TestEvents/), and `TestEventRunner.Scripts` lists them:
 
-The file must be a notification's `payload` object, with at least:
+| Script | Arguments | Simulates |
+|---|---|---|
+| `sub` | `[tier <1-3>] [prime] [months <1-12>]` | a chat `sub` notification |
+| `resub` | `[months <n>] [streak <n>] [tier <1-3>] [prime] [gift] [msg <text…>]` (defaults 12 and 3) | a chat `resub` |
+| `gift` | `[tier <1-3>] [total <n>] [months <1-12>] [anon]` | a targeted `sub_gift` (`community_gift_id` null); `total` is the gifter's channel total |
+| `bomb` | `<gifts> [late] [missing <k>] [anon] [tier <1-3>]` | a gift bomb, below. `bomb 1` is a single random community gift, which Twitch sends as a bomb of one |
+| `cheer` | `<bits> [anon] [msg <text…>]` | a `channel.cheer` |
+| `replay` | `<file>` | a real EventSub event saved in `AssistantLogs\EventSubs\`, below |
 
-```json
-{ "subscription": { "type": "channel.cheer" }, "event": { …the event object… } }
-```
+**Arguments** ([TestArgs.cs](../code/Twitch/TestEvents/TestArgs.cs)): required ones (`<…>`) come first.
+The optional ones follow either as keywords, in any order (`!test resub tier 2 gift msg hi`), or
+positionally in the order listed, with `true`/`false` for flags (`!test resub 20 5 2 false true hi`).
+Positional is chosen when the first optional word is a boolean or a number; trailing values can be left
+off. A text argument takes the rest of the line. A bad argument logs the script's usage (both forms) on
+`EventSubConfusion` and sends nothing. A first word that isn't a script is treated as a replay file name; if no file matches either, the list of scripts is logged.
 
-The bot's own logs hold only the `event` half. `Handle` appends `evtJson` to the day's log file, and
-`HandleChannelChatNotification` writes each chat notification, pretty-printed, to
-`AssistantLogs\Custom\<notice_type>_<timestamp>.log`. To turn one of those into a replayable test, wrap
-it in the `{ "subscription": …, "event": … }` envelope with the right `type`.
-Replays run the real handlers: sounds play, TTS speaks, chat messages are posted, and a redemption
-payload would call Helix with a made-up id.
+**Gift bomb** ([TestGiftBomb.cs](../code/Twitch/TestEvents/TestGiftBomb.cs)): one `community_sub_gift`
+plus a `sub_gift` per recipient (`testgiftee1…`), under a fresh id each run so runs never collide in
+`_giftBombs`. `late` sends the recipients first; `missing <k>` withholds `k` of them (clamped to the
+total), so the announcement waits out its 10 s; `anon` sends what Twitch sends for an anonymous gifter: null login and null `cumulative_total`
+(on `gift` too).
+
+**Replay** ([TestReplay.cs](../code/Twitch/TestEvents/TestReplay.cs)): `!test replay <file>`, or plain `!test <file>` when its first word isn't a script name, takes a file
+in `<BotOutput>\AssistantLogs\EventSubs\` by its name, with or without `.log`, or by a prefix only one
+file has (`!test replay resub_2026-07-04 13-21`). A prefix several files share lists the first few and
+sends nothing. `TwitchEventHandler.Handle` dumps every real event there before dispatching it, so this is
+the way to rerun old, real data.
+
+- **File names carry the type.** A chat notification is `<notice_type>_<stamp>.log` (`resub_…`,
+  `community_sub_gift_…`); anything else is `<EventSub type>_<stamp>.log` (`channel.cheer_…`,
+  `channel.channel_points_custom_reward_redemption.add_…`, `channel.ad_break.begin_…`). Notice types
+  never contain a dot, so `TestReplay.TypeOf` tells them apart. The stamp is `yyyy-MM-dd HH-mm-ss.fff`.
+- **Replays are guarded where they would touch real accounts.** From `!test` (`ProcessAdd(evt, isTest)`),
+  a toilet flush plays its sound but writes no row; a toilet retrieve only reads and logs how many flushes
+  it would return, with no Helix call, no delete and no chat line; a colour reward recolours the layout
+  but only logs the status it would have set, without calling Helix. A replayed ad break is not guarded:
+  it restarts the ad-warning schedule, posting to chat 55 to 59 minutes later.
+
+- A file can hold several events: two notifications in the same millisecond get the same name and the
+  second is appended (common for bomb recipients). All of them are replayed, in order.
+- Replaying a `community_sub_gift` also replays every `sub_gift` file carrying its id, sorted by the
+  timestamp in the file names. That is the real arrival order, and in the logs the recipients mostly
+  arrive *before* the bomb event.
+- Any bomb id is swapped for a fresh `replay-…` one, the same within a replay, so a replay never lands
+  in a bomb `_giftBombs` already completed.
+
+**Test events don't write `EventSubs\`.** `Handle(type, evt, isTest: true)` skips the dump, so the
+folder holds only real events and replays don't duplicate themselves.
+
+Each run logs `Test <script>: <values>` on `EventSubNotification`, then sends its events 50 ms apart
+through `FireForget.Run`; a failure logs `Error TEV1`. **They run the real handlers**: sounds play, TTS
+speaks, and anything a handler posts to chat (`🎁` for a gifted resub, `💣` per bomb recipient) goes to
+the live channel.
+
+To add a script: a `TestScript` (name, required and optional `TestArgs` parameters, and a pure `Build`
+returning the events) in a file under `TestEvents/`, listed in `TestEventRunner.Scripts`. Build each event
+from an anonymous object carrying the fields the handler reads, and add a test to `TestEventTests.cs`.
 
 ## Helix
 

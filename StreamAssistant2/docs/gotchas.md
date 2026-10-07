@@ -6,10 +6,10 @@ full explanation is. Skim this before making a change you think is small.
 ## Code that goes live
 
 - **`TwitchIRCManager.SendMessage` posts to the real channel, as `lotsofs`.** So does anything that
-  calls it: `LayoutColoring` (also drives OBS), `TwitchEventSub.SendTest`, `ChatterList`, the connect and
+  calls it: `LayoutColoring` (also drives OBS), `TestEventRunner`, `ChatterList`, the connect and
   disconnect notices. Scratch programs and tests must not reach them. ([development.md](development.md))
-- **`!test <name>` runs the real handlers**: sounds play, TTS speaks, chat messages go out, a redemption
-  payload would call Helix. ([twitch.md](twitch.md#the-test-harness))
+- **`!test <script>` runs the real handlers**: sounds play, TTS speaks, chat messages go out.
+  ([twitch.md](twitch.md#the-test-harness))
 - **Each reconnect talks in chat** (`🟣 Connected`, `🟣 ES Connected`, `💥 ES Disconnected`). A flapping
   EventSub connection spams the channel every few seconds.
 - **The colour announcement is posted when the request is queued**, nine seconds per request ahead of it
@@ -23,11 +23,14 @@ full explanation is. Skim this before making a change you think is small.
 - **Start the bot from the thread pool, never from the UI thread.** WPF's synchronization context would
   otherwise swallow every fire-and-forget loop. ([architecture.md](architecture.md#startup-and-shutdown))
 - **Handlers run on the IRC and EventSub read loops.** Don't block in them; start async work and return.
+- **Read EventSub fields with `ReadString`/`ReadInt`/`ReadBool`/`ReadElement`, not `GetProperty`.** Twitch sends `null` for
+  absent values (an anonymous gifter's login and totals), which `GetInt32()` and friends throw on.
+  ([architecture.md](architecture.md#codeutil))
 - **Read everything you need from an EventSub `JsonElement` before the first `await`, or `Clone()` it.**
   The document is disposed at the end of the loop iteration. ([twitch.md](twitch.md#adding-an-eventsub-event))
 - **Exceptions inside `_ = SomeAsync()` vanish.** Only code before the discarded call reaches the
   surrounding catch, so give an async body its own try/catch. EventSub handlers go through
-  `FireForget.Run`, which does this (`Error TEH2`).
+  `FireForget.Run`, which does this (one `Error TEH_…` code per handler).
 - **There is no scheduler.** Time-based work is a loop in the owning module with its own try/catch.
   ([infrastructure.md](infrastructure.md#periodic-work))
 - **Static state has no locks.** Assume one thread unless you check.
@@ -81,8 +84,9 @@ full explanation is. Skim this before making a change you think is small.
 
 ## Logging
 
-- **Log writes happen per line on the chat hot path** and a hard kill (stopping the debugger) loses
-  nothing only because each write is opened and closed. ([TODO.md](TODO.md), item BUF)
+- **Each log line opens, appends and closes the file.** That is what lets a hard kill (stopping the
+  debugger) lose almost nothing; it's measured and cheap enough, so don't "optimise" it into a held
+  writer. ([infrastructure.md](infrastructure.md#logging))
 - **Tests that load colour data write to the real log folder** if the data has errors, so keep fixtures
   valid. ([color.md](color.md#tests-and-verification))
 - **`LineLogged` runs on the logging thread.** Subscribers must marshal.
