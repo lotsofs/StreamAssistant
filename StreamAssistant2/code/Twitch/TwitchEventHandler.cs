@@ -12,16 +12,16 @@ namespace StreamAssistant2 {
 			try {			
 				switch (type) {
 					case "channel.ad_break.begin":
-						_ = Ads.Process(evtJson);
+						FireForget.Run("TEH_adb", type, () => Ads.Process(evtJson));
 						break;
 					case "channel.chat.notification":
 						HandleChannelChatNotification(evtJson);
 						break;
 					case "channel.channel_points_custom_reward_redemption.add":
-						_ = ChannelPoints.ProcessAdd(evtJson);
+						FireForget.Run("TEH_cpcrra", type, () => ChannelPoints.ProcessAdd(evtJson));
 						break;
 					case "channel.cheer":
-						_ = Cheers.Process(evtJson);
+						FireForget.Run("TEH_c", type, () => Cheers.Process(evtJson));
 						break;
 					default:
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"Event Sub Event happened, but is not handled in code: {type}");
@@ -45,16 +45,16 @@ namespace StreamAssistant2 {
 
 			switch (notice_type) {
 				case "sub":
-					_ = Subscriptions.HandleSubNotif(json);
+					FireForget.Run("TEH_CN_s", notice_type, () => Subscriptions.HandleSubNotif(json));
 					break;
 				case "resub":
-					_ = Subscriptions.HandleResubNotif(json);
+					FireForget.Run("TEH_CN_rs", notice_type, () => Subscriptions.HandleResubNotif(json));
 					break;
 				case "sub_gift":
-					_ = Subscriptions.HandleSubGiftNotif(json);
+					FireForget.Run("TEH_CN_sg", notice_type, () => Subscriptions.HandleSubGiftNotif(json));
 					break;
 				case "community_sub_gift":
-					_ = Subscriptions.HandleCommunitySubGiftNotif(json);
+					FireForget.Run("TEH_CN_csg", notice_type, () => Subscriptions.HandleCommunitySubGiftNotif(json));
 					break;
 				default:
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"Unhandled chat notice event. | Type: {notice_type} | System_Message: {system_message} | Message: {message}");

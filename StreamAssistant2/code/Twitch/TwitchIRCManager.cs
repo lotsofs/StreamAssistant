@@ -106,7 +106,7 @@ namespace StreamAssistant2 {
 		}
 
 		internal static void SendMessage(string message) {
-			_ = SendMessageAsync(message);
+			FireForget.Run("TIRC3", "chat send", () => SendMessageAsync(message));
 		}
 
 		static async Task SendMessageAsync(string message) {
@@ -114,17 +114,8 @@ namespace StreamAssistant2 {
 				return;
 				// notify no connection
 			}
-			try {
-				string msg = $"PRIVMSG {_channel} :{message}";
-				await _writer.WriteLineAsync(msg);
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ChatOutgoing, $"> {message}");
-			}
-			catch (Exception ex) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error 3");
-				ConsoleLogger.LogToFile(ex);
-				return;
-				// notify no connection
-			}
+			await _writer.WriteLineAsync($"PRIVMSG {_channel} :{message}");
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ChatOutgoing, $"> {message}");
 		}
 	}
 }
