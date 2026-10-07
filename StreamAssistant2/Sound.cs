@@ -55,19 +55,5 @@ namespace StreamAssistant2 {
 			}
 		}
 
-		internal static void PlaySoundDelayed(Sounds s, int delayInMs) {
-			Clock.AddJob(new Clock.ScheduledJob {
-				GetNextRun = () => {
-					DateTime now = DateTime.UtcNow;
-					DateTime next = now + TimeSpan.FromMilliseconds(delayInMs);
-					return next;
-				},
-				Action = async () => { 
-					PlaySound(s);
-					await Task.CompletedTask; 
-				}
-			});
-		}
-
 	}
 }

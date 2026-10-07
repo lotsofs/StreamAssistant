@@ -41,8 +41,8 @@ namespace StreamAssistant2
 
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "STARTED!");
 
-				Clock.Start();
-				Clock.AddGenericJobs();
+				DiskSpace.Start();
+				TwitchUptime.Start();
 
 				EnableBot();
 

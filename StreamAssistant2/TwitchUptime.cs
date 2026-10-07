@@ -10,7 +10,8 @@ namespace StreamAssistant2 {
 
 		private static readonly HttpClient _httpClient = new HttpClient();
 
-		static int _previousMinute = -1;
+		static readonly TimeSpan MAX_WAIT = TimeSpan.FromMinutes(10);
+
 		static string _previousUptime = "";
 		static int _lastSecondsListed = 60;
 
@@ -22,16 +23,42 @@ namespace StreamAssistant2 {
 			}
 		}
 
-		public static void ClockCheck() {
-			DateTime localNow = DateTime.Now;
-			if (localNow.Minute == _previousMinute) {
-				return;
+		internal static void Start() {
+			_ = DatePostLoopAsync();
+			_ = UptimeLoopAsync();
+		}
+
+		// TODO: Update OBS clock text (needs its own per-minute loop)
+		static async Task DatePostLoopAsync() {
+			while (true) {
+				try {
+					DateTime target = ClockMarks.NextLocalMidnight(DateTime.Now);
+					TimeSpan remaining;
+					// Waits in bounded steps so a clock change or a sleep can't leave it asleep past midnight.
+					while ((remaining = target - DateTime.Now) > TimeSpan.Zero) {
+						await Task.Delay(remaining < MAX_WAIT ? remaining : MAX_WAIT);
+					}
+					TwitchIRCManager.SendMessage(target.ToString("yyyy'-'MM'-'dd"));
+				}
+				catch (Exception ex) {
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error UpT6");
+					ConsoleLogger.LogToFile(ex);
+					await Task.Delay(1000);
+				}
 			}
-			if (localNow.Minute == 0 && localNow.Hour == 0) {
-				TwitchIRCManager.SendMessage(localNow.ToString("yyyy'-'MM'-'dd"));
+		}
+
+		static async Task UptimeLoopAsync() {
+			while (true) {
+				try {
+					await UptimeCheck();
+				}
+				catch (Exception ex) {
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error UpT5");
+					ConsoleLogger.LogToFile(ex);
+				}
+				await Task.Delay(TimeSpan.FromSeconds(SecondsUntilNextMinute));
 			}
-			// TODO: Update OBS text
-			_previousMinute = localNow.Minute;
 		}
 
 		public static async Task UptimeCheck() {
@@ -60,12 +87,14 @@ namespace StreamAssistant2 {
 				else {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Uptime request: HTTP Response Code {(int)statusCode}");
 					formattedUptime = ((int)statusCode).ToString();
+					_lastSecondsListed = 0;
 				}
 			}
 			catch (Exception ex) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error UpT4: Connection lost");
 				ConsoleLogger.LogToFile(ex);
 				formattedUptime = "Error";
+				_lastSecondsListed = 0;
 			}
 			if (formattedUptime == _previousUptime) {
 				return;

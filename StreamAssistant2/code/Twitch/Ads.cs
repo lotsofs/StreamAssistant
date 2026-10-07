@@ -1,10 +1,10 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 
 namespace StreamAssistant2 {
 	internal static class Ads {
 		const int MINUTES_BETWEEN_ADS = 60;
 
-		static List<Clock.ScheduledJob> _pendingJobs = new();
+		static CancellationTokenSource? _warnings;
 
 		internal async static Task Process(JsonElement evt) {
 			string is_automatic = evt.GetProperty("is_automatic").GetString() ?? "false";
@@ -14,23 +14,51 @@ namespace StreamAssistant2 {
 			await Task.Delay(duration_seconds * 1000);
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.AdNotification, $"Ad break over");
 
-			foreach (var job in _pendingJobs) {
-				job.Cancellation.Cancel();
+			CancellationTokenSource next = new();
+			Interlocked.Exchange(ref _warnings, next)?.Cancel();
+			_ = RunScheduleAsync(BuildSchedule(), next.Token);
+		}
+
+		static IReadOnlyList<(TimeSpan At, Action Send)> BuildSchedule() {
+			return [
+				(TimeSpan.FromMinutes(MINUTES_BETWEEN_ADS - 5), () => WarnChat("Obligatory ad in 5 minutes :(")),
+				(TimeSpan.FromMinutes(MINUTES_BETWEEN_ADS - 3), SpamChat),
+				(TimeSpan.FromMinutes(MINUTES_BETWEEN_ADS - 2), () => WarnChat("Obligatory ad in 2 minutes :( :( :(")),
+				(TimeSpan.FromMinutes(MINUTES_BETWEEN_ADS - 1), () => WarnChat("Obligatory ad coming right up. Maybe snooze it if something interesting is about to happen.")),
+			];
+		}
+
+		/// <summary>
+		/// Runs each entry's Send once the given time after now has passed, in order, until cancelled.
+		/// A Send that throws is logged and doesn't stop the later ones.
+		/// </summary>
+		internal static async Task RunScheduleAsync(IReadOnlyList<(TimeSpan At, Action Send)> schedule, CancellationToken token) {
+			DateTime start = DateTime.UtcNow;
+			try {
+				foreach ((TimeSpan at, Action send) in schedule) {
+					TimeSpan wait = start + at - DateTime.UtcNow;
+					if (wait > TimeSpan.Zero) {
+						await Task.Delay(wait, token);
+					}
+					token.ThrowIfCancellationRequested();
+					try {
+						send();
+					}
+					catch (Exception ex) {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error ADS1");
+						ConsoleLogger.LogToFile(ex);
+					}
+				}
 			}
-			_pendingJobs.Clear();
-
-			CreateEarlyWarning(MINUTES_BETWEEN_ADS-5, () => WarnChat("Obligatory ad in 5 minutes :("));
-			CreateEarlyWarning(MINUTES_BETWEEN_ADS-3, SpamChat);
-			CreateEarlyWarning(MINUTES_BETWEEN_ADS-2, () => WarnChat("Obligatory ad in 2 minutes :( :( :("));
-			CreateEarlyWarning(MINUTES_BETWEEN_ADS-1, () => WarnChat("Obligatory ad coming right up. Maybe snooze it if something interesting is about to happen."));
+			catch (OperationCanceledException) {
+			}
 		}
-		
-		internal static async Task WarnChat(string msg) {
+
+		internal static void WarnChat(string msg) {
 			TwitchIRCManager.SendMessage(msg);
-			await Task.CompletedTask; 
 		}
 
-		internal static async Task SpamChat() {
+		internal static void SpamChat() {
 			int r = Random.Shared.Next(3);
 			switch (r) {
 				case 0:
@@ -49,18 +77,6 @@ namespace StreamAssistant2 {
 			if (r == 0) {
 				TwitchIRCManager.SendMessage("@LotsOfS Stop making me beg for shit >(");
 			}
-			await Task.CompletedTask;
-		}
-
-		static void CreateEarlyWarning(int minutesFromNow, Func<Task> action) {
-			var job = new Clock.ScheduledJob {
-				Repeat = false,
-				GetNextRun = () => DateTime.UtcNow.AddMinutes(minutesFromNow),
-				Action = action
-			};
-
-			_pendingJobs.Add(job);
-			Clock.AddJob(job);
 		}
 
 	}
