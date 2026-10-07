@@ -46,7 +46,8 @@ full explanation is. Skim this before making a change you think is small.
 - **`channel.follow` is subscribed but not handled**, so every follow logs a "not handled" line.
 - **`CheckForCommands` matches and then sends nothing**; the public FAQ commands are off.
   ([legacy.md](legacy.md))
-- **A dead socket is not detected**, only a closed one. ([TODO.md](TODO.md), item DCD)
+- **A silent connection is recycled, not just shown red**: IRC after 7 minutes, EventSub after 20 s.
+  Not yet verified live. ([TODO.md](TODO.md), item DCD)
 
 ## Colour (details in [color.md](color.md))
 

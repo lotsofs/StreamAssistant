@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace StreamAssistant2 {
 	public static class TwitchEventSub {
-		enum SessionExitReason {
+		internal enum SessionExitReason {
 			None,
 			Error,
 			KeepAliveTimeout,
@@ -38,6 +38,9 @@ namespace StreamAssistant2 {
 		static string _sessionId = "";
 
 		internal static Stopwatch KeepAliveTimer = Stopwatch.StartNew();
+		// Twitch sends a keepalive about every 10 s
+		internal static readonly TimeSpan KeepAliveTimeout = TimeSpan.FromSeconds(20);
+		internal static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
 
 		internal static void Connect() {
 			_clientId = Config.Data.TwitchAuth.ClientId;
@@ -59,7 +62,7 @@ namespace StreamAssistant2 {
 			while (!token.IsCancellationRequested) {
 				_exitReason = SessionExitReason.None;
 				try {
-					await ConnectOnce();
+					await ConnectOnce(token);
 					KeepAliveTimer.Restart();
 					await ListenLoop(token);
 				}
@@ -77,7 +80,7 @@ namespace StreamAssistant2 {
 			}
 		}
 
-		static async Task ConnectOnce() {
+		static async Task ConnectOnce(CancellationToken token) {
 			_socket?.Dispose();
 			_socket = new ClientWebSocket();
 
@@ -85,7 +88,7 @@ namespace StreamAssistant2 {
 			_pendingReconnectUrl = null;
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, $"Connecting to {url}");
 
-			await _socket.ConnectAsync(new Uri(url), CancellationToken.None);
+			await ConnectOrTimeoutAsync(_socket, new Uri(url), ConnectTimeout, token);
 
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "Connected to EventSub");
 			TwitchIRCManager.SendMessage("🟣 ES Connected");
@@ -97,14 +100,15 @@ namespace StreamAssistant2 {
 					_exitReason = SessionExitReason.Error;
 					return;
 				}
-				if (KeepAliveTimer.Elapsed.TotalSeconds > 20) {
+				if (KeepAliveTimer.Elapsed > KeepAliveTimeout) {
 					_exitReason = SessionExitReason.KeepAliveTimeout;
 					return;
 				}
 
-				string json = await ReceiveFullMessage(token);
+				var (json, reason) = await ReceiveFullMessage(_socket!, KeepAliveTimer, KeepAliveTimeout, token);
 
-				if (_exitReason != SessionExitReason.None) {
+				if (reason != SessionExitReason.None) {
+					_exitReason = reason;
 					return;
 				}
 
@@ -146,29 +150,53 @@ namespace StreamAssistant2 {
 			_exitReason = SessionExitReason.CancelRequested;
 		}
 
-		static async Task<string> ReceiveFullMessage(CancellationToken token) {
+		// Throws TimeoutException if the connect hangs, OperationCanceledException only when token is cancelled
+		internal static async Task ConnectOrTimeoutAsync(ClientWebSocket socket, Uri uri, TimeSpan timeout, CancellationToken token) {
+			using var linked = CancellationTokenSource.CreateLinkedTokenSource(token);
+			linked.CancelAfter(timeout);
+			try {
+				await socket.ConnectAsync(uri, linked.Token);
+			}
+			catch (OperationCanceledException) when (!token.IsCancellationRequested) {
+				throw new TimeoutException($"EventSub connect took over {timeout}");
+			}
+		}
+
+		// Reason is None when a whole message arrived. Gives up with KeepAliveTimeout once keepAlive passes timeout;
+		// a timed-out receive aborts the socket. Cancelling token throws.
+		internal static async Task<(string Json, SessionExitReason Reason)> ReceiveFullMessage(WebSocket socket, Stopwatch keepAlive, TimeSpan timeout, CancellationToken token) {
 			var buffer = new byte[8192];
 			var sb = new StringBuilder();
 
 			WebSocketReceiveResult result;
 
 			do {
-				if (!IsSocketAlive()) {
-					_exitReason = SessionExitReason.SocketDied;
-					return "";
+				if (socket.State != WebSocketState.Open) {
+					return ("", SessionExitReason.SocketDied);
 				}
-				result = await _socket!.ReceiveAsync(buffer, token);
+				TimeSpan remaining = timeout - keepAlive.Elapsed;
+				if (remaining <= TimeSpan.Zero) {
+					return ("", SessionExitReason.KeepAliveTimeout);
+				}
+				using (var linked = CancellationTokenSource.CreateLinkedTokenSource(token)) {
+					linked.CancelAfter(remaining);
+					try {
+						result = await socket.ReceiveAsync(buffer, linked.Token);
+					}
+					catch (OperationCanceledException) when (!token.IsCancellationRequested) {
+						return ("", SessionExitReason.KeepAliveTimeout);
+					}
+				}
 				if (result.MessageType == WebSocketMessageType.Close) {
 					string close = FormatClose(result.CloseStatus, result.CloseStatusDescription);
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"EventSub closed the socket: {close}");
-					_exitReason = SessionExitReason.SocketClosed;
-					return "";
+					return ("", SessionExitReason.SocketClosed);
 				}
 				sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
 			}
 			while (!result.EndOfMessage);
 
-			return sb.ToString();
+			return (sb.ToString(), SessionExitReason.None);
 		}
 
 		static async Task SubscribeToEvents() {

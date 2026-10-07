@@ -21,13 +21,13 @@ TODO.md, per the conventions there.
 
 ## DCD — Dead connections are never recycled
 
-Neither transport can detect a socket that dies without closing:
+Neither transport could detect a socket that dies without closing. Steps 1–6 below fix the reads on both
+and the IRC connect; all unit-tested, none verified live. What remains:
 
-- **IRC**: `ReadLineAsync` has no timeout. The dashboard's age turns red at 420 s, but nothing
-  reconnects. Twitch pings about every five minutes, so a timeout of well over that would be needed.
-- **EventSub**: `ListenLoop` checks the 20 s keepalive limit only at the top of an iteration, but the
-  `ReceiveAsync` inside `ReceiveFullMessage` has no timeout, so total silence blocks before the check
-  is reached. The dashboard shows red; the session stays.
+- the live verification below;
+- optional step 7;
+- EventSub's `ConnectOnce` still calls `ClientWebSocket.ConnectAsync` with `CancellationToken.None`, so a
+  hung EventSub connect is not timed out (not in the original plan; the IRC step 4 pattern would fit).
 
 Related to [ALR](#alr--log-line-when-a-connection-degrades-or-recovers), which would at least record it.
 Read, not reproduced: it needs a connection that goes quiet without a TCP close.
@@ -36,28 +36,23 @@ Read, not reproduced: it needs a connection that goes quiet without a TCP close.
 
 **IRC** ([TwitchIRCManager.cs](../code/Twitch/TwitchIRCManager.cs)):
 
-1. Add `internal static readonly TimeSpan SilenceTimeout = TimeSpan.FromMinutes(7)`, matching the
-   dashboard's red threshold (Twitch pings roughly every five minutes, so seven means two missed pings).
-2. Extract `internal static async Task<string?> ReadLineOrTimeoutAsync(StreamReader reader, TimeSpan timeout, CancellationToken token)`.
-   It creates a linked `CancellationTokenSource`, calls `CancelAfter(timeout)`, and awaits
-   `reader.ReadLineAsync(linked.Token)`. If it throws `OperationCanceledException` while the *outer*
-   token is not cancelled, rethrow as `TimeoutException`; if the outer token is cancelled, let it
-   propagate (shutdown).
-3. `ListenLoop` calls it instead of `ReadLineAsync`. A `TimeoutException` flows through the existing
-   path: `Error TIRC2`, `Error 1`, 3 s, reconnect.
-4. Give `ConnectOnce`'s `TcpClient.ConnectAsync` a timeout too (a linked token with `CancelAfter(15 s)`);
-   it can also hang.
+1. *(Done.)* `TwitchIRCManager.SilenceTimeout` is 7 minutes, matching the dashboard's red threshold
+   (Twitch pings roughly every five minutes, so seven means two missed pings).
+2. *(Done.)* `TwitchIRCManager.ReadLineOrTimeoutAsync(reader, timeout, token)` reads one line with a
+   linked token that cancels after `timeout`. Silence throws `TimeoutException`; cancelling the outer
+   token (shutdown) propagates as `OperationCanceledException`. Tested in `IrcReadTimeoutTests`.
+3. *(Done.)* `ListenLoop` reads through it with `SilenceTimeout`. A `TimeoutException` flows through the
+   existing path: `Error TIRC2`, `Error 1`, 3 s, reconnect. Not yet verified live.
+4. *(Done.)* `ConnectOnce` connects through `ConnectOrTimeoutAsync` with `ConnectTimeout` (15 s), which
+   throws `TimeoutException` the same way. Tested in `IrcConnectTimeoutTests`.
 
 **EventSub** ([TwitchEventSub.cs](../code/Twitch/TwitchEventSub.cs)):
 
-5. Add `internal static readonly TimeSpan KeepAliveTimeout = TimeSpan.FromSeconds(20)`, replacing the
-   literal in `ListenLoop`.
-6. Change `ReceiveFullMessage` to take the socket and a timeout: before each `ReceiveAsync`, compute
-   `remaining = KeepAliveTimeout - KeepAliveTimer.Elapsed`; if it is not positive, set
-   `KeepAliveTimeout` as the exit reason and return `""`. Otherwise receive with a linked token and
-   `CancelAfter(remaining)`; if that fires while the outer token is not cancelled, set
-   `SessionExitReason.KeepAliveTimeout` and return `""`. (A cancelled `ReceiveAsync` aborts the socket,
-   which `CleanupSession` is about to do anyway.)
+5. *(Done.)* `TwitchEventSub.KeepAliveTimeout` is 20 s and replaces the literal in `ListenLoop`.
+6. *(Done.)* `ReceiveFullMessage(socket, keepAlive, timeout, token)` cancels each `ReceiveAsync` when the
+   stopwatch would pass the timeout and returns `(json, reason)`; `ListenLoop` copies a non-`None` reason
+   into `_exitReason`. `SessionExitReason` is now `internal` for the tests. Tested in
+   `EventSubReceiveTimeoutTests`.
 7. Optionally read `keepalive_timeout_seconds` from the welcome message and use it plus a margin
    instead of the fixed 20 s. Twitch's default is 10 s; leave it fixed unless the setting is changed.
 
@@ -65,21 +60,16 @@ Coordinate with [ESR](#esr--eventsub-reconnect-path-unverified), which edits the
 
 **Tests:**
 
-- IRC: run `ReadLineOrTimeoutAsync` over a stream that never produces data (an open pipe or a
-  `TcpListener` connection that sends nothing) with a 200 ms timeout: expect `TimeoutException`; with the
-  outer token cancelled: expect `OperationCanceledException`; with data available: expect the line.
-- EventSub: a loopback `HttpListener` that accepts a WebSocket and never sends: the receive helper
-  returns with `KeepAliveTimeout` after the (shortened) timeout. Same with a server that sends a message
-  slowly in two frames.
+Done: `IrcReadTimeoutTests`, `IrcConnectTimeoutTests`, `EventSubReceiveTimeoutTests`.
 
 **Verify live (owner, off-stream):** temporarily drop the IRC and EventSub timeouts to a few seconds,
 start the bot, then block outbound traffic to Twitch without closing the sockets (a Windows Firewall
 outbound block rule on the process is enough) and watch the dashboard go red and then the connection
 recycle. Restore the constants.
 
-**Docs when done:** the "no timeout" sentences in [twitch.md](twitch.md#irc), the 20 s paragraph in
-[twitch.md](twitch.md#session-lifecycle), [dashboard.md](dashboard.md#the-status-bar), and the DCD bullet
-in [gotchas.md](gotchas.md#twitch-and-helix).
+**Docs when done:** drop "not yet verified live" from the DCD bullet in
+[gotchas.md](gotchas.md#twitch-and-helix) and the step notes here; the other docs already describe the
+timeouts.
 
 ## ESR — EventSub reconnect path unverified
 

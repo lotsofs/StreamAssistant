@@ -52,7 +52,7 @@ dotnet test ../StreamAssistant2.Tests/StreamAssistant2.Tests.csproj
 
 VS Code's `build` task and `.NET Console Launch` config (internal console, since the app has no console window of its own; `cwd` = workspace folder) do the same.
 
-Only `code/Color/`, the scheduling logic (`DiskSpace.AlertState`, `ClockMarks`, `Ads.RunScheduleAsync`), `FireForget` and the `!test` scripts' argument parsing and event building have tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch its window.
+Only `code/Color/`, the scheduling logic (`DiskSpace.AlertState`, `ClockMarks`, `Ads.RunScheduleAsync`), `FireForget`, the connection timeouts (`TwitchIRCManager.ReadLineOrTimeoutAsync`, `ConnectOrTimeoutAsync`, `TwitchEventSub.ReceiveFullMessage`) and the `!test` scripts' argument parsing and event building have tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch its window.
 
 Configuration is split across two files, both read by [Config.cs](Config.cs):
 

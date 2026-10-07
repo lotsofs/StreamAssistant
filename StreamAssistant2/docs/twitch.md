@@ -42,21 +42,24 @@ client id. See [color.md](color.md) for the colour rewards and why they were rec
 (plain text, no TLS).
 
 **Connect** (`ConnectOnce`): send `PASS`, `NICK`, then `CAP REQ :twitch.tv/tags twitch.tv/commands
-twitch.tv/membership`, then `JOIN #lotsofs`, then post `🟣 Connected` to chat.
+twitch.tv/membership`, then `JOIN #lotsofs`, then post `🟣 Connected` to chat. The TCP connect gives up
+after `ConnectTimeout` (15 s) with a `TimeoutException`, so a hung connect is retried like a failed one.
 
 **Loop** (`StartConnectionLoop`): connect, then await `ListenLoop`. Any exception logs `Error 1`, waits
 3 s and goes round again. `ListenLoop` has its own catch that logs `Error TIRC2: Connection Lost` and
 rethrows, so a dropped connection logs both. A failure inside `ConnectOnce` itself logs only `Error 1`.
 
-**Reading**: `ReadLineAsync`. A `null` line (remote closed) is turned into an exception. Every line
+**Reading**: `ReadLineOrTimeoutAsync`, which wraps `ReadLineAsync` with `SilenceTimeout` (7 minutes).
+Silence that long throws `TimeoutException`, which takes the normal lost-connection path (`Error TIRC2`,
+`Error 1`, 3 s, reconnect). A `null` line (remote closed) is turned into an exception. Every line
 received, of any kind, sets `_lastPingTime`; `PING` is answered with `PONG :tmi.twitch.tv` and not
 forwarded; everything else goes to `OnMessage(string raw)`.
 
 `TimeSinceLastPing` therefore measures *time since any line arrived*, not time since the last `PING`.
 Twitch pings roughly every five minutes, and busy chat keeps it near zero. The dashboard's colour
-thresholds (5, 6 and 7 minutes) assume that pace. There is **no timeout** on the read: a connection
-that dies without closing is shown red on the dashboard but never recycled (see the dead-connection
-item in [TODO.md](TODO.md)).
+thresholds (5, 6 and 7 minutes) assume that pace, and the red threshold is where `SilenceTimeout`
+recycles the connection. A connection that dies without closing therefore turns red and is replaced at
+about the same moment.
 
 **Writing**: `SendMessage(string)` is fire-and-forget. `SendMessageAsync` returns silently if the writer
 is null (not connected yet), writes `PRIVMSG #lotsofs :<text>`, and logs `> <text>` on `ChatOutgoing`.
@@ -165,9 +168,12 @@ The `session_reconnect` path does not currently work: in the real logs the new c
 within milliseconds, and the bot recovers through a fresh session on the default URL (item ESR in
 [TODO.md](TODO.md)).
 
-At the top of each iteration it checks that the socket is `Open` and that the stopwatch is under 20 s
-(Twitch's default keepalive is 10 s). That check only runs *between* messages: `ReceiveAsync` has no
-timeout, so total silence on a live-looking socket blocks forever.
+At the top of each iteration it checks that the socket is `Open` and that the stopwatch is under
+`KeepAliveTimeout`, 20 s (Twitch's default keepalive is 10 s). `ReceiveFullMessage` enforces the same
+limit while waiting: each `ReceiveAsync` is cancelled when the stopwatch would pass it, so total silence on
+a live-looking socket ends the session about 20 s after the last message, and the cancelled receive aborts
+the socket. It returns the message and an exit reason rather than setting `_exitReason` itself, so it can be
+tested on its own (`EventSubReceiveTimeoutTests`).
 
 `SessionExitReason` says why a session ended, and the `EventSub session ended` line reports it for every
 exit. When a Close frame arrives, `ReceiveFullMessage` also logs `EventSub closed the socket:` with the
@@ -177,7 +183,7 @@ close code and description (Twitch uses 4xxx codes to say why):
 |---|---|
 | `None` | initial value; seeing it at exit logs `Error TES3` |
 | `Error` | the socket wasn't open at the top of the loop |
-| `KeepAliveTimeout` | stopwatch over 20 s at the top of the loop |
+| `KeepAliveTimeout` | stopwatch over `KeepAliveTimeout` (20 s), at the top of the loop or while waiting for a frame |
 | `ReconnectRequested` | Twitch sent `session_reconnect` |
 | `SubscriptionFailed` | a subscribe POST returned a non-success status |
 | `CancelRequested` | the token was cancelled (shutdown) |

@@ -29,7 +29,8 @@ state straight from the transports (the window polls; the bot never pushes to it
 | EventSub | `TwitchEventSub.KeepAliveTimer.Elapsed` | grey | 10 s | 12 s | 15 s |
 
 The IRC number is really *time since any line arrived* ([twitch.md](twitch.md#irc)). Twitch pings
-about every five minutes, hence the long thresholds. EventSub's keepalive is about every 10 s, and the
+about every five minutes, hence the long thresholds; at the red one the bot reconnects
+(`TwitchIRCManager.SilenceTimeout`). EventSub's keepalive is about every 10 s, and the
 bot itself gives up after 20 s.
 
 Two small quirks, both visible in `ShowAge`:

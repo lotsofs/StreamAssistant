@@ -7,6 +7,10 @@ namespace StreamAssistant2 {
 		const string HOST = "irc.chat.twitch.tv";
 		const int PORT = 6667;
 
+		// Twitch pings about every five minutes, so this is two missed pings
+		internal static readonly TimeSpan SilenceTimeout = TimeSpan.FromMinutes(7);
+		internal static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
+
 		static TcpClient? _client;
 		static StreamReader? _reader;
 		static StreamWriter? _writer;
@@ -35,7 +39,7 @@ namespace StreamAssistant2 {
 		static async Task StartConnectionLoop(CancellationToken token) {
 			while (!token.IsCancellationRequested) {
 				try {
-					await ConnectOnce();
+					await ConnectOnce(token);
 
 					_listenTask = ListenLoop(token);
 					await _listenTask;
@@ -48,14 +52,14 @@ namespace StreamAssistant2 {
 			}
 		}
 
-		static async Task ConnectOnce() {
+		static async Task ConnectOnce(CancellationToken token) {
 			_client?.Close();
 			_client = null;
 			_reader = null;
 			_writer = null;
 
 			_client = new TcpClient();
-			await _client.ConnectAsync(HOST, PORT);
+			await ConnectOrTimeoutAsync(_client, HOST, PORT, ConnectTimeout, token);
 
 			var stream = _client.GetStream();
 			_reader = new StreamReader(stream);
@@ -74,7 +78,7 @@ namespace StreamAssistant2 {
 				StreamReader reader = _reader ?? throw new InvalidOperationException("ListenLoop started without a connection");
 				StreamWriter writer = _writer ?? throw new InvalidOperationException("ListenLoop started without a connection");
 				while (!token.IsCancellationRequested) {
-					var message = await reader.ReadLineAsync();
+					var message = await ReadLineOrTimeoutAsync(reader, SilenceTimeout, token);
 					if (message == null) {
 						throw new Exception("Received null IRC message");
 					}
@@ -94,6 +98,30 @@ namespace StreamAssistant2 {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error TIRC2: Connection Lost");
 				ConsoleLogger.LogToFile(ex);
 				throw;
+			}
+		}
+
+		// Throws TimeoutException on silence, OperationCanceledException only when token is cancelled
+		internal static async Task<string?> ReadLineOrTimeoutAsync(StreamReader reader, TimeSpan timeout, CancellationToken token) {
+			using var linked = CancellationTokenSource.CreateLinkedTokenSource(token);
+			linked.CancelAfter(timeout);
+			try {
+				return await reader.ReadLineAsync(linked.Token);
+			}
+			catch (OperationCanceledException) when (!token.IsCancellationRequested) {
+				throw new TimeoutException($"No IRC data for {timeout}");
+			}
+		}
+
+		// Throws TimeoutException if the connect hangs, OperationCanceledException only when token is cancelled
+		internal static async Task ConnectOrTimeoutAsync(TcpClient client, string host, int port, TimeSpan timeout, CancellationToken token) {
+			using var linked = CancellationTokenSource.CreateLinkedTokenSource(token);
+			linked.CancelAfter(timeout);
+			try {
+				await client.ConnectAsync(host, port, linked.Token);
+			}
+			catch (OperationCanceledException) when (!token.IsCancellationRequested) {
+				throw new TimeoutException($"IRC connect took over {timeout}");
 			}
 		}
 

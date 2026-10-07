@@ -47,8 +47,8 @@ The owner runs the bot from the editor with F5, often while a stream is on. So:
 
 ## Verification, by area
 
-`code/Color/` and the scheduling logic (disk alerts, the midnight calculation, ad warnings) have automated
-tests. Everything else is checked by running the app and reading the dashboard.
+`code/Color/`, the scheduling logic (disk alerts, the midnight calculation, ad warnings) and the IRC and
+EventSub timeouts have automated tests. Everything else is checked by running the app and reading the dashboard.
 
 ### Unit tests
 
@@ -68,6 +68,9 @@ compile it). The test project references the bot's project, and the bot grants i
 | `DiskAlertTests` | `DiskSpace.AlertState`: immediate first and worsening alerts, repeats on the clock marks, the early-wake case, recovery |
 | `ClockMarksTests` | `ClockMarks`: window numbering on the marks, `UntilNextMinute` and its floor, `NextLocalMidnight` |
 | `AdsScheduleTests` | `Ads.RunScheduleAsync`: order, cancelling, a throwing sender, isolation from other work. Uses fake senders, never `SendMessage` |
+| `IrcReadTimeoutTests` | `TwitchIRCManager.ReadLineOrTimeoutAsync` over a loopback `TcpListener`: silence times out, outer cancellation stays a cancellation, lines and a close come through |
+| `EventSubReceiveTimeoutTests` | `TwitchEventSub.ReceiveFullMessage` over a loopback `HttpListener` WebSocket: silence and a stall mid-message time out, split frames join, a Close frame and a dead socket give their reasons, outer cancellation throws |
+| `IrcConnectTimeoutTests` | `TwitchIRCManager.ConnectOrTimeoutAsync`: a connect to a non-routable address times out, outer cancellation stays a cancellation, a loopback listener connects |
 
 Fixtures live in `Fixtures/Colors/` and `Fixtures/ColorSchemes/`. Because the registries are static,
 test parallelism is off for the assembly; a test that loads other data must reload the fixtures in a

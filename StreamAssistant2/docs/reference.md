@@ -111,7 +111,9 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 | Value | Where | Why |
 |---|---|---|
 | 3 s | IRC, EventSub, OBS loops | pause before reconnecting or retrying |
-| 20 s | `TwitchEventSub.ListenLoop` | keepalive timeout (Twitch's own is 10 s) |
+| 7 min | `TwitchIRCManager.SilenceTimeout` | no IRC line for this long recycles the connection (two missed pings) |
+| 15 s | `TwitchIRCManager.ConnectTimeout` | longest wait for the IRC TCP connect |
+| 20 s | `TwitchEventSub.KeepAliveTimeout` | keepalive timeout (Twitch's own is 10 s) |
 | 4.2 s | `Subscriptions` | let the tribal hymn finish before speaking |
 | 1 s | `HandleSubGiftNotif` | clap before the hymn |
 | 66 ms ×N, 3.8 s, 3 s | `HandleCommunitySubGiftNotif` | hymn per gift, then clap, then speech |
