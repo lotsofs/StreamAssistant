@@ -50,7 +50,7 @@ service registry.
    1. `Coloring.Load()`: colour tables and schemes from disk ([color.md](color.md)).
    2. `Database.InitAsync()`: opens `streamAssistant.db`, creates the `flushes` table if missing.
    3. Logs `STARTED!`.
-   4. `DiskSpace.Start()` and `TwitchUptime.Start()`: the periodic loops.
+   4. `DiskSpace.Start()`, `TwitchUptime.Start()` and `ConnectionHealth.Start()`: the periodic loops.
    5. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
       `OnMessage += ChatHandler.ProcessMessage`, `TwitchHelixApi.Init()`, `TwitchEventSub.Connect()`,
       `LayoutColoring.StartWorker()`.
@@ -120,6 +120,7 @@ transport classes and the colour code (the test project reaches internals throug
 | [ChatCommand.cs](../code/Twitch/ChatCommand.cs) | Data holder for a public command |
 | [ChatterList.cs](../code/Twitch/ChatterList.cs) | First-time-chatter list |
 | [TwitchEventSub.cs](../code/Twitch/TwitchEventSub.cs) | WebSocket session loop and subscribing |
+| [ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs) | Shared IRC/EventSub age thresholds; logs a connection going bad and recovering |
 | [TwitchEventSubSubscription.cs](../code/Twitch/TwitchEventSubSubscription.cs) | The table of subscriptions to create |
 | [TwitchEventHandler.cs](../code/Twitch/TwitchEventHandler.cs) | Dispatch on event type |
 | [TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) | Outbound REST (redemption status only) |

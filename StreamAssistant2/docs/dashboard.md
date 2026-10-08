@@ -21,23 +21,23 @@ A `DockPanel` on a near-black background, Consolas 13, default size 1100 × 650:
 ## The status bar
 
 A `DispatcherTimer` ticks every 250 ms and calls `UpdateStatus()`, which reads two pieces of static
-state straight from the transports (the window polls; the bot never pushes to it):
+state straight from the transports (the window polls; the bot never pushes to it) and colours them with
+`ConnectionHealth.Classify`:
 
 | Age | Source | Healthy | Yellow after | Orange after | Red after |
 |---|---|---|---|---|---|
 | IRC | `TwitchIRCManager.TimeSinceLastPing` | grey | 300 s | 360 s | 420 s |
-| EventSub | `TwitchEventSub.KeepAliveTimer.Elapsed` | grey | 10 s | 12 s | 15 s |
+| EventSub | `TwitchEventSub.KeepAliveTimer.Elapsed` | grey | 12 s | 15 s | 20 s |
 
-The IRC number is really *time since any line arrived* ([twitch.md](twitch.md#irc)). Twitch pings
-about every five minutes, hence the long thresholds; at the red one the bot reconnects
-(`TwitchIRCManager.SilenceTimeout`). EventSub's keepalive is about every 10 s, and the
-bot itself gives up after 20 s.
+The thresholds live in [ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs), shared with the
+connection-health log ([infrastructure.md](infrastructure.md#connection-health)), and red *is* the reconnect
+timeout: `TwitchIRCManager.SilenceTimeout` and `TwitchEventSub.KeepAliveTimeout`. The IRC number is really
+*time since any line arrived* ([twitch.md](twitch.md#irc)); Twitch pings about every five minutes, hence the
+long thresholds. EventSub's keepalive is about every 10 s, so its yellow starts at 12 s rather than 10 to
+avoid flickering every cycle.
 
-Two small quirks, both visible in `ShowAge`:
-
-- The doc comment promises "a dark red background past `deadSeconds`", but the code only sets the
-  *foreground* to red (the same `#EE4444` as `Error` lines).
-- The text format is `mm\:ss`, which shows only the minutes component, so an age over an hour wraps.
+One quirk in `ShowAge`: the text format is `mm\:ss`, which shows only the minutes component, so an age over
+an hour wraps.
 
 Before the first IRC line arrives `_lastPingTime` is `DateTime.MinValue`, so the IRC age starts out huge
 (and red) until the first line. EventSub's stopwatch starts at process start.

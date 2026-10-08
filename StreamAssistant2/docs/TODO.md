@@ -3,7 +3,7 @@
 Every tracked item across the detail docs in this folder, by code. This file is the registry: a code can be resolved
 to its area, summary and detail location from here alone, without opening the detail docs.
 
-Refer to items by code in conversation (e.g. "do ALR").
+Refer to items by code in conversation (e.g. "do SBM").
 
 ## Conventions
 
@@ -22,9 +22,8 @@ Detail and a plan for each: [robustness-fixes.md](robustness-fixes.md). Plans no
 
 | Code | Area | Summary | Severity |
 |---|---|---|---|
-| [DCD](robustness-fixes.md#dcd--dead-connections-are-never-recycled) | Twitch | Read and connect timeouts on IRC and EventSub are in and unit-tested; awaiting live verification (firewall block). Left: the EventSub connect has no timeout, and optional step 7 | Medium |
-| [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` never succeeds: the new connection closes within ms and the bot falls back to a fresh session, losing events for ~7 s. Seen in the logs; cause unknown, logging added, read it after the next reconnect | Medium |
+| [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` used to fail with `4007` and fall back to a fresh session (~7 s of lost events). Now follows Twitch's flow (new socket before old is dropped, no resubscribe, 409 is success); tested against a loopback fake, to be checked after the next daily reconnect | Medium |
 | [SBM](robustness-fixes.md#sbm--subscription-message-defects) | Alerts | Missing separator in the `sub` sentence, inverted tier test in the bomb sentence, bomb entries never removed | Low |
-| [ALR](robustness-fixes.md#alr--log-line-when-a-connection-degrades-or-recovers) | Logging | Log line when IRC/EventSub degrades or recovers, debounced | Low |
 | [TRX](robustness-fixes.md#trx--overlapping-trains-hide-each-other) | OBS | Two trains within 62 s share one source: the first one's cleanup hides the second early. `!train` makes this easy to trigger | Low |
 | [OSY](robustness-fixes.md#osy--train-obs-calls-run-on-the-read-loops) | OBS | The train's OBS calls run synchronously on the EventSub or IRC thread; a slow OBS stalls reading | Low |
+| [DCD](robustness-fixes.md#dcd--connection-timeouts-unverified-live) | Twitch | IRC and EventSub now time out silent connections and hung connects; unit-tested, still to be verified live with a firewall block (owner, off-stream) | Low |

@@ -64,23 +64,21 @@ namespace StreamAssistant2 {
 		static Brush LogBrush(ConsoleLogger.ColorType type) => _logColors.GetValueOrDefault(type, _logColors[ConsoleLogger.ColorType.None]);
 
 		void UpdateStatus() {
-			ShowAge(IrcAge, TwitchIRCManager.TimeSinceLastPing, 300, 360, 420);
-			ShowAge(EventSubAge, TwitchEventSub.KeepAliveTimer.Elapsed, 10, 12, 15);
+			ShowAge(IrcAge, TwitchIRCManager.TimeSinceLastPing, ConnectionHealth.Irc);
+			ShowAge(EventSubAge, TwitchEventSub.KeepAliveTimer.Elapsed, ConnectionHealth.EventSub);
 		}
 
 		/// <summary>
-		/// Grey while healthy, yellow past warnSeconds, red past badSeconds, a dark red background past deadSeconds.
+		/// Grey while healthy, yellow past the warn threshold, orange past bad, red past dead.
 		/// </summary>
-		static void ShowAge(Run run, TimeSpan age, int warnSeconds, int badSeconds, int deadSeconds) {
+		static void ShowAge(Run run, TimeSpan age, ConnectionHealth.Thresholds thresholds) {
 			run.Text = age.ToString(@"mm\:ss");
-			double seconds = age.TotalSeconds;
-			if (seconds > deadSeconds) {
-				run.Foreground = _statusDead;
-				return;
-			}
-			run.Foreground = seconds > badSeconds ? _statusBad
-				: seconds > warnSeconds ? _statusWarn
-				: _statusHealthy;
+			run.Foreground = thresholds.Classify(age) switch {
+				ConnectionHealth.Band.Dead => _statusDead,
+				ConnectionHealth.Band.Bad => _statusBad,
+				ConnectionHealth.Band.Warn => _statusWarn,
+				_ => _statusHealthy,
+			};
 		}
 
 		// Raised on whichever thread logged the line.

@@ -137,14 +137,22 @@ calls it.
 ## EventSub
 
 [TwitchEventSub.cs](../code/Twitch/TwitchEventSub.cs) is a `ClientWebSocket` to
-`wss://eventsub.wss.twitch.tv/ws` (or the `reconnect_url` Twitch hands out).
+`wss://eventsub.wss.twitch.tv/ws`, swapped mid-session for the `reconnect_url` Twitch hands out (see
+[Planned reconnects](#planned-reconnects)). Flow charts of every method are in
+[eventsub-flow.md](eventsub-flow.md).
+
+Four `internal static` fields exist only so tests can run the real loop against a loopback fake of Twitch:
+`EventSubUrl`, `SubscriptionsUrl`, `RetryDelay` (3 s) and `NotificationHandler` (defaults to
+`TwitchEventHandler.Handle`). The bot never changes them.
 
 ### Session lifecycle
 
 `StartConnectionLoop` repeats forever until cancelled:
 
 1. reset `_exitReason` to `None`
-2. `ConnectOnce` (new socket, connect, post `🟣 ES Connected`), restart the keepalive stopwatch
+2. `ConnectOnce` (new socket, connect, post `🟣 ES Connected`), restart the keepalive stopwatch. The
+   connect gives up after `ConnectTimeout` (15 s) with a `TimeoutException`, which lands in step 4 as
+   `Error TES1: None` followed by `Error TES3`
 3. `ListenLoop` until something sets an exit reason
 4. exceptions log `Error TES1: <reason>` plus the exception to the file; a loop that ends without a
    reason logs `Error TES3`. Every exit then logs `EventSub session ended: <reason> (socket <state>,
@@ -159,14 +167,36 @@ it with `JsonDocument`, and switches on `metadata.message_type`:
 | Message | Does |
 |---|---|
 | `session_welcome` | restart keepalive stopwatch, store the session id, `SubscribeToEvents()` |
-| `notification` | restart stopwatch, pull `subscription.type` and `event`, call `TwitchEventHandler.Handle` |
+| `notification` | restart stopwatch, `HandleNotification`: pull `subscription.type` and `event`, call `TwitchEventHandler.Handle` |
 | `session_keepalive` | restart stopwatch |
-| `session_reconnect` | store `reconnect_url`, exit reason `ReconnectRequested`, leave the loop |
+| `session_reconnect` | `SwitchToReconnectUrl` (below); stay in the loop on success, otherwise exit reason `ReconnectRequested` |
 | anything else | log on `EventSubConfusion`, payload to the file |
 
-The `session_reconnect` path does not currently work: in the real logs the new connection closes
-within milliseconds, and the bot recovers through a fresh session on the default URL (item ESR in
-[TODO.md](TODO.md)).
+#### Planned reconnects
+
+Twitch sends `session_reconnect` about once a day. The bot follows Twitch's documented flow, without
+leaving `ListenLoop`:
+
+1. `ConnectToReconnectUrlAsync` opens a **second** socket to `reconnect_url` while the old one stays open
+   (`ConnectTimeout`, 15 s) and waits for its first message (`ReconnectWelcomeTimeout`, 10 s). It must be
+   a `session_welcome` with a session id.
+2. On success, `_socket`, `_sessionId` and the stopwatch switch to the new session. **No resubscribe**:
+   subscriptions carry over. Logs `EventSub reconnected. Session ID: …`.
+3. `DrainOldSocketAsync` reads the old socket for up to `OldSocketDrainLimit` (1 s) or until it closes,
+   handling any notifications that arrived there during the switch. Then the old socket is closed (2 s
+   limit) and logged as `EventSub old connection closed (<n> events delivered during the switch, close …)`.
+   A throw here logs `Error TES5` and the new session carries on.
+4. Nothing goes to chat: no `💥 ES Disconnected` / `🟣 ES Connected`.
+
+Any failure logs why on `EventSubConfusion` (`no welcome (<reason>)`, `expected a session_welcome…`,
+`unusable URL`) or as `Error TES4` (an exception), disposes the new socket, then logs `EventSub reconnect
+failed, starting a fresh session` (`Important`) and exits with `ReconnectRequested`: the normal cleanup,
+chat lines, 3 s wait, a fresh session on the default URL and a full resubscribe.
+
+Opening the new socket before dropping the old one matters: a reconnect made after the old socket is gone
+is refused with `4007 "invalid reconnect attempt"`. The flow is tested against a loopback fake of Twitch
+(`EventSubReconnectTests`, `EventSubLoopTests`)
+but not yet seen working against Twitch (item ESR in [TODO.md](TODO.md)).
 
 At the top of each iteration it checks that the socket is `Open` and that the stopwatch is under
 `KeepAliveTimeout`, 20 s (Twitch's default keepalive is 10 s). `ReceiveFullMessage` enforces the same
@@ -184,7 +214,7 @@ close code and description (Twitch uses 4xxx codes to say why):
 | `None` | initial value; seeing it at exit logs `Error TES3` |
 | `Error` | the socket wasn't open at the top of the loop |
 | `KeepAliveTimeout` | stopwatch over `KeepAliveTimeout` (20 s), at the top of the loop or while waiting for a frame |
-| `ReconnectRequested` | Twitch sent `session_reconnect` |
+| `ReconnectRequested` | Twitch sent `session_reconnect` and switching to `reconnect_url` failed |
 | `SubscriptionFailed` | a subscribe POST returned a non-success status |
 | `CancelRequested` | the token was cancelled (shutdown) |
 | `SocketClosed` | a Close frame arrived |
@@ -215,9 +245,11 @@ The current table:
 | `channel.cheer` | 1 | broadcaster | yes, `Cheers.Process` |
 | `channel.follow` | 2 | broadcaster + moderator (= broadcaster) | **no**: each follow logs "not handled in code" on `EventSubConfusion` |
 
-Responses: `202` is expected. A non-success status sets `SubscriptionFailed`; a `400` just logs
-`Subscription <type> failed` and carries on with the next one, any other failing status throws and
-recycles the session. The response body goes to the log file either way.
+Responses: `202` is expected. `409` (the subscription already exists) counts as success: it logs
+`Subscription <type> already exists` and carries on. Any other non-success status sets
+`SubscriptionFailed`; a `400` just logs `Subscription <type> failed` and carries on with the next one, any
+other failing status throws and recycles the session. The response body goes to the log file except
+after a 409.
 
 `IS_TEST` is a `static readonly bool` in `TwitchEventSub`, so using it means editing and rebuilding.
 

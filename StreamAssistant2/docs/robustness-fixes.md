@@ -8,146 +8,40 @@ there, along with the conventions these codes follow. This file holds the detail
 
 **Dependencies between plans**
 
-- [ALR](#alr--log-line-when-a-connection-degrades-or-recovers) follows
-  [DCD](#dcd--dead-connections-are-never-recycled), whose timeouts it shares thresholds with.
-- [ESR](#esr--eventsub-reconnect-path-unverified) and DCD both edit `TwitchEventSub.ReceiveFullMessage`;
-  do one, then the other, not in parallel.
-- Everything else is independent.
+None at present: each item is independent.
 
 Each plan ends with the docs to touch. When an item is finished, delete its section here and its row in
 TODO.md, per the conventions there.
 
 ---
 
-## DCD — Dead connections are never recycled
-
-Neither transport could detect a socket that dies without closing. Steps 1–6 below fix the reads on both
-and the IRC connect; all unit-tested, none verified live. What remains:
-
-- the live verification below;
-- optional step 7;
-- EventSub's `ConnectOnce` still calls `ClientWebSocket.ConnectAsync` with `CancellationToken.None`, so a
-  hung EventSub connect is not timed out (not in the original plan; the IRC step 4 pattern would fit).
-
-Related to [ALR](#alr--log-line-when-a-connection-degrades-or-recovers), which would at least record it.
-Read, not reproduced: it needs a connection that goes quiet without a TCP close.
-
-### Plan
-
-**IRC** ([TwitchIRCManager.cs](../code/Twitch/TwitchIRCManager.cs)):
-
-1. *(Done.)* `TwitchIRCManager.SilenceTimeout` is 7 minutes, matching the dashboard's red threshold
-   (Twitch pings roughly every five minutes, so seven means two missed pings).
-2. *(Done.)* `TwitchIRCManager.ReadLineOrTimeoutAsync(reader, timeout, token)` reads one line with a
-   linked token that cancels after `timeout`. Silence throws `TimeoutException`; cancelling the outer
-   token (shutdown) propagates as `OperationCanceledException`. Tested in `IrcReadTimeoutTests`.
-3. *(Done.)* `ListenLoop` reads through it with `SilenceTimeout`. A `TimeoutException` flows through the
-   existing path: `Error TIRC2`, `Error 1`, 3 s, reconnect. Not yet verified live.
-4. *(Done.)* `ConnectOnce` connects through `ConnectOrTimeoutAsync` with `ConnectTimeout` (15 s), which
-   throws `TimeoutException` the same way. Tested in `IrcConnectTimeoutTests`.
-
-**EventSub** ([TwitchEventSub.cs](../code/Twitch/TwitchEventSub.cs)):
-
-5. *(Done.)* `TwitchEventSub.KeepAliveTimeout` is 20 s and replaces the literal in `ListenLoop`.
-6. *(Done.)* `ReceiveFullMessage(socket, keepAlive, timeout, token)` cancels each `ReceiveAsync` when the
-   stopwatch would pass the timeout and returns `(json, reason)`; `ListenLoop` copies a non-`None` reason
-   into `_exitReason`. `SessionExitReason` is now `internal` for the tests. Tested in
-   `EventSubReceiveTimeoutTests`.
-7. Optionally read `keepalive_timeout_seconds` from the welcome message and use it plus a margin
-   instead of the fixed 20 s. Twitch's default is 10 s; leave it fixed unless the setting is changed.
-
-Coordinate with [ESR](#esr--eventsub-reconnect-path-unverified), which edits the same method.
-
-**Tests:**
-
-Done: `IrcReadTimeoutTests`, `IrcConnectTimeoutTests`, `EventSubReceiveTimeoutTests`.
-
-**Verify live (owner, off-stream):** temporarily drop the IRC and EventSub timeouts to a few seconds,
-start the bot, then block outbound traffic to Twitch without closing the sockets (a Windows Firewall
-outbound block rule on the process is enough) and watch the dashboard go red and then the connection
-recycle. Restore the constants.
-
-**Docs when done:** drop "not yet verified live" from the DCD bullet in
-[gotchas.md](gotchas.md#twitch-and-helix) and the step notes here; the other docs already describe the
-timeouts.
-
 ## ESR — EventSub reconnect path unverified
 
-When Twitch sends `session_reconnect`, `ListenLoop` stores `reconnect_url` and exits. The loop then runs
-`CleanupSession` (which **aborts** the old socket), waits 3 s, connects to the new URL and, on
-`session_welcome`, runs `SubscribeToEvents()` again.
+Twitch sends `session_reconnect` about once a day, around 19:00 to 19:40 local time. The bot used to abort
+the old socket, wait 3 s and connect to `reconnect_url`; Twitch refused that every time with
+`4007 "invalid reconnect attempt"` (seen in the logs on 2026-10-07, 19:40), and the bot fell back to a fresh
+session with about 7 s of lost events and two disconnect/connect pairs in chat.
 
-**Observed in the real logs** (`<BotOutput>\AssistantLogs\`, the recent ones read, not just one): Twitch
-sends `session_reconnect` about once a day, around 19:00 to 19:35 local time. Every occurrence that was
-read has the same shape:
+The bot now follows Twitch's documented flow: the new socket is opened while the old one stays open, there
+is no resubscribe, and the old socket is drained, then closed. See
+[twitch.md § Planned reconnects](twitch.md#planned-reconnects) and the charts in
+[eventsub-flow.md](eventsub-flow.md). A `409` on subscribe now counts as success.
 
-```
-EventSub sent session_reconnect
-> 💥 ES Disconnected
-Connecting to wss://cell-a.eventsub.wss.twitch.tv/ws?challenge=…&id=…      (3 s later)
-Connected to EventSub
-> 🟣 ES Connected
-> 💥 ES Disconnected                                                       (1 to 15 ms later)
-Connecting to wss://eventsub.wss.twitch.tv/ws                              (3 s later)
-Connected to EventSub  →  session welcome, resubscribe
-```
+Tested against a loopback fake of Twitch: the helpers in `EventSubReconnectTests`, and the real
+`StartConnectionLoop` in `EventSubLoopTests` (fresh session subscribes and delivers; a reconnect switches
+sockets without resubscribing, delivers an event left on the old socket and posts nothing; a 4007 refusal
+falls back to a fresh session; 409 keeps the session; 500 ends it). **Not yet seen against Twitch**: that
+the old socket being gone caused the 4007 fits the evidence, but is only proven once a live reconnect
+succeeds. What's left is that check.
 
-So the **reconnect URL never works**: the new connection ends within milliseconds, with no
-`session_welcome` and no `Error TES…` line, which means the loop left through a `SessionExitReason` that
-sets no log of its own (`SocketClosed` or `SocketDied`: the server, or the socket, closed it). The bot
-recovers only by falling back to a full new session on the default URL, roughly seven seconds later, and
-resubscribing from scratch. Events in that gap are lost, and the chat sees a
-`💥 ES Disconnected` / `🟣 ES Connected` pair twice.
+**Verify live (after a restart with this build):** the next daily `session_reconnect` should log
+`EventSub sent session_reconnect` → `Connecting to …cell-…` → `EventSub reconnected. Session ID: …` →
+`EventSub old connection closed (…)`, with no `ES Disconnected` in chat, no `EventSub attempt to …`
+subscribe lines, and events still arriving. A failure logs its reason, then `EventSub reconnect failed,
+starting a fresh session`.
 
-What is *not* known is why the new connection is closed. Candidates, none confirmed:
-
-1. The old socket was aborted *before* the new one connected. Twitch's reconnect flow says to open the new
-   connection while keeping the old one until the new one's welcome arrives; closing first may
-   invalidate the reconnect token embedded in the URL.
-2. The new connection did get a welcome-less close for some other documented reason (Twitch closes with a
-   4xxx code; the bot discards the code).
-3. A subscription conflict. Ruled out as the *cause* of this symptom, since no subscribe was attempted,
-   but it is a separate risk once the connection survives: if subscriptions carry over, re-POSTing them
-   on the new session may answer 409, which `Subscribe` throws as `Subscription failed (…)` for any
-   status other than 400.
-
-### Plan
-
-1. **Read the instrumentation.** Every session exit now logs `EventSub session ended: <reason> (socket
-   <state>, close …)`, and a Close frame logs `EventSub closed the socket: <code> …`
-   ([twitch.md](twitch.md#eventsub)). Once the bot has run through a daily reconnect with this build,
-   read those lines around the second `Connecting to` to see which candidate above it is. Not yet
-   observed live.
-2. **Fix per Twitch's documented flow**, informed by what step 1 logs:
-   - On `session_reconnect`, **don't clean up first.** Connect a second socket to `reconnect_url` while
-     the first stays open.
-   - On the new socket's `session_welcome`, **skip `SubscribeToEvents()`**: the subscriptions move with
-     the session. Then swap `_socket` to the new socket, restart the keepalive stopwatch, and close the old
-     socket gracefully.
-   - Keep the old socket unread during the overlap; events in that brief window are Twitch's to
-     redeliver or drop, which is acceptable. If the new connection doesn't welcome within about 10 s,
-     fall back to today's behaviour (cleanup and a fresh default-URL session).
-   - Carry "this is a reconnect" as state (`_isReconnect`), set when connecting to a pending URL and
-     cleared once welcomed.
-   - Don't post `💥 ES Disconnected` / `🟣 ES Connected` to chat for a planned reconnect.
-3. **Make a 409 on subscribe harmless** (an already-existing subscription is success). This protects the
-   fallback and any future overlap.
-4. Make this testable: `ListenLoop` and the connect step should take the socket and the URLs as
-   parameters, with the two endpoint URLs as `internal static` overrides so a mock server can stand in.
-
-**Tests:** the Twitch CLI ships a WebSocket mock EventSub server (`twitch event websocket`; check
-`--help` for its reconnect and close options and its local Helix endpoint). Point the overrides at it and
-exercise: welcome then reconnect then welcome-on-new-socket (no resubscribe, old socket closed, events
-still delivered), a reconnect whose new socket never welcomes (fallback), and a 409 on subscribe.
-Without the CLI, a loopback `HttpListener` WebSocket server scripted to do the same is enough for the
-state machine.
-
-**Verify live:** after step 1, read the next day's reconnect lines for the close code. After step 2, the
-next daily `session_reconnect` should show no `ES Disconnected`, no second `Connecting to`, no
-subscribe attempts, and events still arriving.
-
-**Docs when done:** the session lifecycle and exit-reason tables in [twitch.md](twitch.md#eventsub), and the
-two ES chat lines in [gotchas.md](gotchas.md#code-that-goes-live).
+**Docs when done:** delete this section and the TODO row; drop the "not yet seen working" sentence in
+[twitch.md § Planned reconnects](twitch.md#planned-reconnects).
 
 ## SBM — Subscription message defects
 
@@ -201,56 +95,6 @@ can be read without listening. These replays do play sounds and speak.
 **Docs when done:** the table and the "Known message defects" subsection in
 [events.md](events.md#subscriptions), and the "Gift bombs" bullet about entries never being removed.
 
-## ALR — Log line when a connection degrades or recovers
-
-The status bar shows IRC ping age and EventSub keepalive age live, but nothing records them: once
-the window has moved on, the dated log has no trace that a connection went stale. Add a coloured log
-line when either crosses into a worse band (the status bar's thresholds) and when it recovers,
-debounced so a value hovering on a threshold doesn't spam, and with the startup false positive
-suppressed (both ages start counting before the first ping or keepalive arrives).
-
-`DiskSpace.AlertState` is a working model for the escalate-immediately, repeat-on-an-interval part.
-
-### Plan
-
-Do after DCD (the dead band then ends in a reconnect, and the thresholds are shared).
-
-1. **One source of thresholds.** New `code/Twitch/ConnectionHealth.cs` with `enum Band { Healthy, Warn,
-   Bad, Dead }`, a `Thresholds(warn, bad, dead)` record, and static `Irc` (300, 360, 420 s) and `EventSub`
-   (10, 12, 15 s) instances, plus `Band Classify(TimeSpan age)`. `MainWindow.UpdateStatus` switches to
-   these instead of its literals, so the window and the log can't disagree.
-2. **A pure tracker.** A small class (one instance per connection) with
-   `Update(TimeSpan age, bool hasData, DateTime nowUtc)` returning an optional `(ColorType, string)`.
-   Rules:
-   - `hasData == false` (nothing received yet, or between sessions) resets the tracker and returns nothing.
-     That is the startup suppression.
-   - Only transitions into **Bad** or **Dead** are logged (`Important`), and a return to **Healthy** after a
-     logged degradation (`ConnectionNotification`, saying how long it was degraded). Warn alone is silent.
-   - **Escalation is immediate** (the age is already a sustained measure); every other transition must hold
-     for a debounce period (say 10 s) before it counts. Recovery from Bad to Warn is not logged; only the
-     return to Healthy is.
-   - Messages carry the connection name and the age, for example `IRC quiet for 06:02, connection may be
-     dead` and `IRC recovered after 07:12`.
-3. **Inputs.** Add `TwitchIRCManager.HasReceivedLine` (the last-line time is not `MinValue`) and
-   `TwitchEventSub.IsConnected` (a session id is set), so `hasData` is real and a planned 3 s reconnect gap
-   isn't flagged.
-4. **Run it as its own loop** (`async` with `Task.Delay(5 s)` and a try/catch, started from `Program`
-   like `DiskSpace.Start()`) that updates both trackers and logs the results. Don't run it from the window's
-   timer; the log must not depend on the window, and don't post to chat.
-5. State is per connection, and nothing depends on the wall-clock second.
-
-**Tests:** the tracker is pure, so feed it synthetic age sequences and a fake clock: silent while
-`hasData` is false; a climb to Bad logs once and then to Dead logs once; an age hovering across the Bad
-threshold logs once, not repeatedly; recovery logs once and only after a degradation was logged; a Warn
-excursion that returns to Healthy logs nothing; restarting (hasData false then true) starts clean.
-
-**Verify live:** with the bot idle, the first minutes log nothing. With DCD's shortened timeouts (see its
-verification) and a blocked connection, the dashboard going red coincides with one `Important` line, and
-the reconnect that follows with one recovery line.
-
-**Docs when done:** the thresholds in [dashboard.md](dashboard.md#the-status-bar) and
-[reference.md](reference.md#thresholds), and a line in [infrastructure.md](infrastructure.md#periodic-work).
-
 ## TRX — Overlapping trains hide each other
 
 `ChannelPoints.RunTrainAsync` sets `Image: Train` to a random image, shows it, waits 62 s, then hides it
@@ -291,3 +135,41 @@ measured.
 
 **Docs when done:** [obs.md](obs.md#train) and the handler-threading note in
 [twitch.md](twitch.md#adding-an-eventsub-event).
+
+## DCD — Connection timeouts unverified live
+
+Both transports now time out a connection that goes silent without closing, and a connect that hangs:
+
+| Constant | Value | Effect |
+|---|---|---|
+| `TwitchIRCManager.SilenceTimeout` | 7 min | no IRC line → `Error TIRC2`, `Error 1`, reconnect |
+| `TwitchIRCManager.ConnectTimeout` | 15 s | hung IRC connect → `Error 1`, retry |
+| `TwitchEventSub.KeepAliveTimeout` | 20 s | no EventSub message → session ends with `KeepAliveTimeout`, reconnect |
+| `TwitchEventSub.ConnectTimeout` | 15 s | hung EventSub connect → `Error TES1`, retry |
+
+The helpers are unit-tested against loopback servers (`IrcReadTimeoutTests`, `IrcConnectTimeoutTests`,
+`EventSubReceiveTimeoutTests`, `EventSubConnectTimeoutTests`). Not yet reproduced against Twitch: it
+needs a connection that goes quiet without a TCP close.
+
+Reading `keepalive_timeout_seconds` from the welcome message was considered and dropped: the bot never
+asks for a non-default keepalive, and there is no reason to (raising it only slows dead-socket detection;
+10 s is Twitch's minimum).
+
+### Verify live (owner, off-stream)
+
+1. Temporarily lower the timeouts: `SilenceTimeout` to 30 s, `KeepAliveTimeout` to 12 s (keep it above
+   10 s or normal keepalive gaps will trip it).
+2. Start the bot, then block outbound traffic to Twitch without closing the sockets: a Windows Firewall
+   outbound block rule on the bot's process.
+3. Expect: the EventSub age turns orange with one `EventSub quiet for …` line (connection health), then
+   red and, at the timeout, `EventSub session ended: KeepAliveTimeout`, then
+   reconnect attempts that fail (`Error TES1: None` and `Error TES3` after 15 s each while blocked, since a
+   failed connect sets no exit reason). Likewise IRC: `Error TIRC2` with a `TimeoutException` in the file
+   log, then `Error 1` retries.
+4. Remove the rule: both reconnect, the chat gets `🟣 Connected` / `🟣 ES Connected`, and each
+   connection logs one `… recovered after …` line. Lifting the block before the timeout instead should
+   give the recovery line with no reconnect.
+5. Restore the constants.
+
+**Docs when done:** delete this section and the TODO row; drop "not yet verified live" from the bullet
+in [gotchas.md](gotchas.md#twitch-and-helix).

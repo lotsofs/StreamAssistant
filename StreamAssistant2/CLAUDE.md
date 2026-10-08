@@ -14,6 +14,7 @@ Detail lives in the other files in [docs/](docs/), which record findings expensi
 
 - [docs/architecture.md](docs/architecture.md) — startup order, threading model, file-by-file map, data flows. Start here when new to the tree.
 - [docs/twitch.md](docs/twitch.md) — IRC, EventSub and Helix in depth: credentials, session lifecycle, chat parsing, the subscription table, the `!test` harness.
+- [docs/eventsub-flow.md](docs/eventsub-flow.md) — Mermaid flow charts of `TwitchEventSub`: the connection loop, the message loop, subscribing, the planned reconnect, and message reading.
 - [docs/events.md](docs/events.md) — what each event and channel-point reward does: subs, gift bombs, cheers, ads, flush/train/colour rewards.
 - [docs/obs.md](docs/obs.md) — OBS connection, the wrappers, and the layout-recolouring queue and animation.
 - [docs/infrastructure.md](docs/infrastructure.md) — config, logging, periodic work, database, sound, TTS, language filter, disk-space and uptime watchdogs.
@@ -52,7 +53,7 @@ dotnet test ../StreamAssistant2.Tests/StreamAssistant2.Tests.csproj
 
 VS Code's `build` task and `.NET Console Launch` config (internal console, since the app has no console window of its own; `cwd` = workspace folder) do the same.
 
-Only `code/Color/`, the scheduling logic (`DiskSpace.AlertState`, `ClockMarks`, `Ads.RunScheduleAsync`), `FireForget`, the connection timeouts (`TwitchIRCManager.ReadLineOrTimeoutAsync`, `ConnectOrTimeoutAsync`, `TwitchEventSub.ReceiveFullMessage`) and the `!test` scripts' argument parsing and event building have tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch its window.
+Only `code/Color/`, the scheduling logic (`DiskSpace.AlertState`, `ClockMarks`, `Ads.RunScheduleAsync`), `FireForget`, the connection timeouts (`TwitchIRCManager.ReadLineOrTimeoutAsync`, `ConnectOrTimeoutAsync`, `TwitchEventSub.ReceiveFullMessage`, `TwitchEventSub.ConnectOrTimeoutAsync`), the EventSub reconnect helpers (`ConnectToReconnectUrlAsync`, `DrainOldSocketAsync`), the EventSub session loop itself (against a loopback fake of Twitch), the connection-health thresholds and tracker (`ConnectionHealth`) and the `!test` scripts' argument parsing and event building have tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch its window.
 
 Configuration is split across two files, both read by [Config.cs](Config.cs):
 
@@ -94,7 +95,7 @@ Message parsing is hand-rolled on both sides: [ChatHandler.ProcessMessage](code/
 
 ## Scheduling
 
-There is no scheduler. Anything time-based is an `async` loop in the module that owns it, started fire-and-forget from `Program.StartBotAsync` and written like the connection loops: wait, work inside a try/catch that logs an `Error` code, repeat. `DiskSpace.Start()` runs the disk-space check on every whole minute (alerting through a pure `AlertState` that fires on clock marks), and `TwitchUptime.Start()` runs the midnight date post and the uptime poll. The ad pre-warnings are one method, `Ads.RunScheduleAsync`, run per ad break on a `CancellationTokenSource`; a new ad break cancels the previous round. Keep the *decision* (is it due?) in a pure function so it can be tested.
+There is no scheduler. Anything time-based is an `async` loop in the module that owns it, started fire-and-forget from `Program.StartBotAsync` and written like the connection loops: wait, work inside a try/catch that logs an `Error` code, repeat. `DiskSpace.Start()` runs the disk-space check on every whole minute (alerting through a pure `AlertState` that fires on clock marks), `TwitchUptime.Start()` runs the midnight date post and the uptime poll, and `ConnectionHealth.Start()` checks the IRC and EventSub ages every second, logging once when one goes bad and once when it recovers (its thresholds also colour the dashboard, and the red one is the reconnect timeout). The ad pre-warnings are one method, `Ads.RunScheduleAsync`, run per ad break on a `CancellationTokenSource`; a new ad break cancels the previous round. Keep the *decision* (is it due?) in a pure function so it can be tested.
 
 ## OBS and the colouring pipeline
 

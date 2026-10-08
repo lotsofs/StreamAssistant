@@ -90,9 +90,10 @@ can't stop another.
 | midnight date post | `TwitchUptime.Start()` | once at each local midnight | `UpT6` |
 | uptime poll | `TwitchUptime.Start()` | about when the stream's uptime ticks over a minute | `UpT5` |
 | ad warnings | `Ads.Process` | once per ad break, see below | `ADS1` per warning |
+| connection health | `ConnectionHealth.Start()` | every second | `CHL1` |
 
-Details of each are under [Disk space](#disk-space), [Uptime and clock check](#uptime-and-clock-check) and
-[events.md](events.md#ads). The loops end with the process; there is no shutdown hook.
+Details of each are under [Disk space](#disk-space), [Uptime and clock check](#uptime-and-clock-check),
+[Connection health](#connection-health) and [events.md](events.md#ads). The loops end with the process; there is no shutdown hook.
 
 **Ad warnings** are not a loop but one method, `Ads.RunScheduleAsync`, run per ad break with a
 `CancellationTokenSource`. Starting a new round swaps in a fresh source and cancels the previous one, so the
@@ -237,3 +238,29 @@ Helix) how long the stream has been live.
 - HTTP failures set the value to the status code, or `Error` (log `Error UpT4`).
 - The result is stored in `_previousUptime` and **goes nowhere**: writing it to an OBS text source is a
   `TODO`. Right now the feature only generates traffic.
+
+## Connection health
+
+[ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs) holds the thresholds for the two connection ages
+the dashboard shows, and logs when a connection goes stale. The thresholds are one table for both the
+window's colours and the log, and **dead is the reconnect timeout itself**:
+
+| Connection | Age | Warn (yellow) | Bad (orange) | Dead (red) = reconnect |
+|---|---|---|---|---|
+| `Irc` | `TwitchIRCManager.TimeSinceLastPing` | 300 s | 360 s | `SilenceTimeout`, 420 s |
+| `EventSub` | `TwitchEventSub.KeepAliveTimer.Elapsed` | 12 s | 15 s | `KeepAliveTimeout`, 20 s |
+
+`ConnectionHealth.Start()` runs a loop that checks both every second (EventSub's bad band is only 5 s wide)
+through one `Tracker` per connection. A tracker logs:
+
+- once on entering **Bad** (or jumping straight to Dead), on `Important`:
+  `EventSub quiet for 00:16, reconnecting at 00:20`
+- once on getting back to **Healthy** after that, on `ConnectionNotification`, with the longest age seen:
+  `EventSub recovered after 00:18 of silence`
+
+Nothing else: Warn alone is silent, a wobble between Warn and Bad doesn't repeat the line, and Dead adds
+nothing because the transport's own reconnect logs it (`Error TIRC2`, `EventSub session ended:
+KeepAliveTimeout`). Readings without data are ignored: before the first IRC line
+(`TwitchIRCManager.HasReceivedLine`) and while EventSub has no welcomed session (`TwitchEventSub.IsConnected`).
+So startup is silent, and a degradation that ends in a reconnect still gets its recovery line once the new
+session is up. Nothing goes to chat. The tracker is pure and tested in `ConnectionHealthTests`.

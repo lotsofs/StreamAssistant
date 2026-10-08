@@ -70,6 +70,10 @@ compile it). The test project references the bot's project, and the bot grants i
 | `AdsScheduleTests` | `Ads.RunScheduleAsync`: order, cancelling, a throwing sender, isolation from other work. Uses fake senders, never `SendMessage` |
 | `IrcReadTimeoutTests` | `TwitchIRCManager.ReadLineOrTimeoutAsync` over a loopback `TcpListener`: silence times out, outer cancellation stays a cancellation, lines and a close come through |
 | `EventSubReceiveTimeoutTests` | `TwitchEventSub.ReceiveFullMessage` over a loopback `HttpListener` WebSocket: silence and a stall mid-message time out, split frames join, a Close frame and a dead socket give their reasons, outer cancellation throws |
+| `EventSubConnectTimeoutTests` | `TwitchEventSub.ConnectOrTimeoutAsync`: a connect to a non-routable address times out, outer cancellation stays a cancellation, a loopback `HttpListener` connects |
+| `ConnectionHealthTests` | `ConnectionHealth`: band boundaries for both connections, dead equals the reconnect timeouts, and the tracker (silent without data, one line on going bad, none for wobble or Warn alone, one recovery line with the longest silence, the reconnect gap ignored) |
+| `EventSubLoopTests` | the real `TwitchEventSub.StartConnectionLoop` against a loopback fake of Twitch (WebSocket sessions plus the subscribe endpoint), through the `EventSubUrl` / `SubscriptionsUrl` / `RetryDelay` / `NotificationHandler` overrides: fresh session, planned reconnect, refused reconnect, 409 and 500 on subscribe. Events go to a capture, never the real handlers |
+| `EventSubReconnectTests` | `TwitchEventSub.ConnectToReconnectUrlAsync` and `DrainOldSocketAsync` against a scripted loopback server: welcome, 4007 close, no welcome, wrong first message, missing id, hung connect, cancellation; draining handles notifications and stops on close or the limit |
 | `IrcConnectTimeoutTests` | `TwitchIRCManager.ConnectOrTimeoutAsync`: a connect to a non-routable address times out, outer cancellation stays a cancellation, a loopback listener connects |
 
 Fixtures live in `Fixtures/Colors/` and `Fixtures/ColorSchemes/`. Because the registries are static,

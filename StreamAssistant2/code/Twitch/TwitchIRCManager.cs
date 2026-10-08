@@ -7,7 +7,7 @@ namespace StreamAssistant2 {
 		const string HOST = "irc.chat.twitch.tv";
 		const int PORT = 6667;
 
-		// Twitch pings about every five minutes, so this is two missed pings
+		// No line for this long: reconnect
 		internal static readonly TimeSpan SilenceTimeout = TimeSpan.FromMinutes(7);
 		internal static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
 
@@ -27,6 +27,8 @@ namespace StreamAssistant2 {
 				return DateTime.UtcNow - _lastPingTime;
 			}
 		}
+
+		internal static bool HasReceivedLine => _lastPingTime != DateTime.MinValue;
 
 		internal static event Action<string>? OnMessage;
 

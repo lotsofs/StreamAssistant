@@ -43,6 +43,7 @@ namespace StreamAssistant2
 
 				DiskSpace.Start();
 				TwitchUptime.Start();
+				ConnectionHealth.Start();
 
 				EnableBot();
 

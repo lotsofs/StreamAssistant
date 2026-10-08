@@ -27,7 +27,6 @@ namespace StreamAssistant2 {
 		static string _userId = "";
 		static string _testId = "";
 
-		static string? _pendingReconnectUrl = null;
 		static SessionExitReason _exitReason = SessionExitReason.None;
 
 		static ClientWebSocket? _socket;
@@ -38,9 +37,20 @@ namespace StreamAssistant2 {
 		static string _sessionId = "";
 
 		internal static Stopwatch KeepAliveTimer = Stopwatch.StartNew();
-		// Twitch sends a keepalive about every 10 s
+		// A session has been welcomed and not yet cleaned up
+		internal static bool IsConnected => _sessionId.Length > 0;
+		// No message for this long: reconnect
 		internal static readonly TimeSpan KeepAliveTimeout = TimeSpan.FromSeconds(20);
 		internal static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
+		internal static readonly TimeSpan ReconnectWelcomeTimeout = TimeSpan.FromSeconds(10);
+		// How long the old socket is read for leftover events after a reconnect
+		internal static readonly TimeSpan OldSocketDrainLimit = TimeSpan.FromSeconds(1);
+
+		// EventSub endpoint, subscribe endpoint, pause between sessions, and where notifications go
+		internal static string EventSubUrl = "wss://eventsub.wss.twitch.tv/ws";
+		internal static string SubscriptionsUrl = "https://api.twitch.tv/helix/eventsub/subscriptions";
+		internal static TimeSpan RetryDelay = TimeSpan.FromSeconds(3);
+		internal static Action<string, JsonElement> NotificationHandler = (type, evt) => TwitchEventHandler.Handle(type, evt);
 
 		internal static void Connect() {
 			_clientId = Config.Data.TwitchAuth.ClientId;
@@ -58,7 +68,7 @@ namespace StreamAssistant2 {
 			_ = Task.Run(() => StartConnectionLoop(_cts.Token));
 		}
 
-		static async Task StartConnectionLoop(CancellationToken token) {
+		internal static async Task StartConnectionLoop(CancellationToken token) {
 			while (!token.IsCancellationRequested) {
 				_exitReason = SessionExitReason.None;
 				try {
@@ -76,7 +86,7 @@ namespace StreamAssistant2 {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"EventSub session ended: {_exitReason} ({DescribeSocket()})");
 				await CleanupSession(_exitReason == SessionExitReason.CancelRequested);
 				TwitchIRCManager.SendMessage("💥 ES Disconnected");
-				await Task.Delay(3000, token);
+				await Task.Delay(RetryDelay, token);
 			}
 		}
 
@@ -84,8 +94,7 @@ namespace StreamAssistant2 {
 			_socket?.Dispose();
 			_socket = new ClientWebSocket();
 
-			var url = _pendingReconnectUrl ?? "wss://eventsub.wss.twitch.tv/ws";
-			_pendingReconnectUrl = null;
+			var url = EventSubUrl;
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, $"Connecting to {url}");
 
 			await ConnectOrTimeoutAsync(_socket, new Uri(url), ConnectTimeout, token);
@@ -127,9 +136,7 @@ namespace StreamAssistant2 {
 					case "notification":
 						KeepAliveTimer.Restart();
 						// ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, "notification");
-						string subscriptionType = root.ReadString("payload.subscription.type");
-						JsonElement event_element = root.ReadElement("payload.event");
-						TwitchEventHandler.Handle(subscriptionType, event_element);
+						HandleNotification(root);
 						break;
 					case "session_keepalive":
 						KeepAliveTimer.Restart();
@@ -138,9 +145,12 @@ namespace StreamAssistant2 {
 					case "session_reconnect":
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, "EventSub sent session_reconnect");
 						string reconnectUrl = root.ReadString("payload.session.reconnect_url");
-						_pendingReconnectUrl = reconnectUrl.Length > 0 ? reconnectUrl : null;
-						_exitReason = SessionExitReason.ReconnectRequested;
-						return;
+						if (!await SwitchToReconnectUrl(reconnectUrl, token)) {
+							ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "EventSub reconnect failed, starting a fresh session");
+							_exitReason = SessionExitReason.ReconnectRequested;
+							return;
+						}
+						break;
 					default:
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"wtf?? EventSub send message of type {messageType}");
 						ConsoleLogger.LogToFile(json);
@@ -148,6 +158,108 @@ namespace StreamAssistant2 {
 				}
 			}
 			_exitReason = SessionExitReason.CancelRequested;
+		}
+
+		static void HandleNotification(JsonElement root) {
+			string subscriptionType = root.ReadString("payload.subscription.type");
+			JsonElement event_element = root.ReadElement("payload.event");
+			NotificationHandler(subscriptionType, event_element);
+		}
+
+		// Connects to url, switches to it on welcome, then drains and closes the old socket. False if it failed.
+		static async Task<bool> SwitchToReconnectUrl(string url, CancellationToken token) {
+			if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri)) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"EventSub reconnect: unusable URL \"{url}\"");
+				return false;
+			}
+			var (socket, sessionId) = await ConnectToReconnectUrlAsync(uri, ConnectTimeout, ReconnectWelcomeTimeout, token);
+			if (socket == null) {
+				return false;
+			}
+
+			ClientWebSocket? old = _socket;
+			_socket = socket;
+			_sessionId = sessionId;
+			KeepAliveTimer.Restart();
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, $"EventSub reconnected. Session ID: {_sessionId}");
+
+			if (old != null) {
+				int events = 0;
+				try {
+					events = await DrainOldSocketAsync(old, OldSocketDrainLimit, HandleNotification, token);
+				}
+				catch (Exception ex) when (!token.IsCancellationRequested) {
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error TES5");
+					ConsoleLogger.LogToFile(ex);
+				}
+				string close = FormatClose(old.CloseStatus, old.CloseStatusDescription);
+				await CloseQuietlyAsync(old);
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, $"EventSub old connection closed ({events} events delivered during the switch, close {close})");
+			}
+			return true;
+		}
+
+		// Returns the open socket and its session id, or (null, "") after logging why not. Cancelling token throws.
+		internal static async Task<(ClientWebSocket? Socket, string SessionId)> ConnectToReconnectUrlAsync(Uri url, TimeSpan connectTimeout, TimeSpan welcomeTimeout, CancellationToken token) {
+			var socket = new ClientWebSocket();
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, $"Connecting to {url}");
+			try {
+				await ConnectOrTimeoutAsync(socket, url, connectTimeout, token);
+				var (json, reason) = await ReceiveFullMessage(socket, Stopwatch.StartNew(), welcomeTimeout, token);
+				if (reason != SessionExitReason.None) {
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"EventSub reconnect: no welcome ({reason})");
+				}
+				else {
+					using var doc = JsonDocument.Parse(json);
+					string messageType = doc.RootElement.ReadString("metadata.message_type");
+					string sessionId = doc.RootElement.ReadString("payload.session.id");
+					if (messageType == "session_welcome" && sessionId.Length > 0) {
+						return (socket, sessionId);
+					}
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"EventSub reconnect: expected a session_welcome with an id, got {messageType}");
+					ConsoleLogger.LogToFile(json);
+				}
+			}
+			catch (OperationCanceledException) when (token.IsCancellationRequested) {
+				socket.Dispose();
+				throw;
+			}
+			catch (Exception ex) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error TES4");
+				ConsoleLogger.LogToFile(ex);
+			}
+			socket.Dispose();
+			return (null, "");
+		}
+
+		// Reads leftover messages until the socket closes or limit passes; returns how many notifications were handled
+		internal static async Task<int> DrainOldSocketAsync(WebSocket old, TimeSpan limit, Action<JsonElement> onNotification, CancellationToken token) {
+			var elapsed = Stopwatch.StartNew();
+			int count = 0;
+			while (true) {
+				var (json, reason) = await ReceiveFullMessage(old, elapsed, limit, token);
+				if (reason != SessionExitReason.None) {
+					return count;
+				}
+				using var doc = JsonDocument.Parse(json);
+				if (doc.RootElement.ReadString("metadata.message_type") == "notification") {
+					onNotification(doc.RootElement);
+					count++;
+				}
+			}
+		}
+
+		static async Task CloseQuietlyAsync(WebSocket socket) {
+			try {
+				if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived) {
+					using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+					await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Reconnected", timeout.Token);
+				}
+			}
+			catch (Exception ex) {
+				ConsoleLogger.LogToFile(ex);
+			}
+			socket.Dispose();
 		}
 
 		// Throws TimeoutException if the connect hangs, OperationCanceledException only when token is cancelled
@@ -234,16 +346,21 @@ namespace StreamAssistant2 {
 			var json = JsonSerializer.Serialize(body);
 
 			var response = await _http.PostAsync(
-				"https://api.twitch.tv/helix/eventsub/subscriptions",
+				SubscriptionsUrl,
 				new StringContent(json, Encoding.UTF8, "application/json")
 			);
 
 			var responseText = await response.Content.ReadAsStringAsync();
-			
+
 			int responseCode = (int)response.StatusCode;
-			
+
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, $"EventSub attempt to {es.Type}: {responseCode}");
-			
+
+			if (responseCode == 409) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, $"Subscription {es.Type} already exists");
+				return;
+			}
+
 			if (responseCode != 202) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unexpected response code");
 			}

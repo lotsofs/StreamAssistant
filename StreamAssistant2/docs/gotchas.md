@@ -11,7 +11,8 @@ full explanation is. Skim this before making a change you think is small.
 - **`!test <script>` runs the real handlers**: sounds play, TTS speaks, chat messages go out.
   ([twitch.md](twitch.md#the-test-harness))
 - **Each reconnect talks in chat** (`🟣 Connected`, `🟣 ES Connected`, `💥 ES Disconnected`). A flapping
-  EventSub connection spams the channel every few seconds.
+  EventSub connection spams the channel every few seconds. Twitch's daily planned reconnect is silent
+  when it succeeds. ([twitch.md](twitch.md#planned-reconnects))
 - **The colour announcement is posted when the request is queued**, nine seconds per request ahead of it
   before anything changes, and also when OBS is closed and nothing will change.
   ([obs.md](obs.md#layout-recolouring))

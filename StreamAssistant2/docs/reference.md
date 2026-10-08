@@ -20,7 +20,10 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `7` | `ChatHandler.ProcessMessage` | A raw IRC line couldn't be parsed, **or** a command handler threw synchronously (including the colour commands) | line dropped |
 | `TES1` | `TwitchEventSub.StartConnectionLoop` | The EventSub session ended with an exception; suffix is the `SessionExitReason` | cleanup, 3 s, reconnect |
 | `TES2` | `TwitchEventSub.CleanupSession` | Closing the old socket threw | continues |
-| `TES3` | `TwitchEventSub.StartConnectionLoop` | The listen loop exited without setting a reason | cleanup, reconnect |
+| `TES3` | `TwitchEventSub.StartConnectionLoop` | The session ended without setting a reason, including every failed or timed-out connect (after `TES1: None`) | cleanup, reconnect |
+| `TES4` | `TwitchEventSub.ConnectToReconnectUrlAsync` | Connecting to `reconnect_url` or reading its welcome threw (timeout, refused, bad JSON) | fresh session on the default URL |
+| `TES5` | `TwitchEventSub.SwitchToReconnectUrl` | Draining the old socket after a successful reconnect threw | old socket closed, new session carries on |
+| `CHL1` | `ConnectionHealth.WatchAsync` | A connection-health check threw | next check a second later |
 | `TEH1` | `TwitchEventHandler.Handle` | The dispatch itself threw synchronously (not the handlers, which `Run` wraps) | event dropped |
 | `TEH_adb`, `TEH_cpcrra`, `TEH_c` | `FireForget.Run` (from `TwitchEventHandler.Handle`) | The ad-break, redemption or cheer handler threw, before or after its first `await`; the message names the event type | rest of that alert skipped |
 | `TEH_CN_s`, `TEH_CN_rs`, `TEH_CN_sg`, `TEH_CN_csg` | `FireForget.Run` (from `TwitchEventHandler.HandleChannelChatNotification`) | The sub, resub, sub-gift or gift-bomb handler threw; the message names the notice type | rest of that alert skipped |
@@ -110,10 +113,14 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 
 | Value | Where | Why |
 |---|---|---|
-| 3 s | IRC, EventSub, OBS loops | pause before reconnecting or retrying |
+| 3 s | IRC, EventSub (`TwitchEventSub.RetryDelay`), OBS loops | pause before reconnecting or retrying |
 | 7 min | `TwitchIRCManager.SilenceTimeout` | no IRC line for this long recycles the connection (two missed pings) |
 | 15 s | `TwitchIRCManager.ConnectTimeout` | longest wait for the IRC TCP connect |
 | 20 s | `TwitchEventSub.KeepAliveTimeout` | keepalive timeout (Twitch's own is 10 s) |
+| 15 s | `TwitchEventSub.ConnectTimeout` | longest wait for the EventSub WebSocket connect, including to `reconnect_url` |
+| 10 s | `TwitchEventSub.ReconnectWelcomeTimeout` | longest wait for `session_welcome` on the `reconnect_url` socket |
+| 1 s | `TwitchEventSub.OldSocketDrainLimit` | how long the old socket is read for leftover events after a reconnect |
+| 2 s | `TwitchEventSub.CloseQuietlyAsync` | close handshake on the old socket |
 | 4.2 s | `Subscriptions` | let the tribal hymn finish before speaking |
 | 1 s | `HandleSubGiftNotif` | clap before the hymn |
 | 66 ms ×N, 3.8 s, 3 s | `HandleCommunitySubGiftNotif` | hymn per gift, then clap, then speech |
@@ -130,7 +137,7 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 | Value | Where |
 |---|---|
 | 2, 15, 100 GiB | `DiskSpace` spam, warn, notify |
-| 300 / 360 / 420 s and 10 / 12 / 15 s | `MainWindow` status colours |
+| 300 / 360 / 420 s and 12 / 15 / 20 s | `ConnectionHealth.Irc` / `.EventSub`: status colours and the health log (420 s and 20 s are the reconnect timeouts) |
 | 5000 lines | `MainWindow.MAX_LINES` |
 | 32 tokens | `TripleColorParser.MAX_TOKENS` |
 
