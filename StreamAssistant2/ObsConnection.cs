@@ -1,5 +1,7 @@
 ﻿using OBSWebsocketDotNet;
 using OBSWebsocketDotNet.Communication;
+using OBSWebsocketDotNet.Types;
+using OBSWebsocketDotNet.Types.Events;
 
 namespace StreamAssistant2 {
 	internal static class ObsConnection {
@@ -14,6 +16,7 @@ namespace StreamAssistant2 {
 			_cts = new CancellationTokenSource();
 			ObsSocket.Disconnected += OnDisconnected;
 			ObsSocket.Connected += OnConnected;
+			ObsSocket.StreamStateChanged += OnStreamStateChanged;
 			_ = Loop(_cts.Token);
 		}
 
@@ -47,6 +50,27 @@ namespace StreamAssistant2 {
 
 		static void OnDisconnected(object? sender, ObsDisconnectionInfo e) {
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Lost connection to OBS: {e.DisconnectReason}");
+		}
+
+		/// <summary>
+		/// Logs OBS starting or stopping its stream, and resets the chatter list when it starts.
+		/// </summary>
+		internal static void OnStreamStateChanged(object? sender, StreamStateChangedEventArgs e) {
+			try {
+				switch (e.OutputState.State) {
+					case OutputState.OBS_WEBSOCKET_OUTPUT_STARTED:
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "OBS started streaming");
+						ChatterList.Reset();
+						break;
+					case OutputState.OBS_WEBSOCKET_OUTPUT_STOPPED:
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "OBS stopped streaming");
+						break;
+				}
+			}
+			catch (Exception ex) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error OSS1");
+				ConsoleLogger.LogToFile(ex);
+			}
 		}
 
 		public static bool IsConnected() {

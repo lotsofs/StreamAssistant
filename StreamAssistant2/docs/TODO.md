@@ -24,3 +24,21 @@ Detail and a plan for each: [robustness-fixes.md](robustness-fixes.md). Plans no
 |---|---|---|---|
 | [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` used to fail with `4007` and fall back to a fresh session (~7 s of lost events). Now follows Twitch's flow (new socket before old is dropped, no resubscribe, 409 is success); tested against a loopback fake, to be checked after the next daily reconnect | Medium |
 | [DCD](robustness-fixes.md#dcd--connection-timeouts-unverified-live) | Twitch | IRC and EventSub now time out silent connections and hung connects; unit-tested, still to be verified live with a firewall block (owner, off-stream) | Low |
+| [SOE](robustness-fixes.md#soe--log-twitch-stream-online-and-offline) | Twitch | Nothing logs Twitch's own stream online/offline events; subscribe `stream.online` and `stream.offline` and log them. GAM hooks into the online one | Low |
+
+## Open — porting from the Streamer.Bot era
+
+Streamer.Bot-era features not yet rebuilt. A plan for each: [porting.md](porting.md), which also lists the decisions each one needs. UTX, CLK and GAM share a new OBS wrapper, and GAM needs SOE's `stream.online` subscription (porting.md § Shared pieces).
+
+| Code | Area | Summary | Severity |
+|---|---|---|---|
+| [DSA](porting.md#dsa--disk-space-alarm-sound) | Infra | The below-1 GB disk alert no longer plays the `Warning` sound (`TODO: Sound`) | Low |
+| [UTX](porting.md#utx--obs-uptime-text) | OBS | Uptime is computed every minute but no longer written to `Text: Stream Uptime` | Low |
+| [CLK](porting.md#clk--obs-clock-text) | OBS | Nothing writes `Text: Time Of Day` any more | Low |
+| [RAD](porting.md#rad--raid-announcement) | Twitch | No raid announcement; raids already arrive as a `raid` chat notification and are logged as unhandled | Low |
+| [FAQ](porting.md#faq--public-faq-commands) | Twitch | Public FAQ commands match but never send, and matching lost its case-insensitivity | Low |
+| [GBL](porting.md#gbl--gift-bomb-immediate-chat-line) | Twitch | The immediate "X is gifting N subs" chat line on a gift bomb wasn't ported | Low |
+| [GAM](porting.md#gam--per-game-setup-on-category-change) | OBS | Per-game background, colour scheme and audio sources on a category change (`Games.cs`, commented out) | Low |
+| [MNY](porting.md#mny--money-tracking) | Twitch | Money goal tracking from cheers, subs and tips; never displayed even before. Keep or delete | Low |
+| [TIP](porting.md#tip--tips) | Twitch | Tip alerts (`Donations.cs`) need a StreamElements connection; keep or delete | Low |
+| [LFP](porting.md#lfp--left-panel-and-stoppaneltimer) | OBS | `LeftPanel.cs` scaffolding and `!stoppaneltimer`: nothing working to port; keep or delete | Low |

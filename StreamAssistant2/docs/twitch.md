@@ -131,8 +131,11 @@ timeout and no per-user cooldown, and a message matching several commands would 
 ### ChatterList
 
 `ChatterList.AddChatter` keeps every login it has seen this run and **posts `Test <n>` to chat the first
-time each one speaks**. That is intended: `Test <n>` is the real wording. `Reset()` exists but nothing
-calls it.
+time each one speaks**. That is intended: `Test <n>` is the real wording. The streamer's (`lotsofs`)
+first message also gets `YOOO BRO`. It returns whether the login
+was new. `Reset()` clears it and logs `Chatter list reset @ <n>`; it runs when OBS starts
+streaming ([obs.md](obs.md#connection)), on obs-websocket's thread, so the logins are a `HashSet` under a
+lock. Tested in `ChatterListTests`.
 
 ## EventSub
 

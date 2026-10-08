@@ -1,20 +1,36 @@
-using System.Diagnostics;
-
 namespace StreamAssistant2 {
 	public static class ChatterList {
-		static List<string> _list = new List<string>();
+		static readonly HashSet<string> _set = new();
+		static readonly object _lock = new();
 
+		/// <summary>
+		/// Forgets every chatter and logs how many there were.
+		/// </summary>
 		internal static void Reset() {
-			// TODO: Send chat msg
-			_list.Clear();
+			int count;
+			lock (_lock) {
+				count = _set.Count;
+				_set.Clear();
+			}
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Chatter list reset @ {count}");
 		}
 
-		internal static void AddChatter(string name) {
-			if (_list.Contains(name)) {
-				return;
+		/// <summary>
+		/// Records a chatter and posts the new count, greeting the streamer; returns false if they were already listed.
+		/// </summary>
+		internal static bool AddChatter(string name) {
+			int count;
+			lock (_lock) {
+				if (!_set.Add(name)) {
+					return false;
+				}
+				count = _set.Count;
 			}
-			_list.Add(name);
-			TwitchIRCManager.SendMessage(string.Format("Test {0}", _list.Count));
+			TwitchIRCManager.SendMessage(string.Format("Test {0}", count));
+			if (name == "lotsofs") {
+				TwitchIRCManager.SendMessage("YOOO BRO");
+			}
+			return true;
 		}
 	}
 }

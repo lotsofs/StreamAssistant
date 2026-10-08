@@ -34,6 +34,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `CP1` | `ChannelPoints.CloseRedemption` | Helix refused to fulfil or cancel a train or colour redemption (often a 403; see [color.md](color.md)) | redemption left open |
 | `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | An OBS call threw during a colour change; the message is logged next | worker moves to the next request |
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
+| `OSS1` | `ObsConnection.OnStreamStateChanged` | Handling OBS's stream start or stop threw | chatter list not reset |
 | `DSK1` | `DiskSpace.WatchAsync` | A disk-space check threw | next minute |
 | `UpT5` | `TwitchUptime.UptimeLoopAsync` | An uptime check threw (outside its own HTTP handling) | next poll |
 | `UpT6` | `TwitchUptime.DatePostLoopAsync` | The midnight loop threw | retries after 1 s |

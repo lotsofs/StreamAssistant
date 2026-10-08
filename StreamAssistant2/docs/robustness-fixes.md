@@ -80,3 +80,30 @@ asks for a non-default keepalive, and there is no reason to (raising it only slo
 
 **Docs when done:** delete this section and the TODO row; drop "not yet verified live" from the bullet
 in [gotchas.md](gotchas.md#twitch-and-helix).
+
+## SOE — Log Twitch stream online and offline
+
+Nothing tells the log when Twitch itself marks the channel live or offline. OBS's stream start and
+stop are logged (`OBS started streaming` / `OBS stopped streaming`, [obs.md](obs.md#connection)), but
+those say what OBS did, not what Twitch saw. Not built, so nothing to reproduce.
+
+### Plan
+
+1. Subscribe `stream.online` and `stream.offline` (both v1, `RequiresBroadcasterId`, no scope) in
+   `TwitchEventSubSubscription.Subscriptions`.
+2. New `code/Twitch/StreamEvents.cs`: `Online(evt)` logs `Twitch: stream online (<started_at>)` and
+   `Offline(evt)` logs `Twitch: stream offline`, both on `Important`. Synchronous; they read the JSON
+   before returning.
+3. Two `case`s in `TwitchEventHandler.Handle`, inside its try/catch (`Error TEH1` covers a throw).
+4. `!test online` and `!test offline` scripts in `TestEvents/`, modelled on `TestCheer`, listed in
+   `TestEventRunner.Scripts`, with tests of the built events in `TestScriptTests`.
+
+GAM ([porting.md](porting.md#gam--per-game-setup-on-category-change)) later adds its own call to
+`StreamEvents.Online`.
+
+**Verify:** `!test online` and `!test offline` log the lines; at the next real stream start and end,
+the subscription lines at connect show both subscribed and the lines appear.
+
+**Docs when done:** delete this section and the TODO row; add both to the subscription and script
+tables in [twitch.md](twitch.md) and the dispatch table in [events.md](events.md); point porting.md's
+shared-pieces bullet at the code instead of here.

@@ -23,10 +23,11 @@ Detail lives in the other files in [docs/](docs/), which record findings expensi
 - [docs/development.md](docs/development.md) — build/run/test, working beside a running bot, scratch-program verification, recipes for common changes.
 - [docs/gotchas.md](docs/gotchas.md) — the things that bite, one line each, with pointers.
 - [docs/legacy.md](docs/legacy.md) — commented-out and unused code, its history, and how to port a `MsgQueue` call.
+- [docs/porting.md](docs/porting.md) — which root files are old and which new, and a checklist for each Streamer.Bot-era feature not yet rebuilt, one code per feature.
 - [docs/robustness-fixes.md](docs/robustness-fixes.md) — known bugs, loose ends and verification tasks, one `##` section per code.
 - [docs/color.md](docs/color.md) — how colour requests are resolved (`code/Color/`): the files, the data file formats, the single and triple parsing rules, loose matching, and how to test it. **Read it before changing anything in `code/Color/`.**
 
-Only `TODO.md` and `robustness-fixes.md` hold tracked items; the rest describe how things are. When code changes a described behaviour, hardcoded value or error code, update the doc in the same change.
+Only `TODO.md`, `robustness-fixes.md` and `porting.md` hold tracked items; the rest describe how things are. When code changes a described behaviour, hardcoded value or error code, update the doc in the same change.
 
 Conventions that keep the index trustworthy:
 
@@ -53,7 +54,7 @@ dotnet test ../StreamAssistant2.Tests/StreamAssistant2.Tests.csproj
 
 VS Code's `build` task and `.NET Console Launch` config (internal console, since the app has no console window of its own; `cwd` = workspace folder) do the same.
 
-Only `code/Color/`, the scheduling logic (`DiskSpace.AlertState`, `ClockMarks`, `Ads.RunScheduleAsync`), `FireForget`, the connection timeouts (`TwitchIRCManager.ReadLineOrTimeoutAsync`, `ConnectOrTimeoutAsync`, `TwitchEventSub.ReceiveFullMessage`, `TwitchEventSub.ConnectOrTimeoutAsync`), the EventSub reconnect helpers (`ConnectToReconnectUrlAsync`, `DrainOldSocketAsync`), the EventSub session loop itself (against a loopback fake of Twitch), the connection-health thresholds and tracker (`ConnectionHealth`), the subscription sentences and gift-bomb bookkeeping (`SubscriptionMessages`, `CommunityGiftSub`) and the `!test` scripts' argument parsing and event building have tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch its window.
+Only `code/Color/`, the scheduling logic (`DiskSpace.AlertState`, `ClockMarks`, `Ads.RunScheduleAsync`), `FireForget`, the connection timeouts (`TwitchIRCManager.ReadLineOrTimeoutAsync`, `ConnectOrTimeoutAsync`, `TwitchEventSub.ReceiveFullMessage`, `TwitchEventSub.ConnectOrTimeoutAsync`), the EventSub reconnect helpers (`ConnectToReconnectUrlAsync`, `DrainOldSocketAsync`), the EventSub session loop itself (against a loopback fake of Twitch), the connection-health thresholds and tracker (`ConnectionHealth`), the subscription sentences and gift-bomb bookkeeping (`SubscriptionMessages`, `CommunityGiftSub`), `ChatterList` and the `!test` scripts' argument parsing and event building have tests (xUnit, in `../StreamAssistant2.Tests`, a sibling folder so the bot's default file globbing doesn't compile them); see [docs/color.md § Tests and verification](docs/color.md#tests-and-verification) for how they work. Everything else is verified manually: run the app and watch its window.
 
 Configuration is split across two files, both read by [Config.cs](Config.cs):
 

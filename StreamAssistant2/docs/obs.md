@@ -14,7 +14,12 @@ Read from the code. The connection and animation were not run against a live OBS
 - The address is hardcoded: `ws://127.0.0.1:4455`. The password is `Obs.SocketPassword` from
   `secrets.json`.
 - `Connect()` is idempotent. It hooks `Connected` and `Disconnected` (which log `Connected to OBS` and
-  `Lost connection to OBS: <reason>`) and starts `Loop`.
+  `Lost connection to OBS: <reason>`) and `StreamStateChanged`, and starts `Loop`.
+- `OnStreamStateChanged` logs `OBS started streaming` and `OBS stopped streaming` (the in-between
+  states are ignored), and on start resets the chatter list (`ChatterList.Reset`, see
+  [twitch.md](twitch.md#chatterlist)). It runs on obs-websocket's receive thread and catches its own
+  exceptions (`Error OSS1`). Connecting to an OBS that is already streaming raises no event, so no reset.
+  Unit-tested with the event args obs-websocket builds; not yet seen at a real stream start.
 - `Loop` checks once a second while connected. When not connected it fires `ConnectAsync` (which
   returns at once; the outcome arrives through the events) and sleeps 3 s. So OBS can be started
   before or after the bot, and a restart of OBS is picked up within a few seconds.

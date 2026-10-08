@@ -5,7 +5,8 @@ piece was for, what is commented out versus merely unused, and how to port somet
 **Don't clean any of it up unprompted**: two migrations are in flight (see [CLAUDE.md](../CLAUDE.md)),
 and the dead code records intent that hasn't been rebuilt yet.
 
-Read from the code and git history. Nothing here runs.
+Read from the code and git history. Nothing here runs. What is still to be rebuilt, with a checklist
+each, is in [porting.md](porting.md).
 
 ## History in one paragraph
 
@@ -106,7 +107,6 @@ Compiled and reachable by name, with no caller:
 |---|---|
 | `Money` | `Goal` and `Current`; only commented code touches them |
 | `ISaveable` | `LoadSettings`/`SaveSettings`; nothing implements it |
-| `ChatterList.Reset()` | has a `TODO: Send chat msg`; nothing calls it |
 | `TextToSpeech.StopSpeech`, `PurgeQueue`, `Dispose` | would back a "shut up" command |
 | `Sound.Sounds.Warning`, `IndianAnthem` | `IndianAnthem` only by the dead donation code |
 | `ColorType.Helix` | has a colour in the window; Helix lines use `EventSubConfusion` |
@@ -121,5 +121,5 @@ Compiled and reachable by name, with no caller:
 ## Stubs with a `TODO` in the code
 
 `TwitchIRCManager` (`TODO: handle`,
-`notify no connection`), `ChatHandler.ProcessMessage` (`TODO: Handle`), `ChatterList.Reset`,
+`notify no connection`), `ChatHandler.ProcessMessage` (`TODO: Handle`),
 `TwitchUptime` (two OBS-text TODOs), `DiskSpace` (`TODO: Sound`). They are all marked in place.

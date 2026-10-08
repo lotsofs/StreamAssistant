@@ -79,9 +79,9 @@ Stopping the debugger kills the process without running any of the shutdown path
   async method (`_ = Handler(...)`). The first part of such a method up to its first `await` still runs
   on the read loop; a handler that blocks and reads no JSON starts with `await Task.Yield()`, as the
   train does.
-- **Static mutable state with no locks** is the norm: `Subscriptions._giftBombs`,
-  `ChatterList._list`. Most are touched from one thread in practice, but see the
-  items in [TODO.md](TODO.md) for the ones that aren't.
+- **Static mutable state with no locks** is the norm: `Subscriptions._giftBombs`, for one. Most is
+  touched from one thread in practice. `ChatterList` is the exception: its set is locked, since IRC
+  adds to it and OBS's stream-start event resets it.
 
 ## The module pattern
 
