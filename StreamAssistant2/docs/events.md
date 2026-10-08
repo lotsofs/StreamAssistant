@@ -44,16 +44,20 @@ that throws stops there, so the rest of its alert doesn't happen.
 
 ## Subscriptions
 
-All in [Subscriptions.cs](../Subscriptions.cs). The tier is `int.Parse(sub_tier) / 1000`, so
+The handlers are in [Subscriptions.cs](../code/Twitch/Subscriptions.cs), the sentences in
+[SubscriptionMessages.cs](../code/Twitch/SubscriptionMessages.cs). The tier is `int.Parse(sub_tier) / 1000`, so
 `"1000"` → 1, `"2000"` → 2, `"3000"` → 3. Prime is a flag on tier 1.
 
-| Handler | Sound, delay | Spoken |
-|---|---|---|
-| `HandleSubNotif` | Tribal hymn, 4.2 s | `<user> subscribed`, `with prime` or `at tier N` (tier above 1), and the month count if above 1 |
-| `HandleResubNotif` | Tribal hymn, 4.2 s | `<user> subscribed`, prime/tier, `They've subscribed for N months`, `Currently on a N month streak`, then `: <message>` with the viewer's text run through `LanguageFilter`. A gifted resub also posts `🎁` in chat |
-| `HandleSubGiftNotif` (targeted) | Clap, 1 s, hymn, 4.2 s | `<gifter> gifted a tier N sub to <recipient>`, their gift total (or "first gift sub"), and `It is a N month gift` if above 1 |
-| `HandleSubGiftNotif` (part of a bomb) | none | nothing; adds the recipient to the bomb and posts `💣` in chat |
-| `HandleCommunitySubGiftNotif` | N hymns 66 ms apart, 3.8 s, clap, 3 s | `<gifter> is gifting N subs to Lots Of Ess's community! … Congratulations to: a, b, c,` |
+Each handler reads its JSON, builds the sentence with a pure `SubscriptionMessages.Build…Message` function (tested in
+`SubscriptionMessageTests`), then plays the sound, waits, and speaks:
+
+| Handler | Builder | Sound, delay | Spoken |
+|---|---|---|---|
+| `HandleSubNotif` | `BuildSubMessage` | Tribal hymn, 4.2 s | `<user> subscribed`, `with prime` or `at tier N` (tier above 1), then `. It is a N month sub.` if above 1: `foo subscribed at tier 2. It is a 3 month sub.` |
+| `HandleResubNotif` | `BuildResubMessage` | Tribal hymn, 4.2 s | `<user> subscribed`, prime/tier, `, They've subscribed for N months`, `, Currently on a N month streak`, then `: <message>` with the viewer's text run through `LanguageFilter`. A gifted resub also posts `🎁` in chat |
+| `HandleSubGiftNotif` (targeted) | `BuildGiftMessage` | Clap, 1 s, hymn, 4.2 s | `<gifter> gifted a tier N sub to <recipient>`, their gift total (or "first gift sub"), and `It is a N month gift` if above 1 |
+| `HandleSubGiftNotif` (part of a bomb) | `BuildGiftlessMessage` if the bomb never comes | none | nothing; adds the recipient to the bomb and posts `💣` in chat (see [Gift bombs](#gift-bombs) for a bomb that never arrives) |
+| `HandleCommunitySubGiftNotif` | `BuildBombMessage` | N hymns 66 ms apart, 3.8 s, clap, 3 s | `<gifter> is gifting N subs to Lots Of Ess's community! … Congratulations to: a, b, c,`, plus `and N other people` for recipients that hadn't arrived in time (`N people` if none had). The tier is said only above 1 (`5 tier 3 subs`), as in the sub sentences |
 
 The resub deliberately omits `duration_months` from the sentence; a code comment says it shows the
 streak by mistake.
@@ -74,20 +78,26 @@ keyed by that id.
   checks whether the set has reached the count and, if so, completes a `TaskCompletionSource`.
 - The `community_sub_gift` handler (after cloning its JSON, see the lifetime rule) awaits
   `WaitForRecipientsAsync`: **completion or 10 seconds, whichever is first**, then reads whatever
-  recipients have arrived. A slow bomb is announced with a partial list.
-- Entries are never removed from `_giftBombs`. The dictionary has no lock (`_giftBombsLock` is declared
-  and unused, as are `_giftees` and `_giftBombWaiters`), which is safe today only because both handlers
-  touch it before their first `await`, i.e. on the EventSub read loop. A `!test` script's first event
-  runs on the IRC thread and the rest on the thread pool, one at a time, so it never races itself.
+  recipients have arrived. A slow bomb is announced with a partial list and the rest counted
+  (`a, b, and 3 other people`), and logs `Gift bomb <id>: 2 of 5 recipients arrived in time` on `Important`.
+- Once announced, the bomb is **marked** (`MarkAnnounced`) and stays in the dictionary. A recipient
+  arriving after that is logged on `Important` (`<login> arrived after gift bomb <id> was announced`) and
+  otherwise ignored; it was already counted among the "other people".
+- **Recipients whose bomb never arrives.** The `sub_gift` that creates an entry starts
+  `ReportIfGiftlessAsync` (through `FireForget`, code `SUB2`). After `GiftlessWait` (30 s), if the bomb event
+  still hasn't come, it removes the entry, logs `Gift bomb <id> never arrived; recipients: …` on `Important`,
+  and posts to chat: `🛢️ 2 people received a gift sub, but no gift bomb arrived: a, b`. The check and the bomb
+  handler's get-or-create-and-`SetExpected` both run under `_giftBombsLock`, so a bomb can't arrive between
+  the check and the removal. A bomb that arrives later still is announced normally, with all its
+  recipients as "other people".
+- Every access to `_giftBombs` takes `_giftBombsLock`. Each `CommunityGiftSub` carries `CreatedUtc`, and
+  creating a new entry first sweeps out any older than an hour (`SweepOldBombs`), which is how announced
+  bombs eventually leave.
+- `_giftees` and `_giftBombWaiters` are declared and unused.
 - A single gift "to the community" is a bomb of one: a `community_sub_gift` with `total: 1` plus one
   `sub_gift` carrying its id.
 - `!test bomb <n>` simulates a whole bomb, including recipients first (`late`) and a short bomb that waits
   out the 10 s (`missing <k>`). See [twitch.md](twitch.md#the-test-harness).
-
-### Known message defects
-
-Recorded as an item in [TODO.md](TODO.md): a missing separator before the month count in `sub`, a tier
-test that is inverted in the bomb sentence, and the bomb entries that are never removed.
 
 ## Cheers
 

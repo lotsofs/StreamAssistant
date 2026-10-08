@@ -103,7 +103,6 @@ transport classes and the colour code (the test project reaches internals throug
 | [LanguageFilter.cs](../LanguageFilter.cs) | Naive bad-word replacement before TTS | [infrastructure.md](infrastructure.md#language-filter) |
 | [DiskSpace.cs](../DiskSpace.cs) | Free-space watchdog for drive `A:\` | [infrastructure.md](infrastructure.md#disk-space) |
 | [TwitchUptime.cs](../TwitchUptime.cs) | Scrapes uptime from decapi.me; midnight date post | [infrastructure.md](infrastructure.md#uptime-and-clock-check) |
-| [Subscriptions.cs](../Subscriptions.cs) | Sub, resub, gift and gift-bomb alerts (plus a large commented-out legacy block) | [events.md](events.md#subscriptions) |
 | [LayoutColoring.cs](../LayoutColoring.cs) | Serialised colour-change queue and the OBS animation | [obs.md](obs.md#layout-recolouring) |
 | [Obs.cs](../Obs.cs) | Thin OBS wrappers (rest of the file is commented out) | [obs.md](obs.md) |
 | [ObsConnection.cs](../ObsConnection.cs) | OBS websocket and its reconnect loop | [obs.md](obs.md#connection) |
@@ -127,6 +126,8 @@ transport classes and the colour code (the test project reaches internals throug
 | [ChannelPoints.cs](../code/Twitch/ChannelPoints.cs) | What each channel-point reward does |
 | [Ads.cs](../code/Twitch/Ads.cs) | Ad-break handling and chat warnings |
 | [Cheers.cs](../code/Twitch/Cheers.cs) | Bits alert |
+| [Subscriptions.cs](../code/Twitch/Subscriptions.cs) | Sub, resub, gift and gift-bomb alerts: sound, delay, speech; the gift-bomb list (plus a large commented-out legacy block) |
+| [SubscriptionMessages.cs](../code/Twitch/SubscriptionMessages.cs) | The spoken sentences for those alerts |
 | [CommunityGiftSub.cs](../code/Twitch/CommunityGiftSub.cs) | Collects the recipients of one gift bomb |
 | [TestEvents/](../code/Twitch/TestEvents/) | `!test` scripts: simulated events built in code (`TestEventRunner`, `TestArgs`, one file per area) |
 

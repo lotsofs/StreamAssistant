@@ -43,58 +43,6 @@ starting a fresh session`.
 **Docs when done:** delete this section and the TODO row; drop the "not yet seen working" sentence in
 [twitch.md § Planned reconnects](twitch.md#planned-reconnects).
 
-## SBM — Subscription message defects
-
-All in [Subscriptions.cs](../Subscriptions.cs), all read, not reproduced:
-
-- `HandleSubNotif` appends `It is a N month sub. ` with no leading separator, so the spoken sentence
-  runs together: `foo subscribedIt is a 3 month sub.` (the `resub` handler uses `, `).
-- `HandleCommunitySubGiftNotif` builds the tier text as `sub_tier > 1 ? "" : $"tier {sub_tier} "`, which
-  is inverted: tier 1 is announced, tiers 2 and 3 are not. (When it is empty the sentence also has a
-  double space, `… N  subs`.)
-- `_giftBombs` entries are never removed, so each bomb leaves a `CommunityGiftSub` (and its recipient
-  set) behind for the rest of the run. Small per bomb.
-
-### Plan
-
-Make the sentences pure functions so they can be tested, then fix them.
-
-1. **Extract the builders.** `internal static` functions in `Subscriptions`:
-   `BuildSubMessage(user, tier, isPrime, months)`, `BuildResubMessage(…)`, `BuildGiftMessage(…)`,
-   `BuildBombMessage(gifter, total, tier, cumulative, recipients)`. Each handler reads its JSON, calls
-   its builder, then does the sound, delay and `EnqueueSpeech` exactly as before. No change to timing.
-2. **Fix the sub sentence.** Join the month count with a separator, in the resub handler's style:
-   `foo subscribed, It is a 3 month sub` or, closer to the original intent, `foo subscribed at tier 2.
-   It is a 3 month sub.` Pick one and use the same style in the resub builder; the owner can veto wording.
-3. **Fix the tier test** to match the sub and resub sentences, where tier 1 is the unmarked default:
-   `tierText = sub_tier > 1 ? $"tier {sub_tier} " : ""`, and format as `{total} {tierText}subs` so there is
-   no double space. (Alternative: always say the tier, as the targeted-gift sentence does. Owner's call.)
-4. **Clean up bombs.**
-   - Take `_giftBombsLock` for every access to `_giftBombs`. The continuation after
-     `WaitForRecipientsAsync` runs on a thread-pool thread, so once removal happens there the "single
-     thread in practice" argument no longer holds.
-   - Remove the entry after the announcement is built.
-   - A late `sub_gift` arriving after removal would recreate an entry nobody announces. Give
-     `CommunityGiftSub` a `CreatedUtc` and sweep entries older than an hour whenever a new one is created.
-   - Delete the unused `_giftees` and `_giftBombWaiters` fields only if asked; they are dead but harmless.
-5. Make the 10 s wait in `CommunityGiftSub.WaitForRecipientsAsync` take an optional `TimeSpan` so tests
-   don't wait ten seconds.
-
-**Tests** (new `SubscriptionMessageTests`): sub with and without prime, tier 1, 2 and 3, and months 1
-and 3; resub with and without a streak and a message; targeted gift with first-gift and multi-gift
-totals; bomb sentence for each tier with no double spaces; `CommunityGiftSub` completes when recipients
-arrive before `SetExpected`, after it, and never (times out with the partial list); sweep drops old
-entries and keeps new ones. These touch only pure functions and `CommunityGiftSub`, so nothing posts to
-chat or plays sound.
-
-**Verify (owner, off-stream):** `!test replay <file>` of saved `sub_…`, `resub_…` and
-`community_sub_gift_…` files from `AssistantLogs\EventSubs\`, plus `!test sub` / `resub` / `bomb` for the
-variants the logs lack (see [twitch.md](twitch.md#the-test-harness)). The spoken text is logged as `TTS Enqueue: …`, so the result
-can be read without listening. These replays do play sounds and speak.
-
-**Docs when done:** the table and the "Known message defects" subsection in
-[events.md](events.md#subscriptions), and the "Gift bombs" bullet about entries never being removed.
-
 ## TRX — Overlapping trains hide each other
 
 `ChannelPoints.RunTrainAsync` sets `Image: Train` to a random image, shows it, waits 62 s, then hides it

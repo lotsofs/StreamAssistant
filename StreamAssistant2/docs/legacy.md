@@ -69,13 +69,16 @@ labels, double-buffered with `…1`/`…2` source pairs). Mostly stubs; no behav
 `CheckForCommands` matches the FAQ commands but the send is commented out;
 `CheckForAdminCommands`'s `!stoppaneltimer` is a stub. See [twitch.md](twitch.md#public-commands).
 
-### [Subscriptions.cs](../Subscriptions.cs): the old generators
+### [Subscriptions.cs](../code/Twitch/Subscriptions.cs): the old generators
 
 Below the live handlers is the previous implementation, as comments: message constants
 (`MSG_SUB_FIRST_PRIME`, `MSG_BOMB_LONG`, …), `GenerateSubMessage` and friends, a `GiftBomb` class with
 queues of gifters and bomb recipients, and `AddMoneyBasedOnTier`, which credited `Money.Current` with
 `SUB_PAYOUT` (0.09, the cheapest sub's payout, "anything extra I pocket for food") ×1 for tier 1 and
-prime, ×2 for tier 2, ×5 for tier 3. The live code in the same file replaced all of this. The old one
+prime, ×2 for tier 2, ×5 for tier 3. The live code replaced all of this. Its two bomb error messages live on in other forms: `ERROR_NO_BOMBEES`
+(fewer recipients than expected) as the spoken `and N other people`, and `ERROR_NO_BOMBERS` (recipients with
+no bomb) as the giftless chat line ([events.md](events.md#gift-bombs)). The immediate `MSG_BOMB_SHORT` chat
+line and the money tracking were not ported. The old one
 read `variables["fromGiftBomb"]` to skip bomb recipients, as the new one does with `community_gift_id`.
 
 ### OBS raw request builder

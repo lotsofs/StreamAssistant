@@ -30,6 +30,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `TEV1` | `FireForget.Run` (from `TestEventRunner.Run`) | Feeding a `!test` script's events into the handler threw | rest of that test not sent |
 | `TRN1` | `FireForget.Run` (from the `!train` command) | The train threw (OBS calls no-op when disconnected, so rarely) | train skipped |
 | `SUB1` | `Subscriptions.HandleCommunitySubGiftNotif` | The gift-bomb announcement threw (the only handler with its own catch) | no announcement |
+| `SUB2` | `FireForget.Run` (from `Subscriptions.HandleSubGiftNotif`) | The check for bomb recipients whose bomb never arrived threw | those recipients go unreported |
 | `CP1` | `ChannelPoints.CloseColorRedemption` | Helix refused to fulfil or cancel a colour redemption (often a 403; see [color.md](color.md)) | redemption left open |
 | `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | An OBS call threw during a colour change; the message is logged next | worker moves to the next request |
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
@@ -125,6 +126,8 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 | 1 s | `HandleSubGiftNotif` | clap before the hymn |
 | 66 ms ×N, 3.8 s, 3 s | `HandleCommunitySubGiftNotif` | hymn per gift, then clap, then speech |
 | 10 s | `CommunityGiftSub.WaitForRecipientsAsync` | longest wait for bomb recipients |
+| 30 s | `Subscriptions.GiftlessWait` | bomb recipients wait this long for their bomb before chat is told it never came |
+| 1 h | `Subscriptions.SweepOldBombs` | a gift-bomb entry older than this is dropped when a new one is created |
 | 5 s | `Cheers` | let the applause finish before speaking |
 | 62 s | train reward | how long the image stays up |
 | 5.5 s, 2.5 s, 1 s | `LayoutColoring.ChangeColorAsync` | the recolour animation, nine seconds in all |
