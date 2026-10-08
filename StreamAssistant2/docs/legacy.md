@@ -37,10 +37,14 @@ element; the field names differ (`tipAmount` → there is no EventSub equivalent
 
 ## Entirely commented out
 
-### [Games.cs](../Games.cs): per-game setup on a category change
+### Games.cs: per-game setup on a category change
+
+The commented-out root `Games.cs` was replaced by [code/Obs/Games.cs](../code/Obs/Games.cs) and its
+siblings, which now do all of it ([obs.md](obs.md#per-game-setup)); GAM in [TODO.md](TODO.md) has the
+leftovers. What the old one did:
 
 On a stream-category change (or going live) it looked the game id up in a `games.json` kept under the
-old Streamer.Bot input folder, then:
+old Streamer.Bot input folder (now moved to `Bot Input\games.json`), then:
 
 - switched the OBS background image to `<Backgrounds>\<game name>.png`
 - recoloured the layout with a colour scheme `gameschemes[<game name>]`, using a `Coloring.ChangeColor`
@@ -48,10 +52,9 @@ old Streamer.Bot input folder, then:
 - retargeted up to five OBS audio-capture sources to the game's executables, through a window string of
   the form `GAMESOUND:Set by StreamerBot:<exe>`, with `none` for unused slots
 
-The old OBS source names it used survive in the commented `Sources` enum in `Obs.cs`. There is no
-EventSub subscription for category changes yet (`channel.update` would be the one). The colour *scheme
-set* named `gameschemes` is real and still loaded by `ColorSchemeRegistry`, so the colour half already
-has data.
+The old OBS source names it used survive in the commented `Sources` enum in `Obs.cs`. The new code uses
+three numbered kinds of capture source instead of the five `Audio: Z5 Game0`–`4`, and `games.json`'s
+`Executables` became `AudioCaptureExecutable`.
 
 ### [Donations.cs](../Donations.cs): tip alerts
 
@@ -79,12 +82,12 @@ queues of gifters and bomb recipients, and `AddMoneyBasedOnTier`, which credited
 prime, ×2 for tier 2, ×5 for tier 3. The live code replaced all of this. Its two bomb error messages live on in other forms: `ERROR_NO_BOMBEES`
 (fewer recipients than expected) as the spoken `and N other people`, and `ERROR_NO_BOMBERS` (recipients with
 no bomb) as the giftless chat line ([events.md](events.md#gift-bombs)). The immediate `MSG_BOMB_SHORT` chat
-line and the money tracking were not ported. The old one
+line was deliberately not ported, and the money tracking hasn't been (MNY in [TODO.md](TODO.md)). The old one
 read `variables["fromGiftBomb"]` to skip bomb recipients, as the new one does with `community_gift_id`.
 
 ### OBS raw request builder
 
-Everything in [Obs.cs](../Obs.cs) below the three live wrappers is commented out. It built obs-websocket
+Everything in [Obs.cs](../code/Obs/Obs.cs) below the three live wrappers is commented out. It built obs-websocket
 **raw batch request JSON** by string formatting (`SetInputSettings`, `SetSourceFilterSettings`) for
 Streamer.Bot to send, kept a `Sources` enum mapping logical names to OBS source names (text sources for
 uptime and clock, the background image, five game-audio sources, the colourable layout sources and

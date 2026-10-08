@@ -53,7 +53,7 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Logs OBS starting or stopping its stream, and resets the chatter list when it starts.
+		/// Logs OBS starting or stopping its stream; on start, resets the chatter list and sets up the game.
 		/// </summary>
 		internal static void OnStreamStateChanged(object? sender, StreamStateChangedEventArgs e) {
 			try {
@@ -61,6 +61,7 @@ namespace StreamAssistant2 {
 					case OutputState.OBS_WEBSOCKET_OUTPUT_STARTED:
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "OBS started streaming");
 						ChatterList.Reset();
+						FireForget.Run("GMS_live", "go-live game setup", Games.OnStreamStartedAsync);
 						break;
 					case OutputState.OBS_WEBSOCKET_OUTPUT_STOPPED:
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "OBS stopped streaming");
@@ -70,6 +71,23 @@ namespace StreamAssistant2 {
 			catch (Exception ex) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error OSS1");
 				ConsoleLogger.LogToFile(ex);
+			}
+		}
+
+		/// <summary>
+		/// Runs the action now if OBS is connected, else on its next connect. Can run twice if OBS connects
+		/// during the call, so the action guards itself.
+		/// </summary>
+		internal static void WhenConnected(Action action) {
+			EventHandler? handler = null;
+			handler = (_, _) => {
+				ObsSocket.Connected -= handler;
+				action();
+			};
+			ObsSocket.Connected += handler;
+			if (ObsSocket.IsConnected) {
+				ObsSocket.Connected -= handler;
+				action();
 			}
 		}
 

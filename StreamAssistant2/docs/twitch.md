@@ -246,6 +246,7 @@ The current table:
 | `channel.channel_points_custom_reward_redemption.add` | 1 | broadcaster | yes, `ChannelPoints.ProcessAdd` |
 | `channel.chat.notification` | 1 | broadcaster + user | yes, fans out on `notice_type` |
 | `channel.cheer` | 1 | broadcaster | yes, `Cheers.Process` |
+| `channel.update` | 2 | broadcaster | yes, `Games.HandleUpdate` (acts only on a category change) |
 | `channel.follow` | 2 | broadcaster + moderator (= broadcaster) | **no**: each follow logs "not handled in code" on `EventSubConfusion` |
 
 Responses: `202` is expected. `409` (the subscription already exists) counts as success: it logs
@@ -348,7 +349,7 @@ folder holds only real events and replays don't duplicate themselves.
 
 Each run logs `Test <script>: <values>` on `EventSubNotification`, then sends its events 50 ms apart
 through `FireForget.Run`; a failure logs `Error TEV1`. **They run the real handlers**: sounds play, TTS
-speaks, and anything a handler posts to chat (`🎁` for a gifted resub, `💣` per bomb recipient) goes to
+speaks, and anything a handler posts to chat (`🎁` for a gifted resub) goes to
 the live channel.
 
 To add a script: a `TestScript` (name, required and optional `TestArgs` parameters, and a pure `Build`
@@ -357,14 +358,19 @@ from an anonymous object carrying the fields the handler reads, and add a test t
 
 ## Helix
 
-[TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) has one call:
+[TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) has two calls. `Init()` sets headers once and a
+60 s timeout. Attempts are logged on `EventSubConfusion` (the `Helix` colour channel exists in the enum
+and window but nothing uses it).
+
+`GetChannelCategoryIdAsync()`: `GET /helix/channels?broadcaster_id=…` (no scope needed), logs
+`HELIX> channel info: <code>`, throws `Channel info failed: <body>` on non-success, and returns
+`data[0].game_id` (`""` for no category, `null` for no channel) through `ParseCategoryId`, which is
+tested. Caller: `Games.OnStreamStartedAsync`, when going live with no category seen yet
+([events.md](events.md#category-change-and-going-live)).
 
 `UpdateRedemption(rewardId, redemptionId, status)`: `PATCH
 /helix/channel_points/custom_rewards/redemptions?broadcaster_id=…&reward_id=…&id=…` with
 `{"status":"FULFILLED"|"CANCELED"}`. Any other status string throws. `CANCELED` refunds the points.
-Anything but 200 logs a warning; non-success throws `Redemption update failed: <body>`. The attempt is
-logged on `EventSubConfusion` (the `Helix` colour channel exists in the enum and window but nothing
-uses it). `Init()` sets headers once and a 60 s timeout.
-
+Anything but 200 logs a warning; non-success throws `Redemption update failed: <body>`.
 Callers: `ChannelPoints.CloseRedemption`, for the train and colour rewards (catches and logs `Error CP1`), and the toilet-retrieve
 branch of `ProcessAdd` (does not catch).

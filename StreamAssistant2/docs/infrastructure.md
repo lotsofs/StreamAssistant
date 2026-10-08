@@ -12,7 +12,8 @@ date, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
 [Config.cs](../Config.cs). `Config.Load()` runs before anything else, from `Program.Main`.
 
 1. Reads **`paths.json`** from the working directory (so the app must run from the project folder). It
-   holds only `directories`: `BotInput`, `BotOutput`, `Trains`, `Colors`, `ColorSchemes`. It is
+   holds only `directories`: `BotInput`, `BotOutput`, `Trains`, `Colors`, `ColorSchemes`, `Backgrounds`.
+   `Backgrounds` holds the per-game OBS backgrounds (`GameBackground`). It is
    machine-specific, so it is gitignored; a `BeforeBuild` target in the csproj copies it from the tracked
    `paths.json.example` when missing.
 2. Reads **`secrets.json`** from `Directories.BotInput`, which is outside this repository. If the file
@@ -20,6 +21,9 @@ date, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
    `FileNotFoundException` telling the user to fill it in; `Main` shows that as a message box.
 3. Merges them into `Config.Data` (`Directories` from the first, `Obs`, `TwitchAuth`, `TwitchIds` from the
    second).
+
+`BotInput` also holds **`games.json`**, which isn't config: `Games.Load()` reads it later in startup
+([architecture.md](architecture.md#codeobs)). A missing file only logs and turns per-game setup off.
 
 JSON is read with `System.Text.Json` and `PropertyNameCaseInsensitive`, so `socketPassword` and
 `SocketPassword` are the same. Unknown properties are ignored; the example's `twitchTestNames` block

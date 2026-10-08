@@ -27,6 +27,11 @@ namespace StreamAssistant2 {
 				RequiresUserId = true,
 			},
 			new() {
+				Type = "channel.update",
+				Version = "2",
+				RequiresBroadcasterId = true,
+			},
+			new() {
 				Type = "channel.cheer",
 				Version = "1",
 				RequiresBroadcasterId = true,

@@ -4,11 +4,26 @@ using OBSWebsocketDotNet.Types.Events;
 using Xunit;
 
 namespace StreamAssistant2.Tests {
+	// Tests that reach Games' static state (directly, or through OBS stream start) run one at a time.
+	[CollectionDefinition(Name)]
+	public class GamesStateCollection {
+		public const string Name = "GamesState";
+	}
+
 	// ChatterList is static, so each test starts from Reset(). Its chat message goes nowhere because
-	// IRC isn't connected in tests.
-	public class ChatterListTests {
+	// IRC isn't connected in tests. OBS stream start also runs the go-live game setup, so the Helix
+	// fetch is stubbed to keep these tests off Twitch.
+	[Collection(GamesStateCollection.Name)]
+	public class ChatterListTests : IDisposable {
+		readonly Func<Task<string?>> _savedFetch = Games.FetchCategoryId;
+
 		public ChatterListTests() {
 			ChatterList.Reset();
+			Games.FetchCategoryId = () => Task.FromResult<string?>(null);
+		}
+
+		public void Dispose() {
+			Games.FetchCategoryId = _savedFetch;
 		}
 
 		[Fact]

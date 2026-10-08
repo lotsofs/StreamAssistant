@@ -29,6 +29,9 @@ namespace StreamAssistant2 {
 					case "channel.cheer":
 						FireForget.Run("TEH_c", type, () => Cheers.Process(evtJson));
 						break;
+					case "channel.update":
+						Games.HandleUpdate(evtJson);
+						break;
 					default:
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"Event Sub Event happened, but is not handled in code: {type}");
 						break;

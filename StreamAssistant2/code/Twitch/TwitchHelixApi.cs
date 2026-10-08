@@ -54,5 +54,33 @@ namespace StreamAssistant2 {
 			}
 		}
 
+		/// <summary>
+		/// The channel's current category id, "" for none; null if Twitch returns no channel.
+		/// </summary>
+		public static async Task<string?> GetChannelCategoryIdAsync() {
+			var url = $"https://api.twitch.tv/helix/channels?broadcaster_id={_broadcasterId}";
+			var response = await _http.GetAsync(url);
+			int responseCode = (int)response.StatusCode;
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"HELIX> channel info: {responseCode}");
+
+			var txtContent = await response.Content.ReadAsStringAsync();
+			if (!response.IsSuccessStatusCode) {
+				throw new Exception($"Channel info failed: {txtContent}");
+			}
+			return ParseCategoryId(txtContent);
+		}
+
+		/// <summary>
+		/// data[0].game_id from a Get Channel Information response; null when data is empty.
+		/// </summary>
+		internal static string? ParseCategoryId(string json) {
+			using JsonDocument doc = JsonDocument.Parse(json);
+			JsonElement data = doc.RootElement.ReadElement("data");
+			if (data.ValueKind != JsonValueKind.Array || data.GetArrayLength() == 0) {
+				return null;
+			}
+			return data[0].ReadString("game_id");
+		}
+
 	}
 }

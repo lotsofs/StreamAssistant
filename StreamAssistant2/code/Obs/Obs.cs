@@ -22,11 +22,18 @@ namespace StreamAssistant2 {
 		}
 
 		public static void SetImageSource(string sourceName, string newFile) {
+			SetInputSetting(sourceName, "file", newFile);
+		}
+
+		/// <summary>
+		/// Sets one setting on an input, keeping the rest.
+		/// </summary>
+		public static void SetInputSetting(string inputName, string key, string value) {
 			if (!ObsConnection.IsConnected()) return;
 			var set = new JObject {
-				["file"] = newFile
+				[key] = value
 			};
-			_obs.SetInputSettings(sourceName, set, true);
+			_obs.SetInputSettings(inputName, set, true);
 		}
 
 		public static void SetFilterProperty(string sourceName, string filterName, string propertyName, JToken value) {

@@ -56,6 +56,7 @@ namespace StreamAssistant2 {
 		public string Trains { get; set; } = "";
 		public string Colors { get; set; } = "";
 		public string ColorSchemes { get; set; } = "";
+		public string Backgrounds { get; set; } = "";
 	}
 
 	public class ObsSocketConfig {

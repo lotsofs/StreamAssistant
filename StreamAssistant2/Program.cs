@@ -36,6 +36,7 @@ namespace StreamAssistant2
 		static async Task StartBotAsync() {
 			try {
 				Coloring.Load();
+				Games.Load();
 
 				await Database.InitAsync();
 
@@ -46,6 +47,7 @@ namespace StreamAssistant2
 				ConnectionHealth.Start();
 
 				EnableBot();
+				FireForget.Run("GMS_boot", "boot game setup", Games.OnBootAsync);
 
 				TextToSpeech.ReportStart();
 			}

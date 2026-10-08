@@ -16,6 +16,7 @@ Read from the code. Nothing here was run against live Twitch events.
 | `channel.chat.notification` | `HandleChannelChatNotification`, then on `notice_type` |
 | `channel.channel_points_custom_reward_redemption.add` | `ChannelPoints.ProcessAdd` |
 | `channel.cheer` | `Cheers.Process` |
+| `channel.update` | `Games.HandleUpdate` ([Category change](#category-change-and-going-live)) |
 | anything else (including `channel.follow`) | logged on `EventSubConfusion`, nothing else |
 
 After the switch it appends the raw event JSON to the day's log file.
@@ -56,7 +57,7 @@ Each handler reads its JSON, builds the sentence with a pure `SubscriptionMessag
 | `HandleSubNotif` | `BuildSubMessage` | Tribal hymn, 4.2 s | `<user> subscribed`, `with prime` or `at tier N` (tier above 1), then `. It is a N month sub.` if above 1: `foo subscribed at tier 2. It is a 3 month sub.` |
 | `HandleResubNotif` | `BuildResubMessage` | Tribal hymn, 4.2 s | `<user> subscribed`, prime/tier, `, They've subscribed for N months`, `, Currently on a N month streak`, then `: <message>` with the viewer's text run through `LanguageFilter`. A gifted resub also posts `🎁` in chat |
 | `HandleSubGiftNotif` (targeted) | `BuildGiftMessage` | Clap, 1 s, hymn, 4.2 s | `<gifter> gifted a tier N sub to <recipient>`, their gift total (or "first gift sub"), and `It is a N month gift` if above 1 |
-| `HandleSubGiftNotif` (part of a bomb) | `BuildGiftlessMessage` if the bomb never comes | none | nothing; adds the recipient to the bomb and posts `💣` in chat (see [Gift bombs](#gift-bombs) for a bomb that never arrives) |
+| `HandleSubGiftNotif` (part of a bomb) | `BuildGiftlessMessage` if the bomb never comes | none | nothing; adds the recipient to the bomb (see [Gift bombs](#gift-bombs) for a bomb that never arrives) |
 | `HandleCommunitySubGiftNotif` | `BuildBombMessage` | N hymns 66 ms apart, 3.8 s, clap, 3 s | `<gifter> is gifting N subs to Lots Of Ess's community! … Congratulations to: a, b, c,`, plus `and N other people` for recipients that hadn't arrived in time (`N people` if none had). The tier is said only above 1 (`5 tier 3 subs`), as in the sub sentences |
 
 The resub deliberately omits `duration_months` from the sentence; a code comment says it shows the
@@ -132,6 +133,39 @@ A warning that throws logs `Error ADS1` and the later ones still go out.
 
 The 60-minute figure is a guess at Twitch's automatic cadence. If an ad arrives earlier (manual, or the
 streamer ran one) the pending warnings are cancelled and rescheduled from that break's end.
+
+## Category change and going live
+
+[Games.cs](../code/Obs/Games.cs). `channel.update` fires on any channel-info edit (title, language,
+labels), not just the category. `HandleUpdate` reads `category_id` and compares it with the last one
+seen (`CategoryChangeMessage`, tested): the same id does nothing. A different one is stored, posts
+`Stream category change from <old id> to <new id>` to chat (`Stream category change to <id>` when there is
+no previous id, which only happens if the boot query below failed, and then a title edit re-applies the
+game once), and runs `Games.Apply` on the thread pool after `await Task.Yield()`, off the listen loop (`Error GMS_86`
+if it throws). An empty `category_id` (no category set) counts as an id like any other.
+
+**On bot start**, `Games.OnBootAsync` (`Error GMS_boot`) asks Helix for the channel's category
+(`GetChannelCategoryIdAsync`), stores it, logs `Boot: category <id>, applied when OBS is connected`, and
+applies it once: straight away if OBS is up, else the first time OBS connects ([obs.md](obs.md#per-game-setup)).
+No chat line of its own, but the colour change posts its usual one. If Helix has no channel it logs
+`Boot: category unknown, no game setup`.
+
+**Going live** means OBS starting its stream ([obs.md](obs.md#connection)), not Twitch's `stream.online`.
+`OnStreamStartedAsync` runs on the thread pool (`Error GMS_live`) and applies the last category seen.
+If none is known (the boot query failed and no `channel.update` has come since), it asks Helix once (`GetChannelCategoryIdAsync`) and stores
+the answer, so a `channel.update` with the same category afterwards does nothing. If Helix has no channel
+it logs `Going live: category unknown, no game setup`. No chat line. The last category is guarded by a
+lock, since `channel.update` (EventSub thread) and going live (obs-websocket, then the thread pool) both
+touch it. Tested in `GamesGoLiveTests`, with the Helix fetch replaced.
+
+`Apply` resolves the id to a game through `games.json` (unknown ids fall back to id `0`), logs
+`Game setup: <name> (<id>)`, and has `GameBackground.Set` point the OBS input `Image: Background` at
+`<Directories.Backgrounds>\<name>.png`. If that file doesn't exist (the `None` fallback has none) it logs
+`No background for <name>, left as is` and leaves the background alone. Then `GameColor.Set` queues the
+game's `gameschemes` colour scheme, which replaces any colour showing and posts the usual
+`Changing to color …` chat line; a game without a scheme (RoN) only logs. Last, `GameCapture.Set` points
+the numbered game, window and audio capture sources at the game's executables, logging each one.
+Details in [obs.md](obs.md#per-game-setup).
 
 ## Channel-point rewards
 

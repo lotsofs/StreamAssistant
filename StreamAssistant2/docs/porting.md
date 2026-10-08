@@ -25,6 +25,7 @@ commands, sounds, TTS and the language filter.
 ## Root folder: old and new files
 
 The root still holds files from both eras; new files go under `code/<Area>/` (see [CLAUDE.md](../CLAUDE.md)).
+`Obs.cs` (2024, its wrappers rewritten) and `ObsConnection.cs` (new) have moved to `code/Obs/`.
 
 **New, written for the June 2026 rewrite or later:**
 
@@ -35,7 +36,6 @@ The root still holds files from both eras; new files go under `code/<Area>/` (se
 | `Database.cs` | SQLite; replaced `Flushes.json` |
 | `DiskSpace.cs` | the disk half of the old `Clock.cs` |
 | `TwitchUptime.cs` | the uptime half of the old `Clock.cs`, plus the midnight date post |
-| `ObsConnection.cs` | the bot talks to OBS itself now, not through Streamer.Bot |
 | `TextToSpeech.cs` | SAPI; Streamer.Bot used to speak |
 | `LayoutColoring.cs` | the colour animation queue |
 | `Util.cs` | `TrueModulo`, used by `ColorUtil` |
@@ -45,7 +45,6 @@ The root still holds files from both eras; new files go under `code/<Area>/` (se
 | File | Since | Notes |
 |---|---|---|
 | `Program.cs` | 2017 | rewritten as the WPF composition root |
-| `Obs.cs` | 2024 | the three wrappers at the top are new; everything below is the commented raw-request builder |
 | `Sound.cs` | 2024 | plays files itself now instead of queueing `PlaySfx` |
 | `LanguageFilter.cs` | 2024 | unchanged in purpose |
 
@@ -53,7 +52,6 @@ The root still holds files from both eras; new files go under `code/<Area>/` (se
 
 | File | Since | Notes |
 |---|---|---|
-| `Games.cs` | 2024 | entirely commented; see [GAM](#gam--per-game-setup-on-category-change) |
 | `Donations.cs` | 2024 | entirely commented; see [TIP](#tip--tips) |
 | `LeftPanel.cs` | 2024 | entirely commented scaffolding; see [LFP](#lfp--left-panel-and-stoppaneltimer) |
 | `Money.cs` | 2024 | compiled, no live reader or writer; see [MNY](#mny--money-tracking) |
@@ -66,13 +64,10 @@ default), how to verify, and which docs to touch. Ordered roughly easiest first.
 
 ### Shared pieces
 
-Some items need the same new building blocks. Whichever item comes first builds them; the others reuse.
+Building blocks some items share:
 
-- **`Obs.SetInputSetting(string input, string key, string value)`**: a generic `SetInputSettings`
-  wrapper with `overlay: true`, written like `SetImageSource` (no-op when OBS is closed).
-  `SetImageSource` can then call it. Needed by UTX, CLK and GAM.
-- **`stream.online` subscription and `StreamEvents.Online`**: planned as SOE in
-  [robustness-fixes.md](robustness-fixes.md#soe--log-twitch-stream-online-and-offline). GAM hooks into it.
+- **`Obs.SetInputSetting(input, key, value)`**: built (GAM 7), a one-key `SetInputSettings` with
+  `overlay: true`. UTX and CLK set a text source's `text` with it.
 
 ### DSA — Disk-space alarm sound
 
@@ -175,25 +170,6 @@ misses) and the send is commented out.
 
 **Docs:** [twitch.md § Public commands](twitch.md#public-commands); legacy.md's ChatHandler section.
 
-### GBL — Gift-bomb immediate chat line
-
-**Was:** old `HandleGiftBomb` posted `<gifter> is gifting <n> <tier> Subs to Lots Of Ess's community!`
-straight away, before the spoken list.
-**Now:** the bomb flow posts a `💣` per recipient and speaks the list later, with no summary line.
-
-**Plan:**
-1. [ ] Add a builder for the line to `SubscriptionMessages`, beside the existing ones, with a unit test
-2. [ ] Send it from `Subscriptions.HandleCommunitySubGiftNotif` as soon as the bomb notice arrives (it carries the gifter, the count and the tier), before waiting for recipients
-3. [ ] An anonymous gifter reads the same way the spoken sentence names one
-
-**Decide:** whether it's wanted next to the `💣` lines. Recommend yes: the `💣`s show something is
-happening, this says what.
-
-**Verify:** `!test bomb` posts the line once, before the spoken list.
-
-**Docs:** [events.md § Gift bombs](events.md#gift-bombs); legacy.md's Subscriptions section
-(`MSG_BOMB_SHORT` is then ported).
-
 ### GAM — Per-game setup on category change
 
 **Was:** `Games.cs`. On a category change or going live: look the Twitch game id up in `games.json`, then
@@ -201,34 +177,27 @@ post `Stream category change to <id>` / `From <id>` (or `Stream live with catego
 `Image: Background` to `Images\Backgrounds\<game>.png`, recolour with the game's `gameschemes` scheme, and
 point `Audio: Z5 Game0`…`4` at the game's executables (`none` for unused slots). Id `0` was the fallback.
 
-**Data, checked:** `games.json` survives at `Bot Input\!OLD_Streamerbot\games.json`, mapping Twitch game
-id → `{ Name, Executables }`, with `"0"` → `None` as the fallback. Every name has a background in
+**Data, checked:** `games.json` is now at `Bot Input\games.json`, mapping Twitch game
+id → `{ Name, GameCaptureExecutable, WindowCaptureExecutable, AudioCaptureExecutable }` (the old
+`Executables` became `AudioCaptureExecutable`), with `"0"` → `None` as the fallback. Every name has a background in
 `Images\Backgrounds\` except `None`, and a `gameschemes` category except `RoN`. `gameschemes <Name>`
 resolves through the normal colour parser (set + category → the category's `Default`).
 
 **Plan:**
-1. [ ] Move `games.json` to `Bot Input\games.json`; add `Games` and `Backgrounds` entries to `paths.json`, `paths.json.example` and `Config.Directories`
-2. [ ] Rewrite `Games.cs` as `code/Obs/Games.cs`: load the file at startup (like `Coloring.Load()`); `Apply(string categoryId)` does background, colour and audio
-3. [ ] Subscribe `channel.update` (v2, `RequiresBroadcasterId`); call `Games.Apply(category_id)` only when the category actually changed, since the event also fires for title changes
-4. [ ] Call `Games.Apply` from `StreamEvents.Online` too ([shared](#shared-pieces)). `stream.online` doesn't carry the category: remember the last `channel.update`'s, or fetch it once with Helix `GET /channels`
-5. [ ] Background: `Obs.SetImageSource("Image: Background", <Backgrounds>\<Name>.png)`; skip with a log line if the file is missing
-6. [ ] Colour: `LayoutColoring.TryChangeToSingle("gameschemes " + Name)`, after checking `ColorSchemeRegistry.TryGetScheme`, so a game without a scheme (RoN) logs instead of posting `Couldn't find a color` to chat
-7. [ ] Audio: `Obs.SetInputSetting("Audio: Z5 GameN", "window", …)` for each slot, `none` for unused ones
-8. [ ] `!test category <id>` script; unit-test the lookup and the fallback
-9. [ ] Once it works: delete `Bot Input\!OLD_Streamerbot\` and legacy.md's Games section
+1. [x] Move `games.json` to `Bot Input\games.json`; add a `Backgrounds` entry to `paths.json`, `paths.json.example` and `Config.Directories`. No `Games` entry: like `secrets.json`, the file is found as `BotInput` + a fixed name
+2. [x] Rewrite `Games.cs` as `code/Obs/Games.cs`: `Games.Load()` reads `<BotInput>\games.json` at startup (`Error GMS1` if it breaks), `Lookup` resolves an id with the `0` fallback (`GamesTests`), and `Apply(categoryId)` is the entry point, which only logs `Game setup: <name> (<id>)` until steps 5–7 add the actions
+3. [x] Subscribe `channel.update` (v2); `Games.HandleUpdate` applies only on a real category change (the current category is fetched from Helix at boot, `Games.OnBootAsync`, which also applies it once, when OBS is first connected), posts `Stream category change [from <id>] to <id>`, and runs `Apply` off the listen loop ([events.md](events.md#category-change-and-going-live))
+4. [x] Apply on going live: on OBS's stream start (not `stream.online`), `Games.OnStreamStartedAsync` applies the last category seen, or asks Helix `GET /channels` when none has been; no chat line
+5. [x] Background: `Obs.SetImageSource("Image: Background", <Backgrounds>\<Name>.png)`; a missing file (the `None` fallback) logs and leaves the background as is
+6. [x] Colour: `GameColor.Set` sends `gameschemes <Name>` through `LayoutColoring.TryChangeToSingle` after checking `ColorSchemeRegistry.TryGetScheme`, so a game without a scheme (RoN) logs instead of posting `Couldn't find a color` to chat. Always replaces the current colour; keeps the usual chat line
+7. [x] Capture sources: `GameCapture.Set` points `Game: Game Capture 0–2`, `Game: Window Capture 0–2` and `Audio 5: App Capture 0–2` at the game's `GameCaptureExecutable`, `WindowCaptureExecutable` and `AudioCaptureExecutable` entries and shows them in `!Scene: Games 1920x1080`; unused slots get `none` and are hidden. Logs each one ([obs.md](obs.md#per-game-setup)). Matching by executable and the game-capture mode are set in OBS, by the owner. `games.json` has an `example` entry with every key; the game and window capture lists are still to be filled
+8. [ ] `!test category <id>` script (the lookup, fallback and change detection are already unit-tested in `GamesTests`)
+9. [ ] Once it works: delete legacy.md's Games section, and `Bot Input\!OLD_Streamerbot\` if its `scenes.json` and `Scenes\` aren't wanted either
+10. [ ] Per-source volume from `games.json`. obs-websocket keeps a volume as both a linear multiplier (`inputVolumeMul`, 0–1) and decibels (`inputVolumeDb`, ≤ 0, below −100 is −∞), and `SetInputVolume(name, value, inputVolumeDb: true)` takes dB directly, so the JSON can hold plain dB numbers (e.g. `-4`). Today the game captures sit around −4 dB; the full snapshot is in [reference.md § OBS volumes](reference.md#obs-volumes). Design with the owner: per game or per source, and what an absent value means
 
-**Decide:**
-- Chat lines. Recommend one line, `🎮 <category name>`, only on a real change; the old two-line id dump was debugging.
-- Whether a manual colour should survive a category change. Recommend no: a new game resets the colour, as before.
-- The `None` fallback background. Recommend leaving the background unchanged.
-
-**Check first, in OBS:** the old audio value was `GAMESOUND:Set by StreamerBot:<exe>`, OBS's
-`title:class:executable` window format. With the source's window-match priority set to executable, title
-and class don't matter. Confirm the `Audio: Z5` sources still exist, use that priority, and capture
-after the bot sets them.
-
-**Verify:** `!test category 461492` (KTANE): background, colour (with its chat line) and audio switch.
-`!test category 511701` (RoN): background and audio switch, colour skipped with a log line.
+**Verify:** `!test category 461492` (KTANE): background, colour (with its chat line) and capture sources
+switch. `!test category 511701` (RoN): background and capture sources switch, colour skipped with a log
+line.
 
 **Docs:** new section in [events.md](events.md); [obs.md](obs.md); [reference.md](reference.md) (paths,
 OBS names, error codes); [infrastructure.md](infrastructure.md) (config); CLAUDE.md (external

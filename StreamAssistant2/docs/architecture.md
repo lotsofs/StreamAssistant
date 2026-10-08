@@ -48,13 +48,16 @@ service registry.
    synchronization context and run its continuations on the UI thread.
 5. `StartBotAsync`, in order:
    1. `Coloring.Load()`: colour tables and schemes from disk ([color.md](color.md)).
-   2. `Database.InitAsync()`: opens `streamAssistant.db`, creates the `flushes` table if missing.
-   3. Logs `STARTED!`.
-   4. `DiskSpace.Start()`, `TwitchUptime.Start()` and `ConnectionHealth.Start()`: the periodic loops.
-   5. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
+   2. `Games.Load()`: `<BotInput>\games.json`, the game behind each Twitch category. Never throws.
+   3. `Database.InitAsync()`: opens `streamAssistant.db`, creates the `flushes` table if missing.
+   4. Logs `STARTED!`.
+   5. `DiskSpace.Start()`, `TwitchUptime.Start()` and `ConnectionHealth.Start()`: the periodic loops.
+   6. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
       `OnMessage += ChatHandler.ProcessMessage`, `TwitchHelixApi.Init()`, `TwitchEventSub.Connect()`,
       `LayoutColoring.StartWorker()`.
-   6. `TextToSpeech.ReportStart()`, which is the first touch of `TextToSpeech`, so its static
+   7. `Games.OnBootAsync`, fire-and-forget (`Error GMS_boot`): stores the current category from Helix and
+      applies the game once, when OBS is first connected ([events.md](events.md#category-change-and-going-live)).
+   8. `TextToSpeech.ReportStart()`, which is the first touch of `TextToSpeech`, so its static
       constructor (and the `Microsoft Catherine` voice lookup) runs only now, after everything else
       is already live.
    Any exception logs `Error PRG1` and the bot stays half-started.
@@ -105,11 +108,9 @@ transport classes and the colour code (the test project reaches internals throug
 | [DiskSpace.cs](../DiskSpace.cs) | Free-space watchdog for drive `A:\` | [infrastructure.md](infrastructure.md#disk-space) |
 | [TwitchUptime.cs](../TwitchUptime.cs) | Scrapes uptime from decapi.me; midnight date post | [infrastructure.md](infrastructure.md#uptime-and-clock-check) |
 | [LayoutColoring.cs](../LayoutColoring.cs) | Serialised colour-change queue and the OBS animation | [obs.md](obs.md#layout-recolouring) |
-| [Obs.cs](../Obs.cs) | Thin OBS wrappers (rest of the file is commented out) | [obs.md](obs.md) |
-| [ObsConnection.cs](../ObsConnection.cs) | OBS websocket and its reconnect loop | [obs.md](obs.md#connection) |
 | [Util.cs](../Util.cs) | `TrueModulo` overloads; used only by `ColorUtil.HsvToRgb` | |
 | [Money.cs](../Money.cs), [ISaveable.cs](../ISaveable.cs) | Unused leftovers | [legacy.md](legacy.md) |
-| [Games.cs](../Games.cs), [Donations.cs](../Donations.cs), [LeftPanel.cs](../LeftPanel.cs) | Entirely commented out | [legacy.md](legacy.md) |
+| [Donations.cs](../Donations.cs), [LeftPanel.cs](../LeftPanel.cs) | Entirely commented out | [legacy.md](legacy.md) |
 
 ### `code/Twitch/`
 
@@ -123,7 +124,7 @@ transport classes and the colour code (the test project reaches internals throug
 | [ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs) | Shared IRC/EventSub age thresholds; logs a connection going bad and recovering |
 | [TwitchEventSubSubscription.cs](../code/Twitch/TwitchEventSubSubscription.cs) | The table of subscriptions to create |
 | [TwitchEventHandler.cs](../code/Twitch/TwitchEventHandler.cs) | Dispatch on event type |
-| [TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) | Outbound REST (redemption status only) |
+| [TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) | Outbound REST: redemption status, channel category |
 | [ChannelPoints.cs](../code/Twitch/ChannelPoints.cs) | What each channel-point reward does |
 | [Ads.cs](../code/Twitch/Ads.cs) | Ad-break handling and chat warnings |
 | [Cheers.cs](../code/Twitch/Cheers.cs) | Bits alert |
@@ -133,6 +134,25 @@ transport classes and the colour code (the test project reaches internals throug
 | [TestEvents/](../code/Twitch/TestEvents/) | `!test` scripts: simulated events built in code (`TestEventRunner`, `TestArgs`, one file per area) |
 
 All of this is covered in [twitch.md](twitch.md) and [events.md](events.md).
+
+### `code/Obs/`
+
+[ObsConnection.cs](../code/Obs/ObsConnection.cs): the OBS websocket, its reconnect loop, and the
+stream-state handler ([obs.md](obs.md#connection)). [Obs.cs](../code/Obs/Obs.cs): the thin OBS request
+wrappers; the rest of the file is commented out ([obs.md](obs.md#the-wrapper)).
+
+[Games.cs](../code/Obs/Games.cs): loads `<BotInput>\games.json` (Twitch category id → game name and
+game, window and audio capture executables) and resolves a category to its game, falling back to id `0`. `HandleUpdate` takes
+`channel.update` and calls `Apply`, the per-game setup, when the category changes;
+`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, colour and capture sources.
+
+[GameBackground.cs](../code/Obs/GameBackground.cs): `Set(gameName)` points `Image: Background` at the
+game's PNG in `Directories.Backgrounds`, or logs and leaves it when there is none.
+[GameColor.cs](../code/Obs/GameColor.cs): `Set(gameName)` queues the game's `gameschemes` colour scheme
+through `LayoutColoring`, or logs and leaves the colour when there is none.
+[GameCapture.cs](../code/Obs/GameCapture.cs): `Set(game)` points the three numbered game, window and
+audio capture sources at the game's executables, `none` for unused slots. All three in
+[obs.md](obs.md#per-game-setup).
 
 ### `code/Timing/`
 

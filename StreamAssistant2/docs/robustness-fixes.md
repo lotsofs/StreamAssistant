@@ -98,12 +98,8 @@ those say what OBS did, not what Twitch saw. Not built, so nothing to reproduce.
 4. `!test online` and `!test offline` scripts in `TestEvents/`, modelled on `TestCheer`, listed in
    `TestEventRunner.Scripts`, with tests of the built events in `TestScriptTests`.
 
-GAM ([porting.md](porting.md#gam--per-game-setup-on-category-change)) later adds its own call to
-`StreamEvents.Online`.
-
 **Verify:** `!test online` and `!test offline` log the lines; at the next real stream start and end,
 the subscription lines at connect show both subscribed and the lines appear.
 
 **Docs when done:** delete this section and the TODO row; add both to the subscription and script
-tables in [twitch.md](twitch.md) and the dispatch table in [events.md](events.md); point porting.md's
-shared-pieces bullet at the code instead of here.
+tables in [twitch.md](twitch.md) and the dispatch table in [events.md](events.md).

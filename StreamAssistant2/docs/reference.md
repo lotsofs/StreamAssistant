@@ -27,6 +27,9 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `TEH1` | `TwitchEventHandler.Handle` | The dispatch itself threw synchronously (not the handlers, which `Run` wraps) | event dropped |
 | `TEH_adb`, `TEH_cpcrra`, `TEH_c` | `FireForget.Run` (from `TwitchEventHandler.Handle`) | The ad-break, redemption or cheer handler threw, before or after its first `await`; the message names the event type | rest of that alert skipped |
 | `TEH_CN_s`, `TEH_CN_rs`, `TEH_CN_sg`, `TEH_CN_csg` | `FireForget.Run` (from `TwitchEventHandler.HandleChannelChatNotification`) | The sub, resub, sub-gift or gift-bomb handler threw; the message names the notice type | rest of that alert skipped |
+| `GMS_86` | `FireForget.Run` (from `Games.HandleUpdate`) | Applying the new category's game threw | that game's setup skipped |
+| `GMS_boot` | `FireForget.Run` (from `Program.StartBotAsync`) | The boot game setup threw, including a failed Helix channel-info call | no game setup until the next category change or stream start |
+| `GMS_live` | `FireForget.Run` (from `ObsConnection.OnStreamStateChanged`) | The go-live game setup threw, including a failed Helix channel-info call | no game setup this stream start |
 | `TEV1` | `FireForget.Run` (from `TestEventRunner.Run`) | Feeding a `!test` script's events into the handler threw | rest of that test not sent |
 | `TRN1` | `FireForget.Run` (from `ChannelPoints.TryStartTrain`) | The train threw (OBS calls no-op when disconnected, so rarely) | train skipped |
 | `SUB1` | `Subscriptions.HandleCommunitySubGiftNotif` | The gift-bomb announcement threw (the only handler with its own catch) | no announcement |
@@ -34,6 +37,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `CP1` | `ChannelPoints.CloseRedemption` | Helix refused to fulfil or cancel a train or colour redemption (often a 403; see [color.md](color.md)) | redemption left open |
 | `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | An OBS call threw during a colour change; the message is logged next | worker moves to the next request |
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
+| `GMS1` | `Games.Load` | `games.json` couldn't be read or parsed | no games loaded; every category resolves to `None` |
 | `OSS1` | `ObsConnection.OnStreamStateChanged` | Handling OBS's stream start or stop threw | chatter list not reset |
 | `DSK1` | `DiskSpace.WatchAsync` | A disk-space check threw | next minute |
 | `UpT5` | `TwitchUptime.UptimeLoopAsync` | An uptime check threw (outside its own HTTP handling) | next poll |
@@ -110,6 +114,46 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 | `Color Correction` | `LayoutColoring` | filter on every one of them; properties `color_multiply`, `color_add` |
 | `!Scene: Basics Colored` | `ChannelPoints` | scene of the train image |
 | `Image: Train` | `ChannelPoints` | the train image input |
+| `Image: Background` | `GameBackground` | the per-game background image input |
+| `Game: Game Capture 0`–`2` | `GameCapture` | game capture sources, retargeted per game |
+| `Game: Window Capture 0`–`2` | `GameCapture` | window capture sources, retargeted per game |
+| `Audio 5: App Capture 0`–`2` | `GameCapture` | application audio capture, fallback, retargeted per game |
+| `!Scene: Games 1920x1080` | `GameCapture` | scene holding those nine capture sources; unused ones are hidden in it |
+
+### OBS volumes
+
+Not set by the bot; recorded as a baseline for per-source volume (GAM 10 in
+[porting.md](porting.md#gam--per-game-setup-on-category-change)). Read from OBS on 2026-10-08 with a read-only
+query. obs-websocket keeps each volume as dB (≤ 0, below −100 is −∞) and as a linear multiplier (0–1);
+`SetInputVolume(name, dB, inputVolumeDb: true)` takes dB directly.
+
+| Source | Kind | dB | Linear |
+|---|---|---|---|
+| `Audio: Z2 Microphone` | microphone | −4.12 | 0.622 |
+| `Audio: Z3 TwitchSpeaker` | app audio | −4.02 | 0.629 |
+| `Audio: Z3 StreamerBot` | app audio | −4.05 | 0.628 |
+| `Audio: Z3 Discord` | app audio | −6.99 | 0.447 |
+| `Audio: Z4 Winamp` | app audio | −4.05 | 0.628 |
+| `Audio: Z5 Game0`, `Game1`, `Game3` | app audio | −4.00 | 0.631 |
+| `Audio: Z5 Game2` | app audio | −4.02 | 0.629 |
+| `Audio: Z5 Game4` | app audio | −13.17 | 0.220 |
+| `Audio: Z5 ALL (DANGER)` | desktop audio | −3.76 | 0.649 |
+| `GameA: AoE2DE` | app audio | −4.02 | 0.630 |
+| `Game: SS2` | game capture | −4.05 | 0.628 |
+| `Game: FC2`, `Game: ME2LE` | game capture | −3.98 | 0.633 |
+| `Game: HMWOA`, `Game: GTA_SA`, `Game: DetroitBH` | game capture | −3.98 | 0.632 |
+| `Game: StanleyParableUD` | game capture | −3.96 | 0.634 |
+| `Game: DXHR` | game capture | −4.00 | 0.631 |
+| `Game: GTA-SA` | window capture | −3.96 | 0.634 |
+| `Game: AS` | game capture | 0.00 | 1.000 |
+| `Game: MELE_Launcher` | game capture | −5.04 | 0.560 |
+| `Game: DG2` | game capture | −4.01 | 0.630 |
+| `Game: DG1`, `Game: DXMD` | game capture | −4.07 | 0.626 |
+| `Game: SWAT4` | game capture | −3.83 | 0.643 |
+| `Game: TR123` | game capture | −3.82 | 0.644 |
+
+Every other input with audio (window captures for chat, S Keys, Winamp, LiveSplit, the camera, …) sat at
+0 dB. The new `Game: … Capture` and `Audio 5: App Capture` sources didn't exist yet.
 
 ### Timings
 
@@ -154,9 +198,12 @@ The bot's chat messages are prefixed with an emoji that says what kind they are.
 | 🟣 | a connection came up (`Connected`, `ES Connected`) |
 | 💥 | EventSub went down |
 | 🍂 | shutdown |
-| 🎁 / 💣 | a gifted resub / one recipient of a gift bomb |
+| 🎁 | a gifted resub |
 | 🪠 | the toilet rewards |
 | 🎨 | a colour request that failed |
 | ⚠️ 🚨 | disk-space alerts |
 | ❌ | uptime regex failure (unreachable in practice) |
 | `sssDino` | the stream's own emote, at the start of the ad-break begging messages |
+
+Some lines carry no prefix: `Test <n>` (a first-time chatter), `YOOO BRO`, the ad warnings, and
+`Stream category change [from <id>] to <id>`.

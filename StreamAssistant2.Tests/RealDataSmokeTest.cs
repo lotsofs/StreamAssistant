@@ -42,5 +42,17 @@ namespace StreamAssistant2.Tests {
 				ColorData.LoadFixtures();
 			}
 		}
+
+		[RealDataFact]
+		public void RealGameScheme_ResolvesBySetAndCategory() {
+			ColorData.Load(ColorData.RealColors!, ColorData.RealColorSchemes!);
+			try {
+				Assert.NotNull(GameColor.SchemeInput("KTANE", s => ColorSchemeRegistry.TryGetScheme(s, out _)));
+				Assert.True(SingleColorParser.TryParse("gameschemes KTANE", out _));
+			}
+			finally {
+				ColorData.LoadFixtures();
+			}
+		}
 	}
 }
