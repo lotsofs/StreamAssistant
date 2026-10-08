@@ -198,8 +198,8 @@ chat lines, 3 s wait, a fresh session on the default URL and a full resubscribe.
 
 Opening the new socket before dropping the old one matters: a reconnect made after the old socket is gone
 is refused with `4007 "invalid reconnect attempt"`. The flow is tested against a loopback fake of Twitch
-(`EventSubReconnectTests`, `EventSubLoopTests`)
-but not yet seen working against Twitch (item ESR in [TODO.md](TODO.md)).
+(`EventSubReconnectTests`, `EventSubLoopTests`) and has worked live against Twitch. An event delivered on a
+reconnected session hasn't been seen yet (item ESR in [TODO.md](TODO.md)).
 
 At the top of each iteration it checks that the socket is `Open` and that the stopwatch is under
 `KeepAliveTimeout`, 20 s (Twitch's default keepalive is 10 s). `ReceiveFullMessage` enforces the same

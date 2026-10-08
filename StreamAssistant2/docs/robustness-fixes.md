@@ -30,18 +30,45 @@ is no resubscribe, and the old socket is drained, then closed. See
 Tested against a loopback fake of Twitch: the helpers in `EventSubReconnectTests`, and the real
 `StartConnectionLoop` in `EventSubLoopTests` (fresh session subscribes and delivers; a reconnect switches
 sockets without resubscribing, delivers an event left on the old socket and posts nothing; a 4007 refusal
-falls back to a fresh session; 409 keeps the session; 500 ends it). **Not yet seen against Twitch**: that
-the old socket being gone caused the 4007 fits the evidence, but is only proven once a live reconnect
-succeeds. What's left is that check.
+falls back to a fresh session; 409 keeps the session; 500 ends it).
 
-**Verify live (after a restart with this build):** the next daily `session_reconnect` should log
-`EventSub sent session_reconnect` → `Connecting to …cell-…` → `EventSub reconnected. Session ID: …` →
-`EventSub old connection closed (…)`, with no `ES Disconnected` in chat, no `EventSub attempt to …`
-subscribe lines, and events still arriving. A failure logs its reason, then `EventSub reconnect failed,
-starting a fresh session`.
+**Reproduced live on 2026-10-08, 19:12:** `EventSub sent session_reconnect` → `Connecting to
+wss://cell-a…` → `EventSub reconnected` 0.4 s later → `EventSub old connection closed (0 events delivered
+during the switch, close none)` 1 s after that. There was no 4007, nothing in chat and no resubscribe, and the new
+session then stayed up on keepalives for 65 minutes. So the 4007 was caused by the old socket being gone, and
+that part is fixed.
+
+**What's left:** no event arrived on the reconnected session, so it isn't proven yet that the subscriptions
+carried over. That session ended at 20:17 when Twitch reset the connection (`Error TES1: None` + `TES3`,
+the documented exception path). The bot then started a fresh session with a full resubscribe. The next check: in
+the log after a reconnect, find an `EventSub reconnected` line followed by a delivered event (a saved file in
+`AssistantLogs\EventSubs\`) before the next `EventSub session ended`.
 
 **Docs when done:** delete this section and the TODO row; drop the "not yet seen working" sentence in
 [twitch.md § Planned reconnects](twitch.md#planned-reconnects).
+
+## RST — EventSub connection reset logged as an unknown error
+
+**Reproduced 2026-10-08, 20:17:** Twitch dropped the EventSub connection without a Close frame ("An existing
+connection was forcibly closed by the remote host", `SocketException 10054`). `socket.ReceiveAsync` in
+`ReceiveFullMessage` threw a `WebSocketException`. Nothing catches it there, so it reached the generic catch
+in `StartConnectionLoop` with no reason set, and the log showed `Error TES1: None` (stack trace to the file),
+`Error TES3` and `EventSub session ended: None (socket Aborted, close none)`. Recovery was correct: a
+fresh session and full resubscribe 4 s later. Only the logging is wrong: a normal drop is logged as two
+unexplained errors.
+
+**Proposed fix (shelved):** catch `WebSocketException` around `ReceiveAsync` in `ReceiveFullMessage`, log
+its message on `EventSubConfusion` (`EventSub connection lost: …`), and return `SocketDied`. Other
+exceptions keep the `TES1`/`TES3` path. Alternative: a separate `ConnectionReset` reason. Add a loopback test
+in `EventSubReceiveTimeoutTests` where the fake server resets the connection.
+
+**Shelved by the owner to gather more data:** how often resets happen and whether they show other
+exception types or messages, so the fix covers what actually arrives. To find them, search the logs for
+`Error TES1: None` and check each exception in the file log.
+
+**Docs when done:** the `SocketDied` row and the lifecycle steps in [twitch.md](twitch.md), `TES1`/`TES3`
+in [reference.md](reference.md), the throw path in [eventsub-flow.md](eventsub-flow.md); delete this
+section and the TODO row.
 
 ## DCD — Connection timeouts unverified live
 
