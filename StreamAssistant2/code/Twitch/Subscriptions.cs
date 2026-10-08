@@ -64,7 +64,6 @@ namespace StreamAssistant2 {
 				}
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.None, $"{recipient_user_login} added to {community_gift_id}");
 				bomb.AddRecipient(recipient_user_login);
-				TwitchIRCManager.SendMessage("💣");
 				if (created) {
 					FireForget.Run("SUB2", "giftless check", () => ReportIfGiftlessAsync(bomb));
 				}
