@@ -67,12 +67,15 @@ The colour for each channel is looked up in `_logColors`:
 | `ChatIncoming` | `#EEEEBB` |
 | `ChatOutgoing` | `#EEEE88` |
 | `Notification` | `#44EE44` |
-| `ConnectionNotification` | `#448844` |
+| `ConnectionNotification` | `#BBEEBB` |
 | `Helix` | `#44EEEE` |
 | `EventSubNotification` | `#4488EE` |
 | `EventSubConfusion` | `#88BBEE` |
 | `AdNotification` | `#0088EE` |
 | `Important` | `#EE44EE` |
+| `SceneChangesImportant` | `#EEBB88` |
+| `SceneChanges` | `#EE8844` |
+| `SceneChangesUnimportant` | `#BB8844` |
 
 A type missing from the table falls back to `None`'s colour. Add a channel by adding the enum member in
 `ConsoleLogger` and a row here and in `_logColors`.

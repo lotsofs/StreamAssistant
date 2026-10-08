@@ -37,6 +37,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `CP1` | `ChannelPoints.CloseRedemption` | Helix refused to fulfil or cancel a train or colour redemption (often a 403; see [color.md](color.md)) | redemption left open |
 | `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | An OBS call threw during a colour change; the message is logged next | worker moves to the next request |
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
+| `GMS2` | `Games.RunStep` (from `Games.Apply`) | One game setup step (background, colour or capture sources) threw; the message names the step | that step skipped, the later ones still run |
 | `GMS1` | `Games.Load` | `games.json` couldn't be read or parsed | no games loaded; every category resolves to `None` |
 | `OSS1` | `ObsConnection.OnStreamStateChanged` | Handling OBS's stream start or stop threw | chatter list not reset |
 | `DSK1` | `DiskSpace.WatchAsync` | A disk-space check threw | next minute |

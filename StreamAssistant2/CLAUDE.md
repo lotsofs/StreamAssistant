@@ -26,8 +26,9 @@ Detail lives in the other files in [docs/](docs/), which record findings expensi
 - [docs/porting.md](docs/porting.md) — which root files are old and which new, and a checklist for each Streamer.Bot-era feature not yet rebuilt, one code per feature.
 - [docs/robustness-fixes.md](docs/robustness-fixes.md) — known bugs, loose ends and verification tasks, one `##` section per code.
 - [docs/color.md](docs/color.md) — how colour requests are resolved (`code/Color/`): the files, the data file formats, the single and triple parsing rules, loose matching, and how to test it. **Read it before changing anything in `code/Color/`.**
+- [docs/live-checks.md](docs/live-checks.md) — the owner's checklist of built-but-unseen behaviour to verify in the real bot, OBS and Twitch, tracked as one item, LIV. Add a line when something new needs a live look; delete the file and the LIV row when it's all ticked.
 
-Only `TODO.md`, `robustness-fixes.md` and `porting.md` hold tracked items; the rest describe how things are. When code changes a described behaviour, hardcoded value or error code, update the doc in the same change.
+Only `TODO.md`, `robustness-fixes.md`, `porting.md` and `live-checks.md` hold tracked items; the rest describe how things are. When code changes a described behaviour, hardcoded value or error code, update the doc in the same change.
 
 Conventions that keep the index trustworthy:
 

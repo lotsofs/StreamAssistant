@@ -29,6 +29,9 @@ namespace StreamAssistant2 {
 			EventSubConfusion,
 			AdNotification,
 			Important,
+			SceneChangesImportant,
+			SceneChanges,
+			SceneChangesUnimportant,
 		}
 
 		public static void ColoredLine(ColorType colorType, object text) {

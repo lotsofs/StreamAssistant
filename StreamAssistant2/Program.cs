@@ -35,12 +35,14 @@ namespace StreamAssistant2
 
 		static async Task StartBotAsync() {
 			try {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "STARTED!");
+
 				Coloring.Load();
 				Games.Load();
 
 				await Database.InitAsync();
 
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "STARTED!");
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "Data loaded");
 
 				DiskSpace.Start();
 				TwitchUptime.Start();

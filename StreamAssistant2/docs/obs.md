@@ -114,18 +114,24 @@ The train reward ([events.md](events.md#channel-point-rewards)) shows a PNG over
 the file to `Empty.png`. It bypasses `LayoutColoring`'s queue entirely. The entry point is
 `ChannelPoints.TryStartTrain`, shared by the reward and the `!train` admin command; it holds one flag
 (`_trainOnTracks`, claimed with `Interlocked.CompareExchange`) for the whole 62 s, and a train started while
-it is set is dropped with a chat line instead. `RunTrainAsync` starts with `await Task.Yield()`, so its
+it is set is dropped with a chat line instead. A train that starts logs `Choo choo!` on the `SceneChanges`
+channel. `RunTrainAsync` starts with `await Task.Yield()`, so its
 blocking OBS calls run on the thread pool, not on the IRC or EventSub read loop that started it.
 
 ## Per-game setup
 
 `Games.Apply`, on bot start, a category change, or when OBS starts streaming
 ([events.md](events.md#category-change-and-going-live)), runs on the thread pool, not on a read loop,
-and sets up the game's background, colour and capture sources from its `games.json` entry.
+and sets up the game's background, colour and capture sources from its `games.json` entry. Each step
+runs through `Games.RunStep`, so one that throws logs `Error GMS2: game setup <step> failed: …` and the
+later steps still run (tested). The background and capture steps also catch OBS rejections themselves,
+with a clearer `Couldn't set <source>: …` warning.
 
 - **Background**, [GameBackground.cs](../code/Obs/GameBackground.cs): `Set` points the `Image: Background`
-  input at `<Directories.Backgrounds>\<game name>.png` with `Obs.SetImageSource`. A missing file leaves
-  the image as it is (`PathFor`, tested).
+  input at `<Directories.Backgrounds>\<game name>.png` with `Obs.SetImageSource` and logs
+  `Image: Background → <file>`. A missing file leaves the image as it is (`PathFor`, tested). If OBS
+  rejects the request (the source is missing or renamed), it logs `Couldn't set Image: Background: <message>`
+  and the colour and capture steps still run.
 - **Colour**, [GameColor.cs](../code/Obs/GameColor.cs): `Set` requests `gameschemes <game name>` through
   `LayoutColoring.TryChangeToSingle`, the reward's path: the game's category in the `gameschemes` scheme
   set, at its `Default` scheme. It is queued like any colour change (the animation runs later on the
@@ -147,7 +153,9 @@ and sets up the game's background, colour and capture sources from its `games.js
   set to `PLACEHOLDER-TITLE:PLACEHOLDER-CLASS:<exe>` (OBS's `title:class:executable` form; the title and
   class are deliberately fake, so each source must match by executable, which is set in OBS, as is a
   game capture source's capture mode). A used slot is then shown (eye on) in `!Scene: Games 1920x1080`, an
-  unused one hidden there. Every slot logs `<source> → <exe>, shown` or `… → none, hidden`; a source
+  unused one hidden there. Each shown slot logs `<source> → <exe>, shown`; the hidden ones share one line,
+  slot numbers grouped by kind, e.g. `→ none, hidden: Game: Game Capture 1, 2; Game: Window Capture 0, 1, 2;
+  Audio 5: App Capture 1, 2` (`HiddenLine`, tested). A source
   that can't be set (missing or renamed in OBS, or not in that scene) logs `Couldn't set …` and the
   rest still go. With OBS disconnected it logs `OBS not connected, capture sources not set` once.
   Audio capture is a fallback: most game audio now comes from the video capture source itself.

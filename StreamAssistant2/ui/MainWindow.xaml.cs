@@ -22,18 +22,21 @@ namespace StreamAssistant2 {
 			[ConsoleLogger.ColorType.ChatIncoming] = MakeBrush("#EEEEBB"),
 			[ConsoleLogger.ColorType.ChatOutgoing] = MakeBrush("#EEEE88"),
 			[ConsoleLogger.ColorType.Notification] = MakeBrush("#44EE44"),
-			[ConsoleLogger.ColorType.ConnectionNotification] = MakeBrush("#448844"),
+			[ConsoleLogger.ColorType.ConnectionNotification] = MakeBrush("#BBEEBB"),
 			[ConsoleLogger.ColorType.Helix] = MakeBrush("#44EEEE"),
 			[ConsoleLogger.ColorType.EventSubNotification] = MakeBrush("#4488EE"),
 			[ConsoleLogger.ColorType.EventSubConfusion] = MakeBrush("#88BBEE"),
 			[ConsoleLogger.ColorType.AdNotification] = MakeBrush("#0088EE"),
 			[ConsoleLogger.ColorType.Important] = MakeBrush("#EE44EE"),
+			[ConsoleLogger.ColorType.SceneChangesImportant] = MakeBrush("#EEBB88"),
+			[ConsoleLogger.ColorType.SceneChanges] = MakeBrush("#EE8844"),
+			[ConsoleLogger.ColorType.SceneChangesUnimportant] = MakeBrush("#BB8844"),
 		};
 
 		static readonly Brush _statusText = MakeBrush("#EEEEEE");
 		static readonly Brush _statusHealthy = MakeBrush("#CCCCCC");
 		static readonly Brush _statusWarn = MakeBrush("#EEEE44");
-		static readonly Brush _statusBad = MakeBrush("#EE9944");
+		static readonly Brush _statusBad = MakeBrush("#EE8844");
 		static readonly Brush _statusDead = MakeBrush("#EE4444");
 
 		readonly ObservableCollection<LogLine> _lines = new();

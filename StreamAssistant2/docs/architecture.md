@@ -47,17 +47,18 @@ service registry.
    load-bearing: started on the UI thread, every fire-and-forget loop would capture WPF's
    synchronization context and run its continuations on the UI thread.
 5. `StartBotAsync`, in order:
-   1. `Coloring.Load()`: colour tables and schemes from disk ([color.md](color.md)).
-   2. `Games.Load()`: `<BotInput>\games.json`, the game behind each Twitch category. Never throws.
-   3. `Database.InitAsync()`: opens `streamAssistant.db`, creates the `flushes` table if missing.
-   4. Logs `STARTED!`.
-   5. `DiskSpace.Start()`, `TwitchUptime.Start()` and `ConnectionHealth.Start()`: the periodic loops.
-   6. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
+   1. Logs `STARTED!`, so it is the first line of each run in the log.
+   2. `Coloring.Load()`: colour tables and schemes from disk ([color.md](color.md)).
+   3. `Games.Load()`: `<BotInput>\games.json`, the game behind each Twitch category. Never throws.
+   4. `Database.InitAsync()`: opens `streamAssistant.db`, creates the `flushes` table if missing.
+   5. Logs `Data loaded`.
+   6. `DiskSpace.Start()`, `TwitchUptime.Start()` and `ConnectionHealth.Start()`: the periodic loops.
+   7. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
       `OnMessage += ChatHandler.ProcessMessage`, `TwitchHelixApi.Init()`, `TwitchEventSub.Connect()`,
       `LayoutColoring.StartWorker()`.
-   7. `Games.OnBootAsync`, fire-and-forget (`Error GMS_boot`): stores the current category from Helix and
+   8. `Games.OnBootAsync`, fire-and-forget (`Error GMS_boot`): stores the current category from Helix and
       applies the game once, when OBS is first connected ([events.md](events.md#category-change-and-going-live)).
-   8. `TextToSpeech.ReportStart()`, which is the first touch of `TextToSpeech`, so its static
+   9. `TextToSpeech.ReportStart()`, which is the first touch of `TextToSpeech`, so its static
       constructor (and the `Microsoft Catherine` voice lookup) runs only now, after everything else
       is already live.
    Any exception logs `Error PRG1` and the bot stays half-started.

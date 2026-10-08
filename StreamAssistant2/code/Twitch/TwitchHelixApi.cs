@@ -38,7 +38,7 @@ namespace StreamAssistant2 {
 			
 			int responseCode = (int)response.StatusCode;
 
-			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"HELIX> points reward {redemptionId} status update {status}: {responseCode}");
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Helix, $"HELIX> points reward {redemptionId} status update {status}: {responseCode}");
 			
 			if (responseCode != 200) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unexpected response code");
@@ -61,7 +61,7 @@ namespace StreamAssistant2 {
 			var url = $"https://api.twitch.tv/helix/channels?broadcaster_id={_broadcasterId}";
 			var response = await _http.GetAsync(url);
 			int responseCode = (int)response.StatusCode;
-			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"HELIX> channel info: {responseCode}");
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Helix, $"HELIX> channel info: {responseCode}");
 
 			var txtContent = await response.Content.ReadAsStringAsync();
 			if (!response.IsSuccessStatusCode) {

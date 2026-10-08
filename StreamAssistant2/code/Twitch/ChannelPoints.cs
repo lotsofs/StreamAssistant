@@ -60,19 +60,19 @@ namespace StreamAssistant2 {
 					break;
 				case REWARD_ID_TRAIN:
 					success = TryStartTrain();
-					await CloseRedemption(rewardId, redemptionId, success, isTest);
+					await CloseRedemption(rewardId, redemptionId, "Train request", "", success, isTest);
 					break;
 				case REWARD_ID_COLOR_RANDOM:
 					LayoutColoring.ChangeToRandom();
-					await CloseRedemption(rewardId, redemptionId, true, isTest);
+					await CloseRedemption(rewardId, redemptionId, "Color change request", "random", true, isTest);
 					break;
 				case REWARD_ID_COLOR_SINGLE:
 					success = LayoutColoring.TryChangeToSingle(userInput);
-					await CloseRedemption(rewardId, redemptionId, success, isTest);
+					await CloseRedemption(rewardId, redemptionId, "Color change request", userInput, success, isTest);
 					break;
 				case REWARD_ID_COLOR_TRIPLE:
 					success = LayoutColoring.TryChangeToTriple(userInput);
-					await CloseRedemption(rewardId, redemptionId, success, isTest);
+					await CloseRedemption(rewardId, redemptionId, "Color change request", userInput, success, isTest);
 					break;
 				default:
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unhandled channel point reward redemption id: {rewardId}");
@@ -102,6 +102,7 @@ namespace StreamAssistant2 {
 		static async Task RunTrainAsync() {
 			try {
 				await Task.Yield();
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, "Choo choo!");
 				int r = Random.Shared.Next(0, 100);
 				Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, $"Train{r}.png"));
 				Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", true);
@@ -115,9 +116,9 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Marks a redemption fulfilled, or refunds it when it couldn't be carried out. Only logs for a test.
+		/// Marks a redemption fulfilled, or refunds it when it couldn't be carried out, and logs which. Only logs for a test.
 		/// </summary>
-		static async Task CloseRedemption(string rewardId, string redemptionId, bool success, bool isTest) {
+		static async Task CloseRedemption(string rewardId, string redemptionId, string request, string detail, bool success, bool isTest) {
 			string status = success ? "FULFILLED" : "CANCELED";
 			if (isTest) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Test redemption: would mark {redemptionId} {status}; Helix not called");
@@ -125,11 +126,20 @@ namespace StreamAssistant2 {
 			}
 			try {
 				await TwitchHelixApi.UpdateRedemption(rewardId, redemptionId, status);
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, RedemptionLine(request, detail, success));
 			}
 			catch (Exception ex) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error CP1");
 				ConsoleLogger.LogToFile(ex);
 			}
+		}
+
+		/// <summary>
+		/// "&lt;request&gt; fulfilled: &lt;detail&gt;" or "… refunded", without the colon when there's no detail.
+		/// </summary>
+		internal static string RedemptionLine(string request, string detail, bool success) {
+			string outcome = success ? "fulfilled" : "refunded";
+			return detail == "" ? $"{request} {outcome}" : $"{request} {outcome}: {detail}";
 		}
 	}
 }

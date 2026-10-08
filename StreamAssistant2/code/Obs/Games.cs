@@ -174,14 +174,27 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Sets up the layout for a category's game.
+		/// Sets up the layout for a category's game; a step that throws is logged and the later steps still run.
 		/// </summary>
 		internal static void Apply(string categoryId) {
 			Game game = Lookup(_games, categoryId);
-			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Game setup: {game.Name} ({categoryId})");
-			GameBackground.Set(game.Name);
-			GameColor.Set(game.Name);
-			GameCapture.Set(game);
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChangesImportant, $"Game setup: {game.Name} ({categoryId})");
+			RunStep("background", () => GameBackground.Set(game.Name));
+			RunStep("colour", () => GameColor.Set(game.Name));
+			RunStep("capture sources", () => GameCapture.Set(game));
+		}
+
+		/// <summary>
+		/// Runs one setup step, logging a throw instead of passing it on.
+		/// </summary>
+		internal static void RunStep(string step, Action action) {
+			try {
+				action();
+			}
+			catch (Exception ex) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, $"Error GMS2: game setup {step} failed: {ex.Message}");
+				ConsoleLogger.LogToFile(ex);
+			}
 		}
 	}
 }

@@ -359,8 +359,7 @@ from an anonymous object carrying the fields the handler reads, and add a test t
 ## Helix
 
 [TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) has two calls. `Init()` sets headers once and a
-60 s timeout. Attempts are logged on `EventSubConfusion` (the `Helix` colour channel exists in the enum
-and window but nothing uses it).
+60 s timeout. Each call logs a `HELIX> …` line with the response code on the `Helix` channel.
 
 `GetChannelCategoryIdAsync()`: `GET /helix/channels?broadcaster_id=…` (no scope needed), logs
 `HELIX> channel info: <code>`, throws `Channel info failed: <body>` on non-success, and returns

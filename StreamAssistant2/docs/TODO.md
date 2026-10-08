@@ -18,13 +18,16 @@ Refer to items by code in conversation (e.g. "do DCD").
 
 ## Open — defects and tasks
 
-Detail and a plan for each: [robustness-fixes.md](robustness-fixes.md). Plans note their dependencies at the top of that file.
+Detail and a plan for each: [robustness-fixes.md](robustness-fixes.md), except LIV, whose checklist is [live-checks.md](live-checks.md). Plans note their dependencies at the top of robustness-fixes.md.
 
 | Code | Area | Summary | Severity |
 |---|---|---|---|
+| [LIV](live-checks.md) | All | Owner's checklist of built-and-unit-tested behaviour not yet seen live: OBS capture-source setup, per-game setup on boot, category change and stream start, chatter reset and greeting, train overlap and refund, gift bombs without `💣` | Medium |
+| [TRS](robustness-fixes.md#trs--train-left-on-screen-after-the-bot-closes-mid-train) | OBS | Closing the bot while a train is showing leaves `Image: Train` visible for good (seen by the owner); hide and reset it when the bot next connects to OBS | Medium |
 | [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` now succeeds live (no `4007`, no resubscribe; reproduced 2026-10-08). Left: see an event delivered on a reconnected session, proving the subscriptions carried over | Low |
 | [DCD](robustness-fixes.md#dcd--connection-timeouts-unverified-live) | Twitch | IRC and EventSub now time out silent connections and hung connects; unit-tested, still to be verified live with a firewall block (owner, off-stream) | Low |
 | [RST](robustness-fixes.md#rst--eventsub-connection-reset-logged-as-an-unknown-error) | Twitch | A TCP reset from Twitch ends the EventSub session as `Error TES1: None` + `TES3` with reason `None` instead of a named reason (reproduced 2026-10-08). Shelved while more drops are collected | Low |
+| [BOT](robustness-fixes.md#bot--chat-as-the-bot-account-not-lotsofs) | Twitch | The bot logs into IRC as `lotsofs` with the broadcaster's token; give chat its own bot-account token and login, keeping the broadcaster token for EventSub and Helix | Low |
 | [SOE](robustness-fixes.md#soe--log-twitch-stream-online-and-offline) | Twitch | Nothing logs Twitch's own stream online/offline events; subscribe `stream.online` and `stream.offline` and log them | Low |
 
 ## Open — porting from the Streamer.Bot era

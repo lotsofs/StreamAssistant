@@ -34,13 +34,18 @@ colour reward is ever recreated in the dashboard, refunds break again. Of the bo
 only *Flush your points down the toilet* is bot-created; that's the one whose redemptions it
 refunds.
 
-`TryChangeToSingle`, `TryChangeToTriple` and `ChangeToRandom` report the outcome themselves, so a
-reward and a chat command behave the same and callers only decide what to do with the returned
-`bool`:
-- **Success:** log `Color change request fulfilled: <text>` (the random path logs `random`), and
-  post `Changing to color <name> [<source>]: <hex> <hex> <hex>` in chat.
+`TryChangeToSingle`, `TryChangeToTriple` and `ChangeToRandom` report the outcome themselves, so every
+caller (rewards, chat commands, a game change) behaves the same and only decides what to do with the
+returned `bool`:
+- **Success:** post `Changing to color <name> [<source>]: <hex> <hex> <hex>` in chat. When the worker
+  starts the animation it logs `Changing layout color to …` on the `SceneChanges` channel.
 - **Failure:** log `Color change request FAILED: <text>`, and post
   `🎨 Couldn't find a color called "<text>"` in chat.
+
+Only the colour rewards log `Color change request fulfilled: <text>` or `… refunded: <text>` (`random` for
+the random reward). `ChannelPoints.CloseRedemption` logs it once Helix has accepted the status change, since
+the line is about the redemption; the train reward logs `Train request fulfilled` / `refunded` the same way.
+A test redemption logs only the `Test redemption: would mark …` line.
 
 Every path ends in a `ColorEntry`: a source, a display name, and three hex colours for the layout's
 inner, outer and text parts (`Hex1`/`Hex2`/`Hex3`). `LayoutColoring` posts the

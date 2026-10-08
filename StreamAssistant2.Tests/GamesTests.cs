@@ -320,6 +320,44 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void CaptureHiddenLine_GroupsSlotsByKind() {
+			string line = GameCapture.HiddenLine([
+				("Game: Game Capture", 1), ("Game: Game Capture", 2),
+				("Game: Window Capture", 0), ("Game: Window Capture", 1), ("Game: Window Capture", 2),
+				("Audio 5: App Capture", 2),
+			]);
+			Assert.Equal("→ none, hidden: Game: Game Capture 1, 2; Game: Window Capture 0, 1, 2; Audio 5: App Capture 2", line);
+		}
+
+		[Fact]
+		public void RunStep_ThrowingStep_IsLogged_AndDoesNotThrow() {
+			List<string> log = new();
+			void OnLine(ConsoleLogger.ColorType _, string line) { lock (log) log.Add(line); }
+			ConsoleLogger.LineLogged += OnLine;
+			try {
+				Games.RunStep("colour", () => throw new InvalidOperationException("boom"));
+				bool ran = false;
+				Games.RunStep("capture sources", () => ran = true);
+				Assert.True(ran);
+			}
+			finally {
+				ConsoleLogger.LineLogged -= OnLine;
+			}
+			lock (log) {
+				Assert.Single(log, l => l.Contains("Error GMS2: game setup colour failed: boom"));
+			}
+		}
+
+		[Theory]
+		[InlineData("Color change request", "navy blue", true, "Color change request fulfilled: navy blue")]
+		[InlineData("Color change request", "nonsense", false, "Color change request refunded: nonsense")]
+		[InlineData("Train request", "", true, "Train request fulfilled")]
+		[InlineData("Train request", "", false, "Train request refunded")]
+		public void RedemptionLine_FulfilledOrRefunded(string request, string detail, bool success, string expected) {
+			Assert.Equal(expected, ChannelPoints.RedemptionLine(request, detail, success));
+		}
+
+		[Fact]
 		public void CaptureWindowValue_IsTitleClassExecutable() {
 			Assert.Equal("PLACEHOLDER-TITLE:PLACEHOLDER-CLASS:ktane.exe", GameCapture.WindowValue("ktane.exe"));
 		}

@@ -42,10 +42,7 @@ namespace StreamAssistant2 {
 		}
 
 		static void ReportRequest(string input, bool success) {
-			if (success) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Color change request fulfilled: {input}");
-			}
-			else {
+			if (!success) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Color change request FAILED: {input}");
 				TwitchIRCManager.SendMessage($"🎨 Couldn't find a color called \"{input}\"");
 			}
@@ -54,7 +51,6 @@ namespace StreamAssistant2 {
 		public static void ChangeToRandom() {
 			Coloring.ColorEntry color = Coloring.GetRandomColor();
 			ChangeColor(color);
-			ReportRequest("random", true);
 		}
 
 		public static void QueueLayoutColorChange(ColorRequest req) {
@@ -81,7 +77,7 @@ namespace StreamAssistant2 {
 			long colInner = ColorUtil.ToOBS(req.Inner);
 			long colOuter = ColorUtil.ToOBS(req.Outer);
 			long colText = ColorUtil.ToOBS(req.Text);
-			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Changing layout color to {colInner} {colOuter} {colText}");
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"Changing layout color to {colInner} {colOuter} {colText}");
 
 			Obs.SetFilterProperty("Border: Colorable Inner (Transitionary)", filterName, "color_multiply", colInner);
 			Obs.SetFilterProperty("Border: Colorable Outer (Transitionary)", filterName, "color_add", colOuter);

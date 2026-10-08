@@ -15,6 +15,34 @@ TODO.md, per the conventions there.
 
 ---
 
+## TRS — Train left on screen after the bot closes mid-train
+
+`ChannelPoints.RunTrainAsync` shows `Image: Train` in `!Scene: Basics Colored`, waits 62 s, then hides it
+and points it back at `Empty.png`. The hide only happens if the bot is still running: closing the bot
+during those 62 s leaves the train visible in OBS until someone hides it by hand. Seen by the owner;
+not reproduced by a test.
+
+### Plan
+
+1. On bot start, once OBS is connected, hide `Image: Train` and point it at `Empty.png`, the same two calls
+   as the end of `RunTrainAsync`. Use `ObsConnection.WhenConnected`, as the boot game setup does, so it
+   runs however late OBS connects, once per boot. Pull the two calls into one method in `ChannelPoints`
+   (`ClearTrain`) shared by `RunTrainAsync` and the boot step, and log it on `SceneChanges`
+   (`Train cleared`) only when the source was actually showing, if that is cheap to check
+   (`GetSceneItemEnabled`); otherwise always clear quietly.
+2. Starting it from `Program.StartBotAsync` beside `Games.OnBootAsync` keeps the boot steps in one place.
+3. A train started before OBS connects (`!train` in the first seconds) must not be cleared by the boot
+   step: skip the clear if `_trainOnTracks` is set.
+4. Optional: also clear on shutdown in `Program.Main` after `app.Run`, best effort. Not enough on its own,
+   since a crash or a killed process skips it, which is why the boot clear is the fix.
+
+**Verify:** `!train`, close the bot within 62 s, the train stays up; F5: it disappears as soon as the bot
+connects to OBS. A unit test can cover the "skip while a train runs" decision if it's pulled into a pure
+function; the OBS calls themselves are a live check (add to [live-checks.md](live-checks.md)).
+
+**Docs when done:** delete this section and the TODO row; [obs.md § Train](obs.md#train) (the boot
+clear), [architecture.md](architecture.md) startup order.
+
 ## ESR — EventSub reconnect path unverified
 
 Twitch sends `session_reconnect` about once a day, around 19:00 to 19:40 local time. The bot used to abort
@@ -130,3 +158,35 @@ the subscription lines at connect show both subscribed and the lines appear.
 
 **Docs when done:** delete this section and the TODO row; add both to the subscription and script
 tables in [twitch.md](twitch.md) and the dispatch table in [events.md](events.md).
+
+## BOT — Chat as the bot account, not lotsofs
+
+The bot connects to IRC with the broadcaster's own token (`NICK lotsofs`, hardcoded in
+`TwitchIRCManager`), so everything it says in chat appears as `lotsofs`. It should speak as a separate
+bot account (presumably `botsofs`, already an admin login in `ChatHandler.HandlePrivMsg`). Read only;
+not built.
+
+Only chat moves. Channel-point redemptions, bits, ad schedule and the redemption PATCH need the
+broadcaster's token, so EventSub and Helix keep it.
+
+### Plan
+
+1. `secrets.json`: a second token block for the bot account (access token, and its login), alongside
+   `twitchAuth`. Add it to `secrets.json.example` and the `Config` model; get a token with
+   `chat:read` and `chat:edit` for the bot account.
+2. `TwitchIRCManager`: `PASS` the bot token and `NICK` the bot login; keep `JOIN #lotsofs`.
+3. Decide whether `channel.chat.notification`'s `user_id` (`TwitchIds.UserId`) stays the broadcaster
+   or becomes the bot (which would then need `user:read:chat` on a token EventSub uses; simplest to
+   leave it).
+4. Messages typed from `lotsofs` are now read by the bot like anyone else's: check `ChatterList`
+   (`"YOOO BRO"` for `lotsofs`) and whether the bot account should be skipped there.
+5. Make the bot account a moderator (or VIP) in the channel so its messages aren't rate-limited or
+   held.
+
+**Verify:** after an F5 start, the connect line and a chat message from the bot show the bot login;
+an EventSub event and a colour redemption still work.
+
+**Docs when done:** delete this section and the TODO row; update [twitch.md](twitch.md#credentials-and-identity)
+(credentials table and "speaks in chat as `lotsofs`"), the admin-login line in
+[gotchas.md](gotchas.md#twitch-and-helix), the secrets list in CLAUDE.md, and the hardcoded values in
+[reference.md](reference.md).

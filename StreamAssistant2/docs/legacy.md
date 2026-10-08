@@ -112,7 +112,6 @@ Compiled and reachable by name, with no caller:
 | `ISaveable` | `LoadSettings`/`SaveSettings`; nothing implements it |
 | `TextToSpeech.StopSpeech`, `PurgeQueue`, `Dispose` | would back a "shut up" command |
 | `Sound.Sounds.Warning`, `IndianAnthem` | `IndianAnthem` only by the dead donation code |
-| `ColorType.Helix` | has a colour in the window; Helix lines use `EventSubConfusion` |
 | `ColorUtil.Darken(Color)`, `Lighten(Color)` | only the string overloads are used by the bot; tests cover both |
 | `SplitColors` in colour scheme files | loaded, never read ([color.md](color.md)) |
 | `TwitchIds.ModeratorId` branch | used only if a subscription sets `RequiresModeratorId` without `WantsBroadcasterAsModerator` |

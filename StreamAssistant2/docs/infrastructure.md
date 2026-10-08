@@ -73,13 +73,16 @@ WPF window ([dashboard.md](dashboard.md)).
 | `Error` | every `Error <code>` line ([reference.md](reference.md#error-codes)) |
 | `ChatIncoming` | chat messages and unrecognised IRC lines |
 | `ChatOutgoing` | `> <message>` for each chat message the bot sends |
-| `Notification` | something succeeded or was accepted: flush recorded, colour request fulfilled, layout change started, TTS enqueued |
-| `ConnectionNotification` | `STARTED!`, `SHUTDOWN!`, EventSub and OBS connect lines |
-| `Helix` | declared and given a colour, but unused |
+| `Notification` | something succeeded or was accepted: flush recorded, a train or colour redemption fulfilled or refunded, TTS enqueued |
+| `ConnectionNotification` | `STARTED!`, `Data loaded`, `SHUTDOWN!`, EventSub and OBS connect lines |
+| `Helix` | `HELIX> …` lines, one per Helix call, with the response code |
 | `EventSubNotification` | `notification: <type>`, session welcome, subscribe results |
-| `EventSubConfusion` | EventSub surprises (unhandled type, reconnect, unknown message) and, oddly, Helix redemption updates |
+| `EventSubConfusion` | EventSub surprises (unhandled type, reconnect, unknown message) |
 | `AdNotification` | ad start and end |
 | `Important` | warnings and drops the user should notice: colour data skipped, OBS unreachable, colour request failed, unexpected status codes |
+| `SceneChangesImportant` | the start of a scene change worth spotting: `Game setup: <name> (<id>)` |
+| `SceneChanges` | changes the bot makes to the stream's look and sound: the layout colour animation starting (`Changing layout color to …`), the background (`Image: Background → <file>`), each capture slot shown, and a train starting (`Choo choo!`). Warnings about these (no scheme, missing source) stay on `Important` |
+| `SceneChangesUnimportant` | routine detail of a scene change: the grouped `→ none, hidden: …` line |
 
 ## Periodic work
 

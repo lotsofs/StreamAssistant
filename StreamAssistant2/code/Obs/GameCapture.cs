@@ -10,31 +10,51 @@ namespace StreamAssistant2 {
 		const string SCENE = "!Scene: Games 1920x1080";
 
 		/// <summary>
-		/// Points and shows a capture slot per game executable; the rest are pointed at none and hidden. Logs each one.
+		/// Points and shows a capture slot per game executable; the rest are pointed at none and hidden.
+		/// Logs each shown slot, and the hidden ones together on one line.
 		/// </summary>
 		internal static void Set(Game game) {
 			if (!ObsConnection.ObsSocket.IsConnected) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "OBS not connected, capture sources not set");
 				return;
 			}
-			SetKind(GAME_CAPTURE, game.GameCapture);
-			SetKind(WINDOW_CAPTURE, game.WindowCapture);
-			SetKind(AUDIO_CAPTURE, game.AudioCapture);
+			List<(string Kind, int Slot)> hidden = new();
+			SetKind(GAME_CAPTURE, game.GameCapture, hidden);
+			SetKind(WINDOW_CAPTURE, game.WindowCapture, hidden);
+			SetKind(AUDIO_CAPTURE, game.AudioCapture, hidden);
+			if (hidden.Count > 0) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChangesUnimportant, HiddenLine(hidden));
+			}
 		}
 
 		/// <summary>
-		/// Sets one kind's slots; a source that can't be set is logged and the rest still go.
+		/// The one log line for every slot set to none and hidden, slot numbers grouped by kind.
 		/// </summary>
-		static void SetKind(string prefix, IReadOnlyList<string> executables) {
+		internal static string HiddenLine(IReadOnlyList<(string Kind, int Slot)> hidden) {
+			var groups = hidden.GroupBy(h => h.Kind).Select(g => $"{g.Key} {string.Join(", ", g.Select(h => h.Slot))}");
+			return $"→ none, hidden: {string.Join("; ", groups)}";
+		}
+
+		/// <summary>
+		/// Sets one kind's slots, adding the hidden ones to the list; a source that can't be set is logged and the rest still go.
+		/// </summary>
+		static void SetKind(string prefix, IReadOnlyList<string> executables, List<(string Kind, int Slot)> hidden) {
 			for (int i = SLOTS; i < executables.Count; i++) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {prefix.Trim()} slot for {executables[i]}, only {SLOTS}");
 			}
-			foreach ((string source, string executable) in Assignments(prefix, executables)) {
+			var slots = Assignments(prefix, executables);
+			for (int i = 0; i < slots.Count; i++) {
+				(string source, string executable) = slots[i];
 				try {
 					bool used = IsUsed(executable);
 					Obs.SetInputSetting(source, "window", WindowValue(executable));
 					Obs.SetSourceEnabled(SCENE, source, used);
-					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"{source} → {executable}, {(used ? "shown" : "hidden")}");
+					if (used) {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"{source} → {executable}, shown");
+					}
+					else {
+						hidden.Add((prefix.Trim(), i));
+					}
 				}
 				catch (Exception ex) {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Couldn't set {source}: {ex.Message}");
