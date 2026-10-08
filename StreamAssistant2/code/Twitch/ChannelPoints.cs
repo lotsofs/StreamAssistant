@@ -97,10 +97,11 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Shows a random train image on stream for 62 seconds, then frees the tracks.
+		/// Shows a random train image on stream for 62 seconds, off the caller's thread, then frees the tracks.
 		/// </summary>
 		static async Task RunTrainAsync() {
 			try {
+				await Task.Yield();
 				int r = Random.Shared.Next(0, 100);
 				Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, $"Train{r}.png"));
 				Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", true);

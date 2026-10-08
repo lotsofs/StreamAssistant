@@ -3,7 +3,7 @@
 Every tracked item across the detail docs in this folder, by code. This file is the registry: a code can be resolved
 to its area, summary and detail location from here alone, without opening the detail docs.
 
-Refer to items by code in conversation (e.g. "do OSY").
+Refer to items by code in conversation (e.g. "do DCD").
 
 ## Conventions
 
@@ -23,5 +23,4 @@ Detail and a plan for each: [robustness-fixes.md](robustness-fixes.md). Plans no
 | Code | Area | Summary | Severity |
 |---|---|---|---|
 | [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` used to fail with `4007` and fall back to a fresh session (~7 s of lost events). Now follows Twitch's flow (new socket before old is dropped, no resubscribe, 409 is success); tested against a loopback fake, to be checked after the next daily reconnect | Medium |
-| [OSY](robustness-fixes.md#osy--train-obs-calls-run-on-the-read-loops) | OBS | The train's OBS calls run synchronously on the EventSub or IRC thread; a slow OBS stalls reading | Low |
 | [DCD](robustness-fixes.md#dcd--connection-timeouts-unverified-live) | Twitch | IRC and EventSub now time out silent connections and hung connects; unit-tested, still to be verified live with a firewall block (owner, off-stream) | Low |

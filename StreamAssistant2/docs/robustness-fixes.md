@@ -43,26 +43,6 @@ starting a fresh session`.
 **Docs when done:** delete this section and the TODO row; drop the "not yet seen working" sentence in
 [twitch.md § Planned reconnects](twitch.md#planned-reconnects).
 
-## OSY — Train OBS calls run on the read loops
-
-Handlers are invoked synchronously up to their first `await`, by design, so they can read the
-`JsonElement` before it's disposed. `RunTrainAsync` calls `Obs.SetImageSource` and `Obs.SetSourceEnabled`
-before its first `await`, so those run on the EventSub listen loop (the reward) or the IRC read thread
-(`!train`). The `Obs` wrappers are synchronous, so a slow or hung obs-websocket call stalls reading for
-that long. The colour rewards and commands are not affected: they only enqueue onto `LayoutColoring`'s
-channel, whose worker runs on the thread pool. Read, not reproduced; how long a call can block hasn't been
-measured.
-
-### Plan
-
-1. **Measure first:** time the `Obs` wrapper calls with OBS running, idle and busy. If they're consistently
-   a few ms, close this item and record the measurement in [obs.md](obs.md).
-2. **If not:** start `RunTrainAsync` with `await Task.Yield()` (it reads no JSON, so the lifetime rule
-   doesn't apply), moving its OBS calls off the read loop.
-
-**Docs when done:** [obs.md](obs.md#train) and the handler-threading note in
-[twitch.md](twitch.md#adding-an-eventsub-event).
-
 ## DCD — Connection timeouts unverified live
 
 Both transports now time out a connection that goes silent without closing, and a connect that hangs:

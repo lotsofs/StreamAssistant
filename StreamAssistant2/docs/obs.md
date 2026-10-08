@@ -107,5 +107,5 @@ The train reward ([events.md](events.md#channel-point-rewards)) shows a PNG over
 the file to `Empty.png`. It bypasses `LayoutColoring`'s queue entirely. The entry point is
 `ChannelPoints.TryStartTrain`, shared by the reward and the `!train` admin command; it holds one flag
 (`_trainOnTracks`, claimed with `Interlocked.CompareExchange`) for the whole 62 s, and a train started while
-it is set is dropped with a chat line instead. Its OBS calls run on the read loop that started it (OSY,
-in [TODO.md](TODO.md)).
+it is set is dropped with a chat line instead. `RunTrainAsync` starts with `await Task.Yield()`, so its
+blocking OBS calls run on the thread pool, not on the IRC or EventSub read loop that started it.

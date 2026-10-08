@@ -77,7 +77,8 @@ Stopping the debugger kills the process without running any of the shutdown path
   IRC listen loop, and `TwitchEventHandler.Handle` synchronously inside the EventSub listen loop. A
   slow handler stalls that transport, so handlers return fast and push long work into a fire-and-forget
   async method (`_ = Handler(...)`). The first part of such a method up to its first `await` still runs
-  on the read loop.
+  on the read loop; a handler that blocks and reads no JSON starts with `await Task.Yield()`, as the
+  train does.
 - **Static mutable state with no locks** is the norm: `Subscriptions._giftBombs`,
   `ChatterList._list`. Most are touched from one thread in practice, but see the
   items in [TODO.md](TODO.md) for the ones that aren't.

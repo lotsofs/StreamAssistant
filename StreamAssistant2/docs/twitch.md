@@ -282,7 +282,8 @@ which awaits the handler inside a try/catch and logs a throw as `Error <code>: <
 site has its own code: `TEH_adb`, `TEH_cpcrra` and `TEH_c` in `Handle`, `TEH_CN_s`, `TEH_CN_rs`,
 `TEH_CN_sg` and `TEH_CN_csg` in `HandleChannelChatNotification` ([reference.md](reference.md#error-codes)). The handler is invoked
 synchronously, so its part before the first `await` still runs on the listen loop and can read the
-`JsonElement`. `Handle`'s own try/catch (`Error TEH1`) covers only the dispatch. `HandleCommunitySubGiftNotif`
+`JsonElement`. Blocking work that needs no JSON goes after an `await Task.Yield()`, as in
+`ChannelPoints.RunTrainAsync`. `Handle`'s own try/catch (`Error TEH1`) covers only the dispatch. `HandleCommunitySubGiftNotif`
 keeps its own `Error SUB1` catch. `SendMessage` uses the same helper (`Error TIRC3`). Other fire-and-forget sites (`ConsoleLogger`, the
 `LayoutColoring` and `TextToSpeech` workers, the `DiskSpace` and `TwitchUptime` loops, the connection
 loops) catch their own exceptions.
