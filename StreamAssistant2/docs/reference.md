@@ -28,10 +28,10 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `TEH_adb`, `TEH_cpcrra`, `TEH_c` | `FireForget.Run` (from `TwitchEventHandler.Handle`) | The ad-break, redemption or cheer handler threw, before or after its first `await`; the message names the event type | rest of that alert skipped |
 | `TEH_CN_s`, `TEH_CN_rs`, `TEH_CN_sg`, `TEH_CN_csg` | `FireForget.Run` (from `TwitchEventHandler.HandleChannelChatNotification`) | The sub, resub, sub-gift or gift-bomb handler threw; the message names the notice type | rest of that alert skipped |
 | `TEV1` | `FireForget.Run` (from `TestEventRunner.Run`) | Feeding a `!test` script's events into the handler threw | rest of that test not sent |
-| `TRN1` | `FireForget.Run` (from the `!train` command) | The train threw (OBS calls no-op when disconnected, so rarely) | train skipped |
+| `TRN1` | `FireForget.Run` (from `ChannelPoints.TryStartTrain`) | The train threw (OBS calls no-op when disconnected, so rarely) | train skipped |
 | `SUB1` | `Subscriptions.HandleCommunitySubGiftNotif` | The gift-bomb announcement threw (the only handler with its own catch) | no announcement |
 | `SUB2` | `FireForget.Run` (from `Subscriptions.HandleSubGiftNotif`) | The check for bomb recipients whose bomb never arrived threw | those recipients go unreported |
-| `CP1` | `ChannelPoints.CloseColorRedemption` | Helix refused to fulfil or cancel a colour redemption (often a 403; see [color.md](color.md)) | redemption left open |
+| `CP1` | `ChannelPoints.CloseRedemption` | Helix refused to fulfil or cancel a train or colour redemption (often a 403; see [color.md](color.md)) | redemption left open |
 | `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | An OBS call threw during a colour change; the message is logged next | worker moves to the next request |
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
 | `DSK1` | `DiskSpace.WatchAsync` | A disk-space check threw | next minute |

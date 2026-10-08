@@ -144,7 +144,7 @@ constants are listed in [reference.md](reference.md#channel-point-rewards)). An 
 |---|---|
 | Toilet flush | play `Flush`, insert a row in `flushes` (redemption id, user id, login, time), log it. From `!test`: sound only, no row |
 | Toilet retrieve | look up that user's flushes; none → chat `🪠 … didn't find any of <user>'s stuff`; else `CANCELED` each flushed redemption through Helix (refunding it), delete the rows, chat `🪠 Found and returned N … 🪠`. From `!test`: only logs how many it would return |
-| Train | pick a random `Train0.png`–`Train99.png` from `Directories.Trains`, show it in OBS, wait 62 s, hide it, point the source back at `Empty.png`. Lives in `ChannelPoints.RunTrainAsync`; the admin command `!train` runs it without a redemption |
+| Train | if a train is already showing: chat `🚂 A train is already on the tracks 🚂` and `CANCELED` the redemption (refunding it). Otherwise `FULFILLED` it, pick a random `Train0.png`–`Train99.png` from `Directories.Trains`, show it in OBS, wait 62 s, hide it, point the source back at `Empty.png`. Lives in `ChannelPoints.TryStartTrain`; the admin command `!train` runs it without a redemption (and is ignored the same way). From `!test`: runs the train, but only logs the status instead of calling Helix |
 | Colour random / single / triple | call `LayoutColoring`, then close the redemption (`FULFILLED`, or `CANCELED` if the colour didn't resolve). From `!test`: recolours, but only logs the status instead of calling Helix |
 
 ### How the flush pair works
@@ -160,12 +160,10 @@ Things the code doesn't cover, read not reproduced:
 - If one `UpdateRedemption` call fails (say a flushed redemption was already cancelled by hand), the
   exception ends the loop *before* `DeleteFlushesAsync`, so the rows stay and every later retrieve hits
   the same failing id first.
-- Two overlapping trains (reward or `!train`) race on the same source: the first one's cleanup hides
-  the second one's image early. Tracked as TRX in [TODO.md](TODO.md).
 
 ### Reward-side requirements
 
-Rewards that the bot closes through Helix (`flush`, and the three colour ones) must have been created
+Rewards that the bot closes through Helix (`flush`, train, and the three colour ones) must have been created
 through the API by the bot's own client id, and have the "skip reward requests queue" option **off**, or
 there is no `UNFULFILLED` redemption to update. (Twitch's documented behaviour; the setting itself
 wasn't inspected.)

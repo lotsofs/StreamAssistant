@@ -59,19 +59,20 @@ namespace StreamAssistant2 {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully cleared sewers for {userLogin}: {flushes.Count}");
 					break;
 				case REWARD_ID_TRAIN:
-					await RunTrainAsync();
+					success = TryStartTrain();
+					await CloseRedemption(rewardId, redemptionId, success, isTest);
 					break;
 				case REWARD_ID_COLOR_RANDOM:
 					LayoutColoring.ChangeToRandom();
-					await CloseColorRedemption(rewardId, redemptionId, true, isTest);
+					await CloseRedemption(rewardId, redemptionId, true, isTest);
 					break;
 				case REWARD_ID_COLOR_SINGLE:
 					success = LayoutColoring.TryChangeToSingle(userInput);
-					await CloseColorRedemption(rewardId, redemptionId, success, isTest);
+					await CloseRedemption(rewardId, redemptionId, success, isTest);
 					break;
 				case REWARD_ID_COLOR_TRIPLE:
 					success = LayoutColoring.TryChangeToTriple(userInput);
-					await CloseColorRedemption(rewardId, redemptionId, success, isTest);
+					await CloseRedemption(rewardId, redemptionId, success, isTest);
 					break;
 				default:
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unhandled channel point reward redemption id: {rewardId}");
@@ -80,25 +81,45 @@ namespace StreamAssistant2 {
 			}
 		}
 
+		static int _trainOnTracks;
+
 		/// <summary>
-		/// Shows a random train image on stream for 62 seconds.
+		/// Starts a train unless one is already showing, in which case it says so in chat and returns false.
 		/// </summary>
-		internal static async Task RunTrainAsync() {
-			int r = Random.Shared.Next(0, 100);
-			Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, $"Train{r}.png"));
-			Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", true);
-			await Task.Delay(62000);
-			Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", false);
-			Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, "Empty.png"));
+		internal static bool TryStartTrain() {
+			if (Interlocked.CompareExchange(ref _trainOnTracks, 1, 0) != 0) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, "Train ignored: one is already showing");
+				TwitchIRCManager.SendMessage("🚂 A train is already on the tracks 🚂");
+				return false;
+			}
+			FireForget.Run("TRN1", "train", RunTrainAsync);
+			return true;
 		}
 
 		/// <summary>
-		/// Marks a colour redemption fulfilled, or refunds it when the colour wasn't found. Only logs for a test.
+		/// Shows a random train image on stream for 62 seconds, then frees the tracks.
 		/// </summary>
-		static async Task CloseColorRedemption(string rewardId, string redemptionId, bool success, bool isTest) {
+		static async Task RunTrainAsync() {
+			try {
+				int r = Random.Shared.Next(0, 100);
+				Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, $"Train{r}.png"));
+				Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", true);
+				await Task.Delay(62000);
+				Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", false);
+				Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, "Empty.png"));
+			}
+			finally {
+				_trainOnTracks = 0;
+			}
+		}
+
+		/// <summary>
+		/// Marks a redemption fulfilled, or refunds it when it couldn't be carried out. Only logs for a test.
+		/// </summary>
+		static async Task CloseRedemption(string rewardId, string redemptionId, bool success, bool isTest) {
 			string status = success ? "FULFILLED" : "CANCELED";
 			if (isTest) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Test colour redemption: would mark {redemptionId} {status}; Helix not called");
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Test redemption: would mark {redemptionId} {status}; Helix not called");
 				return;
 			}
 			try {

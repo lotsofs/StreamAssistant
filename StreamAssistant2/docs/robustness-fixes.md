@@ -43,27 +43,6 @@ starting a fresh session`.
 **Docs when done:** delete this section and the TODO row; drop the "not yet seen working" sentence in
 [twitch.md § Planned reconnects](twitch.md#planned-reconnects).
 
-## TRX — Overlapping trains hide each other
-
-`ChannelPoints.RunTrainAsync` sets `Image: Train` to a random image, shows it, waits 62 s, then hides it
-and resets it to `Empty.png`. A second train started inside that window swaps the image, and the first
-run's cleanup then hides it about 62 s after the *first* start, cutting the second one short. Both the
-reward and the `!train` admin command call it. Read, not reproduced.
-
-### Plan
-
-Pick one, owner's call:
-
-- **Queue:** serialise trains through a single worker, like `LayoutColoring`, so each gets its full 62 s.
-- **Extend:** keep a generation counter or `CancellationTokenSource`; a new train cancels the previous
-  run's pending cleanup and restarts the 62 s, so only the last one hides the source.
-- **Ignore:** drop the second train while one is showing, and log it.
-
-**Verify:** `!train` twice a few seconds apart, then watch whether the second image stays up its full time.
-
-**Docs when done:** the Train row and the overlap bullet in [events.md](events.md), and the Train section
-in [obs.md](obs.md#train).
-
 ## OSY — Train OBS calls run on the read loops
 
 Handlers are invoked synchronously up to their first `await`, by design, so they can read the

@@ -115,7 +115,7 @@ Command is the first word (case-sensitive); the rest, trimmed, is the argument.
 | `!changecolors <text>` | `LayoutColoring.TryChangeToTriple` |
 | `!changecolorrandom` | `LayoutColoring.ChangeToRandom` |
 | `!test <script> …` | `TestEventRunner.Run`: simulated events, see [the test harness](#the-test-harness) |
-| `!train` | `ChannelPoints.RunTrainAsync`, the train reward without a redemption (`Error TRN1` if it throws) |
+| `!train` | `ChannelPoints.TryStartTrain`, the train reward without a redemption (ignored while one is showing; `Error TRN1` if it throws) |
 | `!stoppaneltimer` | stub (its `MsgQueue` call is commented out) |
 
 ### Public commands
@@ -362,5 +362,5 @@ Anything but 200 logs a warning; non-success throws `Redemption update failed: <
 logged on `EventSubConfusion` (the `Helix` colour channel exists in the enum and window but nothing
 uses it). `Init()` sets headers once and a 60 s timeout.
 
-Callers: `ChannelPoints.CloseColorRedemption` (catches and logs `Error CP1`) and the toilet-retrieve
+Callers: `ChannelPoints.CloseRedemption`, for the train and colour rewards (catches and logs `Error CP1`), and the toilet-retrieve
 branch of `ProcessAdd` (does not catch).

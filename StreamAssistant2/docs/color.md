@@ -20,7 +20,7 @@ The admins (`lotsofs`, `botsofs`) can trigger the same three paths from chat wit
 points, via `ChatHandler.CheckForAdminCommands`: `!changecolor <text>` (single),
 `!changecolors <text>` (triple) and `!changecolorrandom`. Command names are case-sensitive.
 
-After a colour reward, `ChannelPoints.CloseColorRedemption` closes the redemption through Helix:
+After a colour reward, `ChannelPoints.CloseRedemption` closes the redemption through Helix:
 `FULFILLED` when the colour resolved, `CANCELED` (which refunds the points) when it didn't. If the
 Helix call fails, it logs `Error CP1`. The chat commands never touch Helix.
 

@@ -168,7 +168,7 @@ namespace StreamAssistant2 {
 					TestEventRunner.Run(argument);
 					break;
 				case "!train":
-					FireForget.Run("TRN1", "train", ChannelPoints.RunTrainAsync);
+					ChannelPoints.TryStartTrain();
 					break;
 			}
 		}
