@@ -30,6 +30,7 @@ namespace StreamAssistant2 {
 				Obs = secrets.Obs,
 				TwitchAuth = secrets.TwitchAuth,
 				TwitchIds = secrets.TwitchIds,
+				StreamElements = secrets.StreamElements,
 			};
 		}
 
@@ -48,6 +49,7 @@ namespace StreamAssistant2 {
 		public ObsSocketConfig Obs { get; set; } = new();
 		public TwitchAuthConfig TwitchAuth { get; set; } = new();
 		public TwitchIdConfig TwitchIds { get; set; } = new();
+		public StreamElementsConfig StreamElements { get; set; } = new();
 	}
 
 	public class DirectoriesConfig {
@@ -74,5 +76,10 @@ namespace StreamAssistant2 {
 		public string ModeratorId { get; set; } = "";
 		public string UserId { get; set; } = "";
 		public string TestBroadcasterId { get; set; } = "";
+	}
+
+	public class StreamElementsConfig {
+		public string ChannelId { get; set; } = "";
+		public string Jwt { get; set; } = "";
 	}
 }

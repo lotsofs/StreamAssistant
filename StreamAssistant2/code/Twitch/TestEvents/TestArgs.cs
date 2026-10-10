@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace StreamAssistant2 {
 	/// <summary>
 	/// Parses a test script's arguments. Required parameters come first, in order. The optional ones
@@ -7,6 +9,8 @@ namespace StreamAssistant2 {
 	internal static class TestArgs {
 		internal abstract record Param(string Name);
 		internal record IntParam(string Name, int Default, int Min, int Max) : Param(Name);
+		/// <summary>Written with a dot ("4.20"), whatever the machine's culture.</summary>
+		internal record DecimalParam(string Name, decimal Default, decimal Min, decimal Max) : Param(Name);
 		internal record BoolParam(string Name) : Param(Name);
 		/// <summary>Takes the rest of the line, so it must be the last parameter.</summary>
 		internal record TextParam(string Name) : Param(Name);
@@ -15,6 +19,7 @@ namespace StreamAssistant2 {
 			readonly Dictionary<string, object> _values = new();
 
 			internal int Int(string name) => (int)_values[name];
+			internal decimal Decimal(string name) => (decimal)_values[name];
 			internal bool Bool(string name) => (bool)_values[name];
 			internal string Text(string name) => (string)_values[name];
 			internal void Set(string name, object value) => _values[name] = value;
@@ -39,7 +44,7 @@ namespace StreamAssistant2 {
 				return values;
 			}
 
-			if (bool.TryParse(words[i], out _) || int.TryParse(words[i], out _)) {
+			if (bool.TryParse(words[i], out _) || TryDecimal(words[i], out _)) {
 				foreach (Param p in optional) {
 					if (i == words.Length) {
 						break;
@@ -79,6 +84,13 @@ namespace StreamAssistant2 {
 					values.Set(p.Name, n);
 					i++;
 					return true;
+				case DecimalParam dp:
+					if (!TryDecimal(words[i], out decimal d) || d < dp.Min || d > dp.Max) {
+						return false;
+					}
+					values.Set(p.Name, d);
+					i++;
+					return true;
 				case BoolParam:
 					if (!bool.TryParse(words[i], out bool b)) {
 						return false;
@@ -95,9 +107,15 @@ namespace StreamAssistant2 {
 			}
 		}
 
+		// A number, with an optional dot
+		static bool TryDecimal(string word, out decimal d) {
+			return decimal.TryParse(word, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out d);
+		}
+
 		static object Default(Param p) {
 			return p switch {
 				IntParam ip => ip.Default,
+				DecimalParam dp => dp.Default,
 				BoolParam => false,
 				_ => "",
 			};

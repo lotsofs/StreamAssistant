@@ -1,8 +1,8 @@
 # Events and alerts
 
-What the bot does when something happens on the channel: each EventSub event, each channel-point
-reward, and the sounds and speech behind them. The transport and dispatch are in
-[twitch.md](twitch.md); the colour rewards are in [color.md](color.md).
+What the bot does when something happens on the channel: each EventSub event, each StreamElements tip,
+each channel-point reward, and the sounds and speech behind them. The transport and dispatch are in
+[twitch.md](twitch.md) and [streamelements.md](streamelements.md); the colour rewards are in [color.md](color.md).
 
 Read from the code. Nothing here was run against live Twitch events.
 
@@ -107,6 +107,33 @@ message goes through `LanguageFilter`), plays *Team17 Applauds*, waits 5 s, then
 `<user> cheered <bits>: <message>`. The user name isn't filtered. `MONEY_PER_BIT` and the `Money` update
 are leftovers (commented out).
 
+## Tips
+
+Tips are StreamElements events, not Twitch ones. They arrive on the StreamElements connection
+([streamelements.md](streamelements.md)) as `channel.tips` and go through
+`StreamElementsEventHandler.Handle`. It dumps them to `EventSubs\se.channel.tips_<stamp>.log` with the
+tipper's email removed, and hands them to `Tips.Process` ([Tips.cs](../code/StreamElements/Tips.cs),
+`Error SEH_t` if it throws):
+
+1. **Skip a repeat.** An `_id` already alerted this run logs `Tip <id> already alerted, skipped` and stops
+   there. An empty id always counts as new.
+2. **Read and filter.** It reads `donation.user.username`, `donation.amount`, `donation.currency` and
+   `donation.message`, all before the first `await`. Tippers type their own name, so it is free text and
+   goes through `LanguageFilter` like the message. A blank name becomes `Someone`.
+3. **Log** `Tip: <user> <amount> <currency> (status <status>, approved <approved>)` on
+   `StreamElementsNotification`.
+4. **Play** *IndianAnthem* (0.4).
+5. **Post** `💸 <user> tipped <amount> <currency> 💸` to chat.
+6. **Wait 6 s**, then speak `<user> donated <amount> <currency>: <message>`. Without a message, the
+   sentence ends after the currency.
+
+The amount is `5` when whole and two decimals otherwise (`4.20`), always with a dot, whatever the
+machine's culture (`Tips.FormatAmount`). Nothing is credited to `Money` (see MNY in [TODO.md](TODO.md)).
+`status` and `approved` are logged but not acted on; how moderated tips arrive isn't known yet.
+
+`!test tip <amount> [msg <text…>]` runs the whole alert, chat line included
+([twitch.md](twitch.md#the-test-harness)).
+
 ## Ads
 
 [Ads.cs](../code/Twitch/Ads.cs) turns Twitch's ad schedule into warnings in chat.
@@ -167,7 +194,9 @@ touch it. Tested in `GamesGoLiveTests`, with the Helix fetch replaced.
 `Apply` resolves the id to a game through `games.json` (unknown ids fall back to id `0`), logs
 `Game setup: <name> (<id>)`, and has `GameBackground.Set` point the OBS input `Image: Background` at
 `<Directories.Backgrounds>\<name>.png`. If that file doesn't exist (the `None` fallback has none) it logs
-`No background for <name>, left as is` and leaves the background alone. Then `GameColor.Set` queues the
+`No background for <name>, using Template.png` and shows `Template.png` from the same folder; with
+that missing too, it logs `No background for <name> and no Template.png, left as is` and leaves the
+background alone. Then `GameColor.Set` queues the
 game's `gameschemes` colour scheme, which replaces any colour showing and posts the usual
 `Changing to color …` chat line; a game without a scheme (RoN) only logs. Last, `GameCapture.Set` points
 the numbered game, window and audio capture sources at the game's executables, logging each one.

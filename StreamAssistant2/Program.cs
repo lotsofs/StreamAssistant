@@ -69,6 +69,8 @@ namespace StreamAssistant2
 
 			TwitchEventSub.Connect();
 
+			StreamElementsSocket.Connect();
+
 			LayoutColoring.StartWorker();
 		}
 
@@ -78,6 +80,8 @@ namespace StreamAssistant2
 			TwitchIRCManager.Disconnect();
 
 			TwitchEventSub.Disconnect();
+
+			StreamElementsSocket.Disconnect();
 		}
 
 	}

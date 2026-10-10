@@ -8,7 +8,7 @@ Everything here was read from the code. Where a behaviour was also run, it says 
 ## What it is
 
 A single-user Windows desktop program (WPF, `net8.0-windows`, `WinExe`) that sits beside OBS while the
-channel `lotsofs` streams. It listens to Twitch, and reacts by speaking, playing sounds, posting in chat,
+channel `lotsofs` streams. It listens to Twitch (and to StreamElements, for tips), and reacts by speaking, playing sounds, posting in chat,
 recolouring the OBS layout and recording a little state. There is no server, no installer and no
 second user, so channel names, OBS source names, reward GUIDs, drive letters and resource paths are
 hardcoded on purpose ([reference.md](reference.md) lists them).
@@ -29,6 +29,8 @@ hardcoded on purpose ([reference.md](reference.md) lists them).
                          │  TwitchHelixApi            Sound  TextToSpeech
                          │                                            │
                          │  DiskSpace, TwitchUptime, Ads: own loops   │
+  StreamElements (WS) ──►│  StreamElementsSocket ──► Tips: sound,     │
+                         │    chat, TextToSpeech                      │
                          │  Obs / ObsConnection ◄── LayoutColoring    │
                          │  ConsoleLogger ──► log file + MainWindow   │
                          └────────────────────────────────────────────┘
@@ -55,6 +57,7 @@ service registry.
    6. `DiskSpace.Start()`, `TwitchUptime.Start()` and `ConnectionHealth.Start()`: the periodic loops.
    7. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
       `OnMessage += ChatHandler.ProcessMessage`, `TwitchHelixApi.Init()`, `TwitchEventSub.Connect()`,
+      `StreamElementsSocket.Connect()` (only logs "tips are off" without credentials),
       `LayoutColoring.StartWorker()`.
    8. `Games.OnBootAsync`, fire-and-forget (`Error GMS_boot`): stores the current category from Helix and
       applies the game once, when OBS is first connected ([events.md](events.md#category-change-and-going-live)).
@@ -63,7 +66,7 @@ service registry.
       is already live.
    Any exception logs `Error PRG1` and the bot stays half-started.
 6. Closing the window ends `Application.Run`. `Main` then posts `🍂 Shutting Down` to chat, logs
-   `SHUTDOWN!` and calls `DisableBot()` (OBS disconnect, IRC disconnect, EventSub cancel). The chat
+   `SHUTDOWN!` and calls `DisableBot()` (OBS disconnect, IRC disconnect, EventSub and StreamElements cancel). The chat
    post is fire-and-forget and the IRC socket is closed straight after, so that message can be lost.
    Read, not reproduced.
 
@@ -75,10 +78,12 @@ Stopping the debugger kills the process without running any of the shutdown path
   ([dashboard.md](dashboard.md)).
 - **Everything else is the thread pool.** Each long-lived loop is started as `_ = Task.Run(...)` or
   `_ = SomethingAsync()` from `StartBotAsync`'s context: the IRC connection and listen loops, the
-  EventSub session loop, the OBS reconnect loop, the colour worker, the TTS worker, and the
-  periodic loops in `DiskSpace` and `TwitchUptime`.
+  EventSub session loop, the StreamElements session loop and its per-session sender task, the OBS
+  reconnect loop, the colour worker, the TTS worker, and the periodic loops in `DiskSpace` and
+  `TwitchUptime`.
 - **Handlers run on the read loops.** `TwitchIRCManager.OnMessage` is invoked synchronously inside the
-  IRC listen loop, and `TwitchEventHandler.Handle` synchronously inside the EventSub listen loop. A
+  IRC listen loop, `TwitchEventHandler.Handle` synchronously inside the EventSub listen loop, and
+  `StreamElementsEventHandler.Handle` inside the StreamElements one. A
   slow handler stalls that transport, so handlers return fast and push long work into a fire-and-forget
   async method (`_ = Handler(...)`). The first part of such a method up to its first `await` still runs
   on the read loop; a handler that blocks and reads no JSON starts with `await Task.Yield()`, as the
@@ -111,7 +116,7 @@ transport classes and the colour code (the test project reaches internals throug
 | [LayoutColoring.cs](../LayoutColoring.cs) | Serialised colour-change queue and the OBS animation | [obs.md](obs.md#layout-recolouring) |
 | [Util.cs](../Util.cs) | `TrueModulo` overloads; used only by `ColorUtil.HsvToRgb` | |
 | [Money.cs](../Money.cs), [ISaveable.cs](../ISaveable.cs) | Unused leftovers | [legacy.md](legacy.md) |
-| [Donations.cs](../Donations.cs), [LeftPanel.cs](../LeftPanel.cs) | Entirely commented out | [legacy.md](legacy.md) |
+| [LeftPanel.cs](../LeftPanel.cs) | Entirely commented out | [legacy.md](legacy.md) |
 
 ### `code/Twitch/`
 
@@ -122,7 +127,7 @@ transport classes and the colour code (the test project reaches internals throug
 | [ChatCommand.cs](../code/Twitch/ChatCommand.cs) | Data holder for a public command |
 | [ChatterList.cs](../code/Twitch/ChatterList.cs) | First-time-chatter list |
 | [TwitchEventSub.cs](../code/Twitch/TwitchEventSub.cs) | WebSocket session loop and subscribing |
-| [ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs) | Shared IRC/EventSub age thresholds; logs a connection going bad and recovering |
+| [ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs) | Shared IRC/EventSub/StreamElements age thresholds; logs a connection going bad and recovering |
 | [TwitchEventSubSubscription.cs](../code/Twitch/TwitchEventSubSubscription.cs) | The table of subscriptions to create |
 | [TwitchEventHandler.cs](../code/Twitch/TwitchEventHandler.cs) | Dispatch on event type |
 | [TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) | Outbound REST: redemption status, channel category |
@@ -132,9 +137,19 @@ transport classes and the colour code (the test project reaches internals throug
 | [Subscriptions.cs](../code/Twitch/Subscriptions.cs) | Sub, resub, gift and gift-bomb alerts: sound, delay, speech; the gift-bomb list (plus a large commented-out legacy block) |
 | [SubscriptionMessages.cs](../code/Twitch/SubscriptionMessages.cs) | The spoken sentences for those alerts |
 | [CommunityGiftSub.cs](../code/Twitch/CommunityGiftSub.cs) | Collects the recipients of one gift bomb |
-| [TestEvents/](../code/Twitch/TestEvents/) | `!test` scripts: simulated events built in code (`TestEventRunner`, `TestArgs`, one file per area) |
+| [TestEvents/](../code/Twitch/TestEvents/) | `!test` scripts: simulated events built in code (`TestEventRunner`, `TestArgs`, one file per area), StreamElements tips included |
 
 All of this is covered in [twitch.md](twitch.md) and [events.md](events.md).
+
+### `code/StreamElements/`
+
+| File | Role |
+|---|---|
+| [StreamElementsSocket.cs](../code/StreamElements/StreamElementsSocket.cs) | WebSocket session loop to StreamElements' Astro gateway: subscribe, probes, reconnect |
+| [StreamElementsEventHandler.cs](../code/StreamElements/StreamElementsEventHandler.cs) | Dispatch on topic; the `EventSubs\se.…` dump without the tipper's email |
+| [Tips.cs](../code/StreamElements/Tips.cs) | Tip alert: anthem, chat line, speech |
+
+Covered in [streamelements.md](streamelements.md) and [events.md](events.md#tips).
 
 ### `code/Obs/`
 
@@ -148,7 +163,7 @@ game, window and audio capture executables) and resolves a category to its game,
 `OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, colour and capture sources.
 
 [GameBackground.cs](../code/Obs/GameBackground.cs): `Set(gameName)` points `Image: Background` at the
-game's PNG in `Directories.Backgrounds`, or logs and leaves it when there is none.
+game's PNG in `Directories.Backgrounds`, else `Template.png` there, or logs and leaves it when neither exists.
 [GameColor.cs](../code/Obs/GameColor.cs): `Set(gameName)` queues the game's `gameschemes` colour scheme
 through `LayoutColoring`, or logs and leaves the colour when there is none.
 [GameCapture.cs](../code/Obs/GameCapture.cs): `Set(game)` points the three numbered game, window and
@@ -165,10 +180,10 @@ next minute, next local midnight) for the periodic loops. See [infrastructure.md
 [FireForget.cs](../code/Util/FireForget.cs): `FireForget.Run(code, what, work)` starts an async body
 without awaiting it and logs a throw as `Error <code>: <what> failed`. Used for EventSub handlers and chat sends.
 
-[JsonElementExtensions.cs](../code/Util/JsonElementExtensions.cs): `ReadString`, `ReadInt`, `ReadBool` and `ReadElement` on
+[JsonElementExtensions.cs](../code/Util/JsonElementExtensions.cs): `ReadString`, `ReadInt`, `ReadDecimal`, `ReadBool` and `ReadElement` on
 `JsonElement`, reading by dotted path (`"sub.sub_tier"`) and returning a fallback for a missing step, a
-`null` or the wrong kind. `ReadInt` and `ReadBool` also accept numeric and boolean strings. Every EventSub
-payload read goes through these.
+`null` or the wrong kind. `ReadInt`, `ReadDecimal` and `ReadBool` also accept numeric and boolean strings
+(`ReadDecimal` only with a dot). Every EventSub and StreamElements payload read goes through these.
 
 ### `code/Color/`
 
@@ -199,6 +214,9 @@ payload to a custom log file) → `Subscriptions.Handle…` → sound, delay, `T
 **An ad break.** EventSub `channel.ad_break.begin` → `Ads.Process`: waits out the ad, cancels any
 earlier pre-warnings, starts a new `RunScheduleAsync` with four warnings.
 
+**A tip.** StreamElements `message` on `channel.tips` → `StreamElementsEventHandler.Handle` (dumps it,
+email removed) → `Tips.Process` → anthem, `💸` chat line, 6 s, speech.
+
 **A log line.** Anywhere → `ConsoleLogger.ColoredLine` → async file append **and** `LineLogged` event →
 `MainWindow` marshals to the UI thread and appends to the list.
 
@@ -212,4 +230,5 @@ earlier pre-warnings, starts a new `RunScheduleAsync` with four warnings.
   writer is null.
 - **Errors**: catch, log `Error <code>`, write the exception to the file, recover. Codes are
   catalogued in [reference.md](reference.md#error-codes).
-- **No Twitch SDK.** Both transports are hand-rolled; see [twitch.md](twitch.md).
+- **No Twitch SDK.** Both Twitch transports are hand-rolled, and so is the StreamElements one; see
+  [twitch.md](twitch.md) and [streamelements.md](streamelements.md).

@@ -33,14 +33,10 @@ git history.
 | `Sound.PlaySoundDelayed(sound, ms)` | removed; `await Task.Delay(ms)` then `Sound.PlaySound(sound)` |
 
 The old handlers took the Streamer.Bot variables dictionary. The new ones take the EventSub `event`
-element; the field names differ (`tipAmount` → there is no EventSub equivalent for third-party tips).
+element; the field names differ (`tipAmount` → tips now come from StreamElements as `donation.amount`,
+see [streamelements.md](streamelements.md)).
 
 ## Entirely commented out
-
-### [Donations.cs](../Donations.cs): tip alerts
-
-A tip added `amount` to `Money.Current`, played the Indian anthem, and queued TTS six seconds later:
-`<user> donated <amount> <currency>: <message>`. Tips arrived through Streamer.Bot's tip variables. Nothing feeds tips to the bot now.
 
 ### [LeftPanel.cs](../LeftPanel.cs): rotating left panel
 
@@ -97,7 +93,7 @@ Compiled and reachable by name, with no caller:
 | `Money` | `Goal` and `Current`; only commented code touches them |
 | `ISaveable` | `LoadSettings`/`SaveSettings`; nothing implements it |
 | `TextToSpeech.StopSpeech`, `PurgeQueue`, `Dispose` | would back a "shut up" command |
-| `Sound.Sounds.Warning`, `IndianAnthem` | `IndianAnthem` only by the dead donation code |
+| `Sound.Sounds.Warning` | nothing plays it yet (DSA in [TODO.md](TODO.md)) |
 | `ColorUtil.Darken(Color)`, `Lighten(Color)` | only the string overloads are used by the bot; tests cover both |
 | `SplitColors` in colour scheme files | loaded, never read ([color.md](color.md)) |
 | `TwitchIds.ModeratorId` branch | used only if a subscription sets `RequiresModeratorId` without `WantsBroadcasterAsModerator` |

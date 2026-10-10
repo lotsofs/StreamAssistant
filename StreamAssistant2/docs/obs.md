@@ -136,7 +136,9 @@ with a clearer `Couldn't set <source>: …` warning.
 
 - **Background**, [GameBackground.cs](../code/Obs/GameBackground.cs): `Set` points the `Image: Background`
   input at `<Directories.Backgrounds>\<game name>.png` with `Obs.SetImageSource` and logs
-  `Image: Background → <file>`. A missing file leaves the image as it is (`PathFor`, tested). If OBS
+  `Image: Background → <file>`. A missing file falls back to `Template.png` in the same folder, logging
+  `No background for <game name>, using Template.png`; with that missing too, the image stays as it is
+  (`PathFor`, tested; the fallback itself isn't). If OBS
   rejects the request (the source is missing or renamed), it logs `Couldn't set Image: Background: <message>`
   and the colour and capture steps still run.
 - **Colour**, [GameColor.cs](../code/Obs/GameColor.cs): `Set` requests `gameschemes <game name>` through

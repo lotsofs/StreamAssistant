@@ -1,5 +1,5 @@
 namespace StreamAssistant2 {
-	// Age thresholds for IRC and EventSub, and a loop that logs when a connection goes bad or recovers
+	// Age thresholds for IRC, EventSub and StreamElements, and a loop that logs when a connection goes bad or recovers
 	internal static class ConnectionHealth {
 		// Best to worst
 		internal enum Band {
@@ -29,6 +29,7 @@ namespace StreamAssistant2 {
 		// Warn, Bad, Dead per connection; Dead is the reconnect timeout
 		internal static readonly Thresholds Irc = new(TimeSpan.FromSeconds(300), TimeSpan.FromSeconds(360), TwitchIRCManager.SilenceTimeout);
 		internal static readonly Thresholds EventSub = new(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(15), TwitchEventSub.KeepAliveTimeout);
+		internal static readonly Thresholds StreamElements = new(TimeSpan.FromSeconds(40), TimeSpan.FromSeconds(50), StreamElementsSocket.SilenceTimeout);
 
 		// A line to log: going bad, or recovered
 		internal sealed record Report(bool Recovered, string Text);
@@ -70,19 +71,21 @@ namespace StreamAssistant2 {
 
 		static readonly Tracker _irc = new("IRC", Irc);
 		static readonly Tracker _eventSub = new("EventSub", EventSub);
+		static readonly Tracker _streamElements = new("StreamElements", StreamElements);
 
 		// Starts the watch loop
 		internal static void Start() {
 			_ = WatchAsync();
 		}
 
-		// Every second: updates both trackers and logs what they report
+		// Every second: updates the trackers and logs what they report
 		static async Task WatchAsync() {
 			while (true) {
 				await Task.Delay(TimeSpan.FromSeconds(1));
 				try {
 					Log(_irc.Update(TwitchIRCManager.TimeSinceLastPing, TwitchIRCManager.HasReceivedLine));
 					Log(_eventSub.Update(TwitchEventSub.KeepAliveTimer.Elapsed, TwitchEventSub.IsConnected));
+					Log(_streamElements.Update(StreamElementsSocket.SinceLastMessage.Elapsed, StreamElementsSocket.IsConnected));
 				}
 				catch (Exception ex) {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error CHL1");

@@ -12,7 +12,8 @@ by the user, with F5).
 A `DockPanel` on a near-black background, Consolas 13, default size 1100 × 650:
 
 - **Status bar** (docked top): `Twitch IRC time since last ping: mm:ss  |  Event Sub time since last
-  keepalive: mm:ss`. The two ages are `Run` elements named `IrcAge` and `EventSubAge`.
+  keepalive: mm:ss  |  StreamElements time since last reply: mm:ss`. The three ages are `Run` elements
+  named `IrcAge`, `EventSubAge` and `StreamElementsAge`.
 - **Log** (fills the rest): a `ListBox` named `LogList`, extended selection, no horizontal scrollbar,
   virtualised with container recycling, bound to an `ObservableCollection<LogLine>`. Each row is a
   wrapping `TextBlock` in that line's colour, with a custom item template that has no hover state and a
@@ -20,7 +21,7 @@ A `DockPanel` on a near-black background, Consolas 13, default size 1100 × 650:
 
 ## The status bar
 
-A `DispatcherTimer` ticks every 250 ms and calls `UpdateStatus()`, which reads two pieces of static
+A `DispatcherTimer` ticks every 250 ms and calls `UpdateStatus()`, which reads three pieces of static
 state straight from the transports (the window polls; the bot never pushes to it) and colours them with
 `ConnectionHealth.Classify`:
 
@@ -28,19 +29,24 @@ state straight from the transports (the window polls; the bot never pushes to it
 |---|---|---|---|---|---|
 | IRC | `TwitchIRCManager.TimeSinceLastPing` | grey | 300 s | 360 s | 420 s |
 | EventSub | `TwitchEventSub.KeepAliveTimer.Elapsed` | grey | 12 s | 15 s | 20 s |
+| StreamElements | `StreamElementsSocket.SinceLastMessage.Elapsed` | grey | 40 s | 50 s | 70 s |
 
 The thresholds live in [ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs), shared with the
 connection-health log ([infrastructure.md](infrastructure.md#connection-health)), and red *is* the reconnect
-timeout: `TwitchIRCManager.SilenceTimeout` and `TwitchEventSub.KeepAliveTimeout`. The IRC number is really
+timeout: `TwitchIRCManager.SilenceTimeout`, `TwitchEventSub.KeepAliveTimeout` and
+`StreamElementsSocket.SilenceTimeout`. The IRC number is really
 *time since any line arrived* ([twitch.md](twitch.md#irc)); Twitch pings about every five minutes, hence the
 long thresholds. EventSub's keepalive is about every 10 s, so its yellow starts at 12 s rather than 10 to
-avoid flickering every cycle.
+avoid flickering every cycle. StreamElements' age is the time since any message, and the bot's own probe
+draws a reply every 30 s ([streamelements.md](streamelements.md#keepalive-the-probe)), so it climbs to
+about 30 and resets; yellow means a reply is late. With no StreamElements credentials in `secrets.json`,
+the segment shows `off` in grey instead of an age.
 
 One quirk in `ShowAge`: the text format is `mm\:ss`, which shows only the minutes component, so an age over
 an hour wraps.
 
 Before the first IRC line arrives `_lastPingTime` is `DateTime.MinValue`, so the IRC age starts out huge
-(and red) until the first line. EventSub's stopwatch starts at process start.
+(and red) until the first line. EventSub's and StreamElements' stopwatches start at process start.
 
 ## The log
 
@@ -71,6 +77,8 @@ The colour for each channel is looked up in `_logColors`:
 | `Helix` | `#44EEEE` |
 | `EventSubNotification` | `#4488EE` |
 | `EventSubConfusion` | `#88BBEE` |
+| `StreamElementsNotification` | `#44CC99` |
+| `StreamElementsConfusion` | `#99DDCC` |
 | `AdNotification` | `#0088EE` |
 | `Important` | `#EE44EE` |
 | `SceneChangesImportant` | `#EEBB88` |

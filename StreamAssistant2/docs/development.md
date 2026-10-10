@@ -47,8 +47,9 @@ The owner runs the bot from the editor with F5, often while a stream is on. So:
 
 ## Verification, by area
 
-`code/Color/`, the scheduling logic (disk alerts, the midnight calculation, ad warnings) and the IRC and
-EventSub timeouts have automated tests. Everything else is checked by running the app and reading the dashboard.
+`code/Color/`, the scheduling logic (disk alerts, the midnight calculation, ad warnings), the IRC and
+EventSub timeouts, the EventSub and StreamElements session loops and the tip sentences have automated tests.
+Everything else is checked by running the app and reading the dashboard.
 
 ### Unit tests
 
@@ -73,10 +74,13 @@ compile it). The test project references the bot's project, and the bot grants i
 | `EventSubConnectTimeoutTests` | `TwitchEventSub.ConnectOrTimeoutAsync`: a connect to a non-routable address times out, outer cancellation stays a cancellation, a loopback `HttpListener` connects |
 | `GiftlessRecipientTests` | bomb recipients whose bomb never arrives are reported once (through the real `HandleSubGiftNotif` bomb path, with a short `GiftlessWait`), and a bomb that did arrive isn't |
 | `SubscriptionMessageTests` | the `SubscriptionMessages.Build…Message` sentences (sub, resub, targeted gift, bomb, including the month separator, the bomb tier and the "and N other people" count, and the giftless chat line), `CommunityGiftSub` waiting (recipients before or after the count, and a timeout with a partial list), and `SweepOldBombs` |
-| `ConnectionHealthTests` | `ConnectionHealth`: band boundaries for both connections, dead equals the reconnect timeouts, and the tracker (silent without data, one line on going bad, none for wobble or Warn alone, one recovery line with the longest silence, the reconnect gap ignored) |
+| `ConnectionHealthTests` | `ConnectionHealth`: band boundaries for all three connections, dead equals the reconnect timeouts, and the tracker (silent without data, one line on going bad, none for wobble or Warn alone, one recovery line with the longest silence, the reconnect gap ignored) |
 | `EventSubLoopTests` | the real `TwitchEventSub.StartConnectionLoop` against a loopback fake of Twitch (WebSocket sessions plus the subscribe endpoint), through the `EventSubUrl` / `SubscriptionsUrl` / `RetryDelay` / `NotificationHandler` overrides: fresh session, planned reconnect, refused reconnect, a dropped connection (`ConnectionLost`, no `TES1`/`TES3`), 409 and 500 on subscribe. Events go to a capture, never the real handlers |
 | `EventSubReconnectTests` | `TwitchEventSub.ConnectToReconnectUrlAsync` and `DrainOldSocketAsync` against a scripted loopback server: welcome, 4007 close, no welcome, wrong first message, missing id, hung connect, cancellation; draining handles notifications and stops on close or the limit |
 | `IrcConnectTimeoutTests` | `TwitchIRCManager.ConnectOrTimeoutAsync`: a connect to a non-routable address times out, outer cancellation stays a cancellation, a loopback listener connects |
+| `StreamElementsLoopTests` | the real `StreamElementsSocket.StartConnectionLoop` against a loopback fake of Astro, through the `AstroUrl` / `Times` / `NotificationHandler` overrides and `Config.Data.StreamElements`: the subscribe frame (topic, room, token), acknowledgement and delivery, repeating probes, a refused probe keeping the session, `reconnect` resuming with its token once, `err_unauthorized` stopping for good, a refused subscribe retrying, silence and a server close reconnecting, a quiet cancel, and no window line carrying the JWT or reconnect token. Events go to a capture, never `Tips` |
+| `StreamElementsRetryTests` | `StreamElementsSocket.RetryDelay` doubling to its cap, and the default silence limit matching the health deadline |
+| `TipsTests` | `Tips.FormatAmount` (a dot under `nl-NL`), `Money`, `Sentence` with and without a message, `ChatLine`, `IsNew`, and `StreamElementsEventHandler.Redact` dropping only the email from StreamElements' documented payload. Never calls `Tips.Process`, which plays, posts and speaks |
 
 Fixtures live in `Fixtures/Colors/` and `Fixtures/ColorSchemes/`. Because the registries are static,
 test parallelism is off for the assembly; a test that loads other data must reload the fixtures in a

@@ -27,6 +27,8 @@ namespace StreamAssistant2 {
 			Helix,
 			EventSubNotification,
 			EventSubConfusion,
+			StreamElementsNotification,
+			StreamElementsConfusion,
 			AdNotification,
 			Important,
 			SceneChangesImportant,

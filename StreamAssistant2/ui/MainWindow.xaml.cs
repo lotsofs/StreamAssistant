@@ -26,6 +26,8 @@ namespace StreamAssistant2 {
 			[ConsoleLogger.ColorType.Helix] = MakeBrush("#44EEEE"),
 			[ConsoleLogger.ColorType.EventSubNotification] = MakeBrush("#4488EE"),
 			[ConsoleLogger.ColorType.EventSubConfusion] = MakeBrush("#88BBEE"),
+			[ConsoleLogger.ColorType.StreamElementsNotification] = MakeBrush("#44CC99"),
+			[ConsoleLogger.ColorType.StreamElementsConfusion] = MakeBrush("#99DDCC"),
 			[ConsoleLogger.ColorType.AdNotification] = MakeBrush("#0088EE"),
 			[ConsoleLogger.ColorType.Important] = MakeBrush("#EE44EE"),
 			[ConsoleLogger.ColorType.SceneChangesImportant] = MakeBrush("#EEBB88"),
@@ -69,6 +71,13 @@ namespace StreamAssistant2 {
 		void UpdateStatus() {
 			ShowAge(IrcAge, TwitchIRCManager.TimeSinceLastPing, ConnectionHealth.Irc);
 			ShowAge(EventSubAge, TwitchEventSub.KeepAliveTimer.Elapsed, ConnectionHealth.EventSub);
+			if (StreamElementsSocket.IsEnabled) {
+				ShowAge(StreamElementsAge, StreamElementsSocket.SinceLastMessage.Elapsed, ConnectionHealth.StreamElements);
+			}
+			else {
+				StreamElementsAge.Text = "off";
+				StreamElementsAge.Foreground = _statusHealthy;
+			}
 		}
 
 		/// <summary>

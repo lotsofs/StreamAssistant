@@ -10,7 +10,8 @@ namespace StreamAssistant2.Tests {
 				"nothing": null,
 				"sub": { "sub_tier": "2000", "duration_months": 3, "is_prime": true },
 				"ad": { "duration_seconds": "60", "is_automatic": "true" },
-				"bad": { "number": "lots", "flag": "maybe", "huge": 99999999999 }
+				"bad": { "number": "lots", "flag": "maybe", "huge": 99999999999 },
+				"money": { "amount": 4.2, "whole": 5, "text": "4.20", "comma": "4,20", "flag": true }
 			}
 			""").RootElement.Clone();
 
@@ -51,6 +52,27 @@ namespace StreamAssistant2.Tests {
 		public void ReadInt_GivesTheFallbackOtherwise(string path) {
 			Assert.Equal(-1, Json.ReadInt(path, -1));
 			Assert.Equal(0, Json.ReadInt(path));
+		}
+
+		[Fact]
+		public void ReadDecimal_ReadsNumbersAndDotStrings() {
+			Assert.Equal(4.2m, Json.ReadDecimal("money.amount"));
+			Assert.Equal(5m, Json.ReadDecimal("money.whole"));
+			Assert.Equal(4.20m, Json.ReadDecimal("money.text"));
+			Assert.Equal(3m, Json.ReadDecimal("sub.duration_months"));
+		}
+
+		// "4,20" is a Dutch-culture amount; strings are read with a dot only, whatever the machine's culture.
+		[Theory]
+		[InlineData("missing")]
+		[InlineData("nothing")]
+		[InlineData("sub")]
+		[InlineData("bad.number")]
+		[InlineData("money.comma")]
+		[InlineData("money.flag")]
+		public void ReadDecimal_GivesTheFallbackOtherwise(string path) {
+			Assert.Equal(-1m, Json.ReadDecimal(path, -1m));
+			Assert.Equal(0m, Json.ReadDecimal(path));
 		}
 
 		[Fact]

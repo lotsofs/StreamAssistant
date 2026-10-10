@@ -1,15 +1,21 @@
 namespace StreamAssistant2 {
 	internal static class GameBackground {
 		const string SOURCE = "Image: Background";
+		const string TEMPLATE = "Template";
 
 		/// <summary>
-		/// Shows the game's background image; a missing image leaves the current one. An OBS failure is logged, not thrown.
+		/// Shows the game's background image, else Template.png; with neither, leaves the current one. An OBS failure is logged, not thrown.
 		/// </summary>
 		internal static void Set(string gameName) {
-			string? background = PathFor(Config.Data.Directories.Backgrounds, gameName, File.Exists);
+			string directory = Config.Data.Directories.Backgrounds;
+			string? background = PathFor(directory, gameName, File.Exists);
 			if (background == null) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No background for {gameName}, left as is");
-				return;
+				background = PathFor(directory, TEMPLATE, File.Exists);
+				if (background == null) {
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No background for {gameName} and no {TEMPLATE}.png, left as is");
+					return;
+				}
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No background for {gameName}, using {TEMPLATE}.png");
 			}
 			try {
 				Obs.SetImageSource(SOURCE, background);

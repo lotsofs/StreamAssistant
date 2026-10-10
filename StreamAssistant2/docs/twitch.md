@@ -2,7 +2,7 @@
 
 How the bot talks to Twitch, with no SDK: two independent transports (IRC and EventSub), one small REST
 client (Helix), and the hand-rolled parsing on top. What the bot *does* with each event is in
-[events.md](events.md).
+[events.md](events.md). Tips come over a third connection, to StreamElements: [streamelements.md](streamelements.md).
 
 Read from the code; nothing here was run against Twitch.
 
@@ -303,7 +303,9 @@ loops) catch their own exceptions.
 ### The test harness
 
 `!test <script> [arguments]` (admin only) builds simulated EventSub events in code and feeds them to
-`TwitchEventHandler.Handle`, bypassing the socket. The scripts live in
+`TwitchEventHandler.Handle`, bypassing the socket. StreamElements events go the same way into
+`StreamElementsEventHandler.Handle` ([streamelements.md](streamelements.md#events)). A type starting `se.`
+(`se.channel.tips`) is routed there with the prefix stripped. The scripts live in
 [code/Twitch/TestEvents/](../code/Twitch/TestEvents/), and `TestEventRunner.Scripts` lists them:
 
 | Script | Arguments | Simulates |
@@ -313,11 +315,13 @@ loops) catch their own exceptions.
 | `gift` | `[tier <1-3>] [total <n>] [months <1-12>] [anon]` | a targeted `sub_gift` (`community_gift_id` null); `total` is the gifter's channel total |
 | `bomb` | `<gifts> [late] [missing <k>] [anon] [tier <1-3>]` | a gift bomb, below. `bomb 1` is a single random community gift, which Twitch sends as a bomb of one |
 | `cheer` | `<bits> [anon] [msg <text…>]` | a `channel.cheer` |
-| `replay` | `<file>` | a real EventSub event saved in `AssistantLogs\EventSubs\`, below |
+| `tip` | `<amount> [msg <text…>]` | a StreamElements `channel.tips` from `testtipper` in EUR, under a fresh `_id`; `amount` takes a dot (`4.20`), 0.01 to 100000 |
+| `replay` | `<file>` | a real EventSub or StreamElements event saved in `AssistantLogs\EventSubs\`, below |
 
 **Arguments** ([TestArgs.cs](../code/Twitch/TestEvents/TestArgs.cs)): required ones (`<…>`) come first.
 The optional ones follow either as keywords, in any order (`!test resub tier 2 gift msg hi`), or
 positionally in the order listed, with `true`/`false` for flags (`!test resub 20 5 2 false true hi`).
+Decimal arguments are written with a dot whatever the machine's culture.
 Positional is chosen when the first optional word is a boolean or a number; trailing values can be left
 off. A text argument takes the rest of the line. A bad argument logs the script's usage (both forms) on
 `EventSubConfusion` and sends nothing. A first word that isn't a script is treated as a replay file name; if no file matches either, the list of scripts is logged.
@@ -337,7 +341,9 @@ the way to rerun old, real data.
 - **File names carry the type.** A chat notification is `<notice_type>_<stamp>.log` (`resub_…`,
   `community_sub_gift_…`); anything else is `<EventSub type>_<stamp>.log` (`channel.cheer_…`,
   `channel.channel_points_custom_reward_redemption.add_…`, `channel.ad_break.begin_…`). Notice types
-  never contain a dot, so `TestReplay.TypeOf` tells them apart. The stamp is `yyyy-MM-dd HH-mm-ss.fff`.
+  never contain a dot, so `TestReplay.TypeOf` tells them apart. A StreamElements event is
+  `se.<topic>_<stamp>.log` (`se.channel.tips_…`), whose type then routes it to the StreamElements
+  handler. The stamp is `yyyy-MM-dd HH-mm-ss.fff`.
 - **Replays are guarded where they would touch real accounts.** From `!test` (`ProcessAdd(evt, isTest)`),
   a toilet flush plays its sound but writes no row; a toilet retrieve only reads and logs how many flushes
   it would return, with no Helix call, no delete and no chat line; a colour reward recolours the layout
@@ -352,12 +358,12 @@ the way to rerun old, real data.
 - Any bomb id is swapped for a fresh `replay-…` one, the same within a replay, so a replay never lands
   in a bomb `_giftBombs` already completed.
 
-**Test events don't write `EventSubs\`.** `Handle(type, evt, isTest: true)` skips the dump, so the
-folder holds only real events and replays don't duplicate themselves.
+**Test events don't write `EventSubs\`.** `Handle(type, evt, isTest: true)` skips the dump (on both
+handlers), so the folder holds only real events and replays don't duplicate themselves.
 
 Each run logs `Test <script>: <values>` on `EventSubNotification`, then sends its events 50 ms apart
 through `FireForget.Run`; a failure logs `Error TEV1`. **They run the real handlers**: sounds play, TTS
-speaks, and anything a handler posts to chat (`🎁` for a gifted resub) goes to
+speaks, and anything a handler posts to chat (`🎁` for a gifted resub, `💸` for a tip) goes to
 the live channel.
 
 To add a script: a `TestScript` (name, required and optional `TestArgs` parameters, and a pure `Build`

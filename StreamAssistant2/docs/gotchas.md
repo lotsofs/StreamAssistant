@@ -12,7 +12,9 @@ full explanation is. Skim this before making a change you think is small.
   ([twitch.md](twitch.md#the-test-harness))
 - **Each reconnect talks in chat** (`🟣 Connected`, `🟣 ES Connected`, `💥 ES Disconnected`). A flapping
   EventSub connection spams the channel every few seconds. Twitch's daily planned reconnect is silent
-  when it succeeds. ([twitch.md](twitch.md#planned-reconnects))
+  when it succeeds. ([twitch.md](twitch.md#planned-reconnects)) StreamElements posts `🟣 SE Connected` /
+  `💥 SE Disconnected` only on a real change, never once per retry.
+  ([streamelements.md](streamelements.md#session-lifecycle))
 - **The colour announcement is posted when the request is queued**, nine seconds per request ahead of it
   before anything changes, and also when OBS is closed and nothing will change.
   ([obs.md](obs.md#layout-recolouring))
@@ -23,7 +25,7 @@ full explanation is. Skim this before making a change you think is small.
 
 - **Start the bot from the thread pool, never from the UI thread.** WPF's synchronization context would
   otherwise swallow every fire-and-forget loop. ([architecture.md](architecture.md#startup-and-shutdown))
-- **Handlers run on the IRC and EventSub read loops.** Don't block in them; start async work and return.
+- **Handlers run on the IRC, EventSub and StreamElements read loops.** Don't block in them; start async work and return.
 - **Read EventSub fields with `ReadString`/`ReadInt`/`ReadBool`/`ReadElement`, not `GetProperty`.** Twitch sends `null` for
   absent values (an anonymous gifter's login and totals), which `GetInt32()` and friends throw on.
   ([architecture.md](architecture.md#codeutil))
@@ -43,6 +45,15 @@ full explanation is. Skim this before making a change you think is small.
 - **Tokens are never refreshed.** An expired one means reconnect loops every 3 s on both transports.
   ([twitch.md](twitch.md#credentials-and-identity))
 - **The IRC "ping age" is really time since *any* line.** ([twitch.md](twitch.md#irc))
+- **The StreamElements age is the bot's own probe, not StreamElements' keepalive.** Astro's pings are
+  WebSocket control frames that .NET 8 answers but never shows, so the bot re-subscribes every 30 s and
+  counts the replies. The reply is an *error*, `err_bad_request` / `already subscribed to topic`, which
+  means success. Don't treat it as a failure: that would spam the log and break resumed reconnects.
+  ([streamelements.md](streamelements.md#keepalive-the-probe))
+- **A StreamElements tip carries the tipper's email, and the name is free text.** The dump and log go
+  through `Redact`; the name goes through `LanguageFilter` before chat and TTS. ([events.md](events.md#tips))
+- **A refused StreamElements token stops that connection until restart** (`Error SES3`, then
+  `StreamElements stopped`); the rest of the bot carries on. ([streamelements.md](streamelements.md#session-lifecycle))
 - **IRC tags are ignored.** The bot knows nothing about badges, moderators or display names.
 - **`channel.follow` is subscribed but not handled**, so every follow logs a "not handled" line.
 - **`CheckForCommands` matches and then sends nothing**; the public FAQ commands are off.

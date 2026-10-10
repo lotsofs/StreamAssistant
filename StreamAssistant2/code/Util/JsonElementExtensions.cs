@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace StreamAssistant2 {
@@ -28,6 +29,16 @@ namespace StreamAssistant2 {
 			return value.ValueKind switch {
 				JsonValueKind.Number when value.TryGetInt32(out int n) => n,
 				JsonValueKind.String when int.TryParse(value.GetString(), out int n) => n,
+				_ => fallback,
+			};
+		}
+
+		/// <summary>A number, or a string holding one with a dot.</summary>
+		internal static decimal ReadDecimal(this JsonElement element, string path, decimal fallback = 0) {
+			JsonElement value = element.ReadElement(path);
+			return value.ValueKind switch {
+				JsonValueKind.Number when value.TryGetDecimal(out decimal d) => d,
+				JsonValueKind.String when decimal.TryParse(value.GetString(), NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal d) => d,
 				_ => fallback,
 			};
 		}

@@ -23,6 +23,12 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `TES3` | `TwitchEventSub.StartConnectionLoop` | The session ended without setting a reason, including every failed or timed-out connect (after `TES1: None`) | cleanup, reconnect |
 | `TES4` | `TwitchEventSub.ConnectToReconnectUrlAsync` | Connecting to `reconnect_url` or reading its welcome threw (timeout, refused, bad JSON) | fresh session on the default URL |
 | `TES5` | `TwitchEventSub.SwitchToReconnectUrl` | Draining the old socket after a successful reconnect threw | old socket closed, new session carries on |
+| `SES1` | `StreamElementsSocket.StartConnectionLoop` | The StreamElements session threw (connect failure or timeout included); the line ends with the exception type and message | cleanup, backoff 3–30 s, reconnect |
+| `SES2` | `StreamElementsSocket.CleanupSession` | Closing the socket threw | continues |
+| `SES3` | `StreamElementsSocket.HandleResponse` | StreamElements refused the subscribe: `refused the token` (`err_unauthorized`, the loop stops for good) or `subscribe failed: <error>` | restart the bot after fixing `secrets.json`, or backoff and reconnect |
+| `SES4` | `StreamElementsSocket.SubscribeAndProbeAsync` | Sending the subscribe or a probe threw while the socket was open | no more probes; the silence timeout ends the session |
+| `SEH1` | `StreamElementsEventHandler.Handle` | The dispatch itself threw synchronously | event dropped |
+| `SEH_t` | `FireForget.Run` (from `StreamElementsEventHandler.Handle`) | The tip handler threw (a missing sound file, say) | rest of that alert skipped |
 | `CHL1` | `ConnectionHealth.WatchAsync` | A connection-health check threw | next check a second later |
 | `TEH1` | `TwitchEventHandler.Handle` | The dispatch itself threw synchronously (not the handlers, which `Run` wraps) | event dropped |
 | `TEH_adb`, `TEH_cpcrra`, `TEH_c` | `FireForget.Run` (from `TwitchEventHandler.Handle`) | The ad-break, redemption or cheer handler threw, before or after its first `await`; the message names the event type | rest of that alert skipped |
@@ -59,6 +65,9 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `Subscription <type> failed` | a `400` from the subscribe POST: wrong version or missing condition |
 | `Unhandled channel point reward redemption id: <id>` | a reward the code has no case for |
 | `Event Sub Event happened, but is not handled in code: <type>` | a subscription with no `case`, e.g. `channel.follow` |
+| `StreamElements: no channelId or jwt in secrets.json, tips are off` | no `streamElements` credentials; the bot runs without tips |
+| `StreamElements stopped: fix streamElements in secrets.json and restart the bot` | StreamElements refused the JWT (after `Error SES3`) |
+| `Tip <id> already alerted, skipped` | the same tip arrived twice |
 | `Unhandled chat notice event` | a `channel.chat.notification` `notice_type` with no case |
 | `Trying to do an OBS action but not connected to OBS` | OBS is closed; the action was skipped |
 | `Color change request FAILED: <text>` | no colour matched; the points were refunded |
@@ -76,6 +85,7 @@ Single-user software, so these are constants in code rather than settings.
 | IRC host `irc.chat.twitch.tv:6667` | `TwitchIRCManager` |
 | EventSub `wss://eventsub.wss.twitch.tv/ws`; subscribe URL `https://api.twitch.tv/helix/eventsub/subscriptions` | `TwitchEventSub` |
 | Helix redemption URL `https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions` | `TwitchHelixApi` |
+| StreamElements Astro `wss://astro.streamelements.com`, topic `channel.tips` | `StreamElementsSocket` |
 | OBS `ws://127.0.0.1:4455` | `ObsConnection` |
 | Uptime `https://decapi.me/twitch/uptime/lotsofs` | `TwitchUptime` |
 | Admin logins `lotsofs`, `botsofs` | `ChatHandler.HandlePrivMsg` |
@@ -87,7 +97,8 @@ Single-user software, so these are constants in code rather than settings.
 |---|---|
 | `D:\Repositories\Stream-Resources\Alert Sounds\`, the only path not in `paths.json` | `Sound` |
 | Drive `A:\` (falls back to the first drive) | `DiskSpace` |
-| `AssistantLogs` and `AssistantLogs\EventSubs` under `BotOutput`, `streamAssistant.db` under `BotOutput` | `ConsoleLogger`, `TestReplay` (reads `EventSubs`), `Database` |
+| `Template.png` in `Backgrounds`, the background for a game without its own | `GameBackground` |
+| `AssistantLogs` and `AssistantLogs\EventSubs` under `BotOutput`, `streamAssistant.db` under `BotOutput` | `ConsoleLogger`, `TestReplay` (reads `EventSubs`, including StreamElements' `se.…` files), `Database` |
 
 ### Channel-point rewards
 
@@ -168,6 +179,12 @@ Every other input with audio (window captures for chat, S Keys, Winamp, LiveSpli
 | 10 s | `TwitchEventSub.ReconnectWelcomeTimeout` | longest wait for `session_welcome` on the `reconnect_url` socket |
 | 1 s | `TwitchEventSub.OldSocketDrainLimit` | how long the old socket is read for leftover events after a reconnect |
 | 2 s | `TwitchEventSub.CloseQuietlyAsync` | close handshake on the old socket |
+| 30 s | `StreamElementsSocket.Times.Probe` | the subscribe is re-sent this often; each reply proves the connection is alive |
+| 70 s | `StreamElementsSocket.SilenceTimeout` | no StreamElements message for this long ends the session (Astro's own pong deadline is also 70 s) |
+| 15 s | `StreamElementsSocket.ConnectTimeout` | longest wait for the StreamElements WebSocket connect |
+| 3 s doubling to 30 s | `StreamElementsSocket.Times.RetryBase` / `RetryCap` | pause before reconnecting after a failed session; none after a `reconnect` message |
+| 2 s | `StreamElementsSocket.CleanupSession` | sending the close frame on shutdown |
+| 6 s | `Tips` | let the anthem play before speaking |
 | 4.2 s | `Subscriptions` | let the tribal hymn finish before speaking |
 | 1 s | `HandleSubGiftNotif` | clap before the hymn |
 | 66 ms ×N, 3.8 s, 3 s | `HandleCommunitySubGiftNotif` | hymn per gift, then clap, then speech |
@@ -186,7 +203,7 @@ Every other input with audio (window captures for chat, S Keys, Winamp, LiveSpli
 | Value | Where |
 |---|---|
 | 2, 15, 100 GiB | `DiskSpace` spam, warn, notify |
-| 300 / 360 / 420 s and 12 / 15 / 20 s | `ConnectionHealth.Irc` / `.EventSub`: status colours and the health log (420 s and 20 s are the reconnect timeouts) |
+| 300 / 360 / 420 s, 12 / 15 / 20 s and 40 / 50 / 70 s | `ConnectionHealth.Irc` / `.EventSub` / `.StreamElements`: status colours and the health log (420 s, 20 s and 70 s are the reconnect timeouts) |
 | 5000 lines | `MainWindow.MAX_LINES` |
 | 32 tokens | `TripleColorParser.MAX_TOKENS` |
 
@@ -196,8 +213,9 @@ The bot's chat messages are prefixed with an emoji that says what kind they are.
 
 | Prefix | Meaning |
 |---|---|
-| 🟣 | a connection came up (`Connected`, `ES Connected`) |
-| 💥 | EventSub went down |
+| 🟣 | a connection came up (`Connected`, `ES Connected`, `SE Connected`) |
+| 💥 | EventSub or StreamElements went down |
+| 💸 | a tip |
 | 🍂 | shutdown |
 | 🎁 | a gifted resub |
 | 🪠 | the toilet rewards |

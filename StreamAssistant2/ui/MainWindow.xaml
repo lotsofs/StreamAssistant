@@ -11,6 +11,7 @@
 			<TextBlock Foreground="#F2F2F2">
 				<Run Text="Twitch IRC time since last ping: " /><Run x:Name="IrcAge" />
 				<Run Text="  |  Event Sub time since last keepalive: " /><Run x:Name="EventSubAge" />
+				<Run Text="  |  StreamElements time since last reply: " /><Run x:Name="StreamElementsAge" />
 			</TextBlock>
 		</Border>
 

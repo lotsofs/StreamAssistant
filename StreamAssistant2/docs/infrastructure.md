@@ -19,8 +19,10 @@ date, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
 2. Reads **`secrets.json`** from `Directories.BotInput`, which is outside this repository. If the file
    is missing, `Load()` copies the tracked `secrets.json.example` there and throws a
    `FileNotFoundException` telling the user to fill it in; `Main` shows that as a message box.
-3. Merges them into `Config.Data` (`Directories` from the first, `Obs`, `TwitchAuth`, `TwitchIds` from the
-   second).
+3. Merges them into `Config.Data` (`Directories` from the first, `Obs`, `TwitchAuth`, `TwitchIds`,
+   `StreamElements` from the second). `streamElements` holds `channelId` and `jwt` for tips
+   ([streamelements.md](streamelements.md#credentials)). A file without that block still loads; the
+   values are then empty and tips are off.
 
 `BotInput` also holds **`games.json`**, which isn't config: `Games.Load()` reads it later in startup
 ([architecture.md](architecture.md#codeobs)). A missing file only logs and turns per-game setup off.
@@ -30,8 +32,8 @@ JSON is read with `System.Text.Json` and `PropertyNameCaseInsensitive`, so `sock
 has no matching property and is never read.
 
 `Config.Data` starts as an empty `ConfigModel` before `Load`, which is what lets tests assign
-`Config.Data.Directories.Colors` directly. Never print or log anything from `Obs`, `TwitchAuth` or
-`TwitchIds`.
+`Config.Data.Directories.Colors` directly. Never print or log anything from `Obs`, `TwitchAuth`,
+`TwitchIds` or `StreamElements`.
 
 ## Logging
 
@@ -43,7 +45,7 @@ WPF window ([dashboard.md](dashboard.md)).
 | `ColoredLine(type, text)` | yes, timestamped | yes | everything a human should read |
 | `Line(text)` | yes | yes (`None`) | uncoloured lines |
 | `LogToFile(text, addTimestamp = false)` | yes | no | raw JSON payloads, exceptions |
-| `LogToEventSubFile(text, fileName)` | `AssistantLogs\EventSubs\<fileName>` (`EventSubDirectory`) | no | one file per real EventSub event, for `!test replay` |
+| `LogToEventSubFile(text, fileName)` | `AssistantLogs\EventSubs\<fileName>` (`EventSubDirectory`) | no | one file per real EventSub or StreamElements event, for `!test replay` |
 
 - **Location**: `<BotOutput>\AssistantLogs\<yyyy-MM-dd HHmmss>.log`, named for when the process first
   used the logger. Event dumps go in `AssistantLogs\EventSubs\`.
@@ -74,10 +76,12 @@ WPF window ([dashboard.md](dashboard.md)).
 | `ChatIncoming` | chat messages and unrecognised IRC lines |
 | `ChatOutgoing` | `> <message>` for each chat message the bot sends |
 | `Notification` | something succeeded or was accepted: flush recorded, a train or colour redemption fulfilled or refunded, TTS enqueued |
-| `ConnectionNotification` | `STARTED!`, `Data loaded`, `SHUTDOWN!`, EventSub and OBS connect lines |
+| `ConnectionNotification` | `STARTED!`, `Data loaded`, `SHUTDOWN!`, EventSub, StreamElements and OBS connect lines |
 | `Helix` | `HELIX> …` lines, one per Helix call, with the response code |
 | `EventSubNotification` | `notification: <type>`, session welcome, subscribe results |
 | `EventSubConfusion` | EventSub surprises (unhandled type, reconnect, unknown message) |
+| `StreamElementsNotification` | `SE notification: <topic>`, `StreamElements welcome`, `StreamElements subscribed to channel.tips`, each `Tip: …` |
+| `StreamElementsConfusion` | StreamElements surprises and session ends: `StreamElements session ended: …`, reconnect, close, connection lost, unhandled topic or message type, a repeated tip id |
 | `AdNotification` | ad start and end |
 | `Important` | warnings and drops the user should notice: colour data skipped, OBS unreachable, colour request failed, unexpected status codes |
 | `SceneChangesImportant` | the start of a scene change worth spotting: `Game setup: <name> (<id>)` |
@@ -151,7 +155,7 @@ Sounds\`. A missing file throws `FileNotFoundException` into the caller.
 | `TribalHymn` | `Tribal hymn.mp3` | 0.5 | all sub alerts |
 | `TheClap` | `theclap.mp3` | 0.4 | targeted gift subs, gift bombs |
 | `Team17Applauds` | `Team17-Applauds.mp3` | 0.75 | cheers |
-| `IndianAnthem` | `IndianAnthem.mp3` | 0.4 | only the commented-out donation code |
+| `IndianAnthem` | `IndianAnthem.mp3` | 0.4 | StreamElements tips |
 | `Flush` | `Flush.wav` | 0.4 | the flush reward |
 | `Warning` | `Warning.wav` | 0.6 | nothing yet |
 
@@ -248,7 +252,7 @@ Helix) how long the stream has been live.
 
 ## Connection health
 
-[ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs) holds the thresholds for the two connection ages
+[ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs) holds the thresholds for the three connection ages
 the dashboard shows, and logs when a connection goes stale. The thresholds are one table for both the
 window's colours and the log, and **dead is the reconnect timeout itself**:
 
@@ -256,8 +260,12 @@ window's colours and the log, and **dead is the reconnect timeout itself**:
 |---|---|---|---|---|
 | `Irc` | `TwitchIRCManager.TimeSinceLastPing` | 300 s | 360 s | `SilenceTimeout`, 420 s |
 | `EventSub` | `TwitchEventSub.KeepAliveTimer.Elapsed` | 12 s | 15 s | `KeepAliveTimeout`, 20 s |
+| `StreamElements` | `StreamElementsSocket.SinceLastMessage.Elapsed` | 40 s | 50 s | `SilenceTimeout`, 70 s |
 
-`ConnectionHealth.Start()` runs a loop that checks both every second (EventSub's bad band is only 5 s wide)
+StreamElements' age resets on each reply to the 30 s probe ([streamelements.md](streamelements.md#keepalive-the-probe)),
+so a healthy connection counts to about 30 s. Warn means one reply is late.
+
+`ConnectionHealth.Start()` runs a loop that checks all three every second (EventSub's bad band is only 5 s wide)
 through one `Tracker` per connection. A tracker logs:
 
 - once on entering **Bad** (or jumping straight to Dead), on `Important`:
@@ -268,6 +276,8 @@ through one `Tracker` per connection. A tracker logs:
 Nothing else: Warn alone is silent, a wobble between Warn and Bad doesn't repeat the line, and Dead adds
 nothing because the transport's own reconnect logs it (`Error TIRC2`, `EventSub session ended:
 KeepAliveTimeout`). Readings without data are ignored: before the first IRC line
-(`TwitchIRCManager.HasReceivedLine`) and while EventSub has no welcomed session (`TwitchEventSub.IsConnected`).
+(`TwitchIRCManager.HasReceivedLine`), while EventSub has no welcomed session (`TwitchEventSub.IsConnected`),
+and while StreamElements has no acknowledged subscribe (`StreamElementsSocket.IsConnected`, also false when
+tips are off).
 So startup is silent, and a degradation that ends in a reconnect still gets its recovery line once the new
 session is up. Nothing goes to chat. The tracker is pure and tested in `ConnectionHealthTests`.

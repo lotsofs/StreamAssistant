@@ -8,7 +8,7 @@ namespace StreamAssistant2 {
 	}
 
 	/// <summary>
-	/// "!test &lt;script&gt; ...": builds simulated EventSub events in code and feeds them to the real handlers.
+	/// "!test &lt;script&gt; ...": builds simulated EventSub and StreamElements events in code and feeds them to the real handlers.
 	/// </summary>
 	internal static class TestEventRunner {
 		const int DELAY_BETWEEN_MS = 50;
@@ -19,6 +19,7 @@ namespace StreamAssistant2 {
 			TestSubs.Gift,
 			TestGiftBomb.Script,
 			TestCheer.Script,
+			TestTip.Script,
 			TestReplay.Script,
 		];
 
@@ -55,8 +56,19 @@ namespace StreamAssistant2 {
 
 		static async Task SendAsync(List<TestEvent> events) {
 			foreach (TestEvent e in events) {
-				TwitchEventHandler.Handle(e.Type, e.Event, isTest: true);
+				Deliver(e);
 				await Task.Delay(DELAY_BETWEEN_MS);
+			}
+		}
+
+		// "se." types to the StreamElements handler, the rest to the EventSub one
+		static void Deliver(TestEvent e) {
+			string prefix = StreamElementsEventHandler.TYPE_PREFIX;
+			if (e.Type.StartsWith(prefix, StringComparison.Ordinal)) {
+				StreamElementsEventHandler.Handle(e.Type[prefix.Length..], e.Event, isTest: true);
+			}
+			else {
+				TwitchEventHandler.Handle(e.Type, e.Event, isTest: true);
 			}
 		}
 

@@ -3,10 +3,11 @@
 From July 2024 to June 2026 the bot was a helper for Streamer.Bot: Streamer.Bot received Twitch events and
 passed them in, and the bot answered through `MsgQueue` (see [legacy.md](legacy.md) for that history and
 the `MsgQueue` → current-API table). The June 2026 rewrite (`bb25c27`, "Work with Twitch API directly")
-rebuilt most of it on IRC and EventSub. This file lists what wasn't rebuilt, each with a checklist.
+rebuilt most of it on IRC and EventSub, and tips later moved to a direct StreamElements connection. This
+file lists what wasn't rebuilt, each with a checklist.
 
 Each item has a code and a row in [TODO.md](TODO.md), per the conventions there. Its steps are numbered
-through the whole section, alternative plans included, so `TIP 4` names one step. Tick a box when it's
+through the whole section, alternative plans included, so `FAQ 4` names one step. Tick a box when it's
 done; when all of an item's boxes are ticked (or it's dropped), delete its section here and its row there.
 Delete this file once it's empty.
 
@@ -20,7 +21,8 @@ For orientation, so nothing below is mistaken for missing: subs, resubs, gift su
 (`ChannelPoints`, now a SQLite table instead of `Flushes.json`), the ad warnings (`Ads`, now scheduled
 after each ad break instead of from Streamer.Bot's upcoming-ad event), the disk-space chat and TTS alerts
 (`DiskSpace`, minus the sound), the uptime fetch (`TwitchUptime`, minus the OBS text), the colour admin
-commands, sounds, TTS and the language filter.
+commands, sounds, TTS and the language filter. Tips (`Tips`, minus money) now come straight from
+StreamElements instead of through Streamer.Bot ([streamelements.md](streamelements.md)).
 
 ## Root folder: old and new files
 
@@ -52,7 +54,6 @@ The root still holds files from both eras; new files go under `code/<Area>/` (se
 
 | File | Since | Notes |
 |---|---|---|
-| `Donations.cs` | 2024 | entirely commented; see [TIP](#tip--tips) |
 | `LeftPanel.cs` | 2024 | entirely commented scaffolding; see [LFP](#lfp--left-panel-and-stoppaneltimer) |
 | `Money.cs` | 2024 | compiled, no live reader or writer; see [MNY](#mny--money-tracking) |
 | `ISaveable.cs` | 2018 | compiled, nothing implements it; the WinForms settings save that used it is gone. Nothing to port |
@@ -186,35 +187,10 @@ the use.
 2. [ ] Remove `Money` from legacy.md (the unused table, the Cheers section, the money sentence in the Subscriptions section)
 
 **Plan if kept:** a `money` table in `Database` holding the total, `Money.Credit(amount, reason)` called
-from `Cheers` and `Subscriptions` (and from tips, if TIP is built), and a display (a new OBS text source
+from `Cheers`, `Subscriptions` and `Tips`, and a display (a new OBS text source
 through `Obs.SetInputSetting`, or a dashboard panel). Plan the details then.
 
 **Verify (drop):** the build stays clean, 0 warnings.
-
-### TIP — Tips
-
-**Was:** `Donations.cs`. A StreamElements tip played `IndianAnthem`, credited `Money`, and spoke `<user>
-donated <amount> <currency>: <message>` six seconds later. Tips came through Streamer.Bot's
-StreamElements integration.
-**Now:** Twitch has no tip event, so nothing feeds the bot.
-
-**Decide:** are tips still taken through StreamElements? If not, drop.
-
-**Plan if dropped:**
-1. [ ] Delete `Donations.cs`; keep or delete the `IndianAnthem` sound, which nothing else uses
-2. [ ] Remove the Donations section from legacy.md
-
-**Plan if kept:**
-3. [ ] A third transport, `code/StreamElements/StreamElementsSocket.cs`, on StreamElements' realtime WebSocket. Check their current API docs first (the newer Astro gateway or the older socket.io one); this plan hasn't verified either
-4. [ ] The channel's JWT in `secrets.json` (a new `streamElements` block, also in `.example`); never logged
-5. [ ] Written like `TwitchEventSub`: reconnect loop, keepalive timeout, exit reasons, and a dashboard age if it fits
-6. [ ] `Tips.Handle`: sound, then 6 s later TTS of `<user> donated <amount> <currency>: <message>` through `LanguageFilter`
-7. [ ] `!test tip <user> <amount> [message]`
-
-**Verify (kept):** StreamElements' dashboard can send a test tip.
-
-**Docs (kept):** a transport section in [twitch.md](twitch.md) or a new doc; [events.md](events.md);
-[architecture.md](architecture.md) (startup, threads); CLAUDE.md.
 
 ### LFP — Left panel and `!stoppaneltimer`
 

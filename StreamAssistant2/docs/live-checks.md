@@ -39,7 +39,7 @@ needs a real title edit.
 17. [ ] Changing category posts `Stream category change from <old> to <new>`
 18. [ ] … and switches background, colour and capture sources
 19. [ ] Editing only the title does nothing
-20. [ ] A category not in `games.json`: `No background for None, left as is`, the `none` colour scheme applies, one `→ none, hidden:` line listing all three kinds with slots `0, 1, 2`
+20. [ ] A category not in `games.json`: `No background for None, using Template.png`, then `Image: Background → Template.png`, the `none` colour scheme applies, one `→ none, hidden:` line listing all three kinds with slots `0, 1, 2`
 21. [ ] Ready or Not: `No colour scheme for RoN, colour left as is`
 22. [ ] A missing or misnamed source logs `Couldn't set <source>: …` and the rest still apply (also try it with `Image: Background` renamed: colour and captures must still change)
 
@@ -74,3 +74,21 @@ needs a real title edit.
 ## EventSub
 
 36. [ ] After a Twitch connection reset (most days, no need to cause one), the log shows `EventSub connection lost (ConnectionClosedPrematurely): An existing connection was forcibly closed by the remote host.`, then `EventSub session ended: ConnectionLost (socket Aborted, close none)` and a fresh session, with no `Error TES1` or `Error TES3`
+
+## Tips (StreamElements)
+
+First add a `streamElements` block to `Bot Input\secrets.json`, with `channelId` and `jwt` from the
+StreamElements dashboard: avatar → the channel → *Show secrets*, copied while switched to the Twitch
+account. The shape is in `secrets.json.example`.
+
+37. [ ] Before adding it, F5: the log shows `StreamElements: no channelId or jwt in secrets.json, tips are off`, the status bar's third segment shows `off`, and everything else starts as normal
+38. [x] With it, F5: the log shows `Connecting to wss://astro.streamelements.com`, `StreamElements welcome`, `StreamElements subscribed to channel.tips` (teal), and chat shows `🟣 SE Connected` (2026-10-10 run)
+39. [x] **The probe gets replies:** every probe was answered (`err_bad_request` / `already subscribed to topic`) and no session hit `SilenceTimeout` in 45 minutes (2026-10-10 run)
+40. [x] No `Error SES…` lines; in particular no `Error SES3: StreamElements refused the token` (2026-10-10 run)
+41. [ ] `!test tip 4.20 msg hello there`: the anthem plays, chat shows `💸 testtipper tipped 4.20 EUR 💸`, and about 6 s later TTS says "testtipper donated 4.20 EUR: hello there"
+42. [ ] Emulate a tip from the StreamElements activity feed: note whether `SE notification: channel.tips` appears at all (the docs don't say whether emulated tips reach this topic)
+43. [ ] The first real tip: alerted once, dumped as `AssistantLogs\EventSubs\se.channel.tips_<stamp>.log` with no `email` in it, and the `Tip: …` line shows its `status` and `approved`. Note those values here, and whether a moderated tip arrives twice (the second would log `already alerted, skipped`)
+44. [ ] `!test replay se.channel.tips_<that stamp>` replays it
+45. [ ] Closing the bot (the window, not the debugger) posts no `💥 SE Disconnected`
+46. [ ] The log file no longer has a `StreamElements probe-N: err_bad_request already subscribed to topic` line every 30 s, and `StreamElements subscribed to channel.tips` appears once per session
+47. [ ] A StreamElements `reconnect`, if one is ever seen (`StreamElements sent reconnect`): `Connecting to wss://astro.streamelements.com (resuming)`, then `StreamElements subscribed to channel.tips`, with no `Error SES3` and neither chat line

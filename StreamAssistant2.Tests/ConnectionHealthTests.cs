@@ -28,10 +28,24 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal((Band)expected, ConnectionHealth.Irc.Classify(S(seconds)));
 		}
 
+		// A healthy StreamElements connection counts up to the 30 s probe and resets.
+		[Theory]
+		[InlineData(30, (int)Band.Healthy)]
+		[InlineData(40, (int)Band.Healthy)]
+		[InlineData(40.1, (int)Band.Warn)]
+		[InlineData(50, (int)Band.Warn)]
+		[InlineData(50.1, (int)Band.Bad)]
+		[InlineData(70, (int)Band.Bad)]
+		[InlineData(70.1, (int)Band.Dead)]
+		public void StreamElements_Classify(double seconds, int expected) {
+			Assert.Equal((Band)expected, ConnectionHealth.StreamElements.Classify(S(seconds)));
+		}
+
 		[Fact]
 		public void Dead_IsTheReconnectTimeout() {
 			Assert.Equal(TwitchIRCManager.SilenceTimeout, ConnectionHealth.Irc.Dead);
 			Assert.Equal(TwitchEventSub.KeepAliveTimeout, ConnectionHealth.EventSub.Dead);
+			Assert.Equal(StreamElementsSocket.SilenceTimeout, ConnectionHealth.StreamElements.Dead);
 		}
 
 		[Fact]

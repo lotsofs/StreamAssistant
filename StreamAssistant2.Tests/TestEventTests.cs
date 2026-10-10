@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Xunit;
 using static StreamAssistant2.TestArgs;
@@ -73,6 +74,29 @@ namespace StreamAssistant2.Tests {
 			Values v = TestArgs.Parse("2 true", [], [new IntParam("tier", 1, 1, 3), new BoolParam("prime")])!;
 			Assert.Equal(2, v.Int("tier"));
 			Assert.True(v.Bool("prime"));
+		}
+
+		[Fact]
+		public void Decimal_ReadsADotWhateverTheCulture() {
+			CultureInfo saved = CultureInfo.CurrentCulture;
+			try {
+				CultureInfo.CurrentCulture = new CultureInfo("nl-NL");
+				Values v = TestArgs.Parse("4.20", [new DecimalParam("amount", 5m, 0.01m, 100m)], [])!;
+				Assert.Equal(4.20m, v.Decimal("amount"));
+			}
+			finally {
+				CultureInfo.CurrentCulture = saved;
+			}
+		}
+
+		[Fact]
+		public void Decimal_Optional_DefaultKeywordAndPositional() {
+			Param[] optional = [new DecimalParam("amount", 5m, 0m, 100m), new TextParam("msg")];
+			Assert.Equal(5m, TestArgs.Parse("", [], optional)!.Decimal("amount"));
+			Assert.Equal(7m, TestArgs.Parse("amount 7", [], optional)!.Decimal("amount"));
+			Values v = TestArgs.Parse("2.5 hi there", [], optional)!;
+			Assert.Equal(2.5m, v.Decimal("amount"));
+			Assert.Equal("hi there", v.Text("msg"));
 		}
 
 		[Fact]
@@ -158,6 +182,39 @@ namespace StreamAssistant2.Tests {
 			JsonElement e = Single(TestCheer.Script, "100 anon");
 			Assert.True(e.GetProperty("is_anonymous").GetBoolean());
 			Assert.Equal("", e.GetProperty("message").GetString());
+		}
+
+		[Fact]
+		public void Tip_ShapedLikeAStreamElementsTip() {
+			List<TestEvent> events = Build(TestTip.Script, "4.20 msg hello there");
+			Assert.Single(events);
+			Assert.Equal("se.channel.tips", events[0].Type);
+			JsonElement e = events[0].Event;
+			Assert.Equal(4.20m, e.ReadDecimal("donation.amount"));
+			Assert.Equal("hello there", e.ReadString("donation.message"));
+			Assert.Equal("testtipper", e.ReadString("donation.user.username"));
+			Assert.Equal("EUR", e.ReadString("donation.currency"));
+			Assert.Equal("success", e.ReadString("status"));
+			Assert.Equal("allowed", e.ReadString("approved"));
+		}
+
+		// A repeated id would be skipped by Tips.IsNew, so each run needs its own.
+		[Fact]
+		public void Tip_FreshIdPerBuild() {
+			string id = Single(TestTip.Script, "5").ReadString("_id");
+			Assert.NotEqual("", id);
+			Assert.NotEqual(id, Single(TestTip.Script, "5").ReadString("_id"));
+		}
+
+		[Theory]
+		[InlineData("")]
+		[InlineData("0")]
+		[InlineData("-1")]
+		[InlineData("4,20")]
+		[InlineData("100001")]
+		[InlineData("lots")]
+		public void Tip_RejectsBadAmounts(string argument) {
+			Assert.Null(TestArgs.Parse(argument, TestTip.Script.Required, TestTip.Script.Optional));
 		}
 
 		[Fact]
