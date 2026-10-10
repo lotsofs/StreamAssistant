@@ -70,3 +70,7 @@ needs a real title edit.
 
 34. [ ] After a game change, a shown source's volume slider in OBS sits at its slot's dB, or at the `default` (−4 dB) when the slot sets none
 35. [ ] A slot with its own `"Volume"` (e.g. `{ "Exe": "…", "Volume": -10 }`) gets exactly that, and a hidden slot's volume is left alone
+
+## EventSub
+
+36. [ ] After a Twitch connection reset (most days, no need to cause one), the log shows `EventSub connection lost (ConnectionClosedPrematurely): An existing connection was forcibly closed by the remote host.`, then `EventSub session ended: ConnectionLost (socket Aborted, close none)` and a fresh session, with no `Error TES1` or `Error TES3`

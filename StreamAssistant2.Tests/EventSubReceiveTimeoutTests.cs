@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Security.Cryptography;
 using System.Text;
 using Xunit;
 using Reason = StreamAssistant2.TwitchEventSub.SessionExitReason;
@@ -47,6 +48,72 @@ namespace StreamAssistant2.Tests {
 				Client.Dispose();
 				Server.Dispose();
 				_listener.Close();
+			}
+		}
+
+		// A WebSocket over raw TCP, so the server can drop the connection without a Close frame
+		sealed class RawLoopback : IDisposable {
+			readonly TcpListener _listener;
+			readonly TcpClient _server;
+			public readonly ClientWebSocket Client;
+
+			RawLoopback(TcpListener listener, TcpClient server, ClientWebSocket client) {
+				_listener = listener;
+				_server = server;
+				Client = client;
+			}
+
+			public static async Task<RawLoopback> OpenAsync() {
+				var listener = new TcpListener(IPAddress.Loopback, 0);
+				listener.Start();
+				int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+				var accept = Task.Run(async () => {
+					var tcp = await listener.AcceptTcpClientAsync();
+					var stream = tcp.GetStream();
+					string key = ReadKey(await ReadHeadersAsync(stream));
+					string hash = Convert.ToBase64String(SHA1.HashData(Encoding.ASCII.GetBytes(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
+					await stream.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {hash}\r\n\r\n"));
+					return tcp;
+				});
+				var client = new ClientWebSocket();
+				await client.ConnectAsync(new Uri($"ws://127.0.0.1:{port}/"), CancellationToken.None);
+				return new RawLoopback(listener, await accept, client);
+			}
+
+			static async Task<string> ReadHeadersAsync(NetworkStream stream) {
+				var sb = new StringBuilder();
+				var one = new byte[1];
+				while (sb.Length < 4 || sb.ToString(sb.Length - 4, 4) != "\r\n\r\n") {
+					if (await stream.ReadAsync(one) == 0) {
+						throw new IOException("Handshake cut short");
+					}
+					sb.Append((char)one[0]);
+				}
+				return sb.ToString();
+			}
+
+			static string ReadKey(string headers) {
+				const string name = "Sec-WebSocket-Key:";
+				string line = headers.Split("\r\n").First(l => l.StartsWith(name, StringComparison.OrdinalIgnoreCase));
+				return line.Substring(name.Length).Trim();
+			}
+
+			// TCP reset
+			public void Reset() {
+				_server.Client.LingerState = new LingerOption(true, 0);
+				_server.Close();
+			}
+
+			// TCP close, no Close frame
+			public void Drop() {
+				_server.Close();
+			}
+
+			public void Dispose() {
+				Client.Dispose();
+				_server.Dispose();
+				_listener.Stop();
 			}
 		}
 
@@ -115,6 +182,24 @@ namespace StreamAssistant2.Tests {
 			lb.Client.Abort();
 			var (_, reason) = await TwitchEventSub.ReceiveFullMessage(lb.Client, Stopwatch.StartNew(), TimeSpan.FromSeconds(5), CancellationToken.None);
 			Assert.Equal(Reason.SocketDied, reason);
+		}
+
+		[Fact]
+		public async Task ServerResets_ReturnsConnectionLost() {
+			using var lb = await RawLoopback.OpenAsync();
+			lb.Reset();
+			var (json, reason) = await TwitchEventSub.ReceiveFullMessage(lb.Client, Stopwatch.StartNew(), TimeSpan.FromSeconds(5), CancellationToken.None);
+			Assert.Equal(Reason.ConnectionLost, reason);
+			Assert.Equal("", json);
+		}
+
+		[Fact]
+		public async Task ServerDropsWithoutClose_ReturnsConnectionLost() {
+			using var lb = await RawLoopback.OpenAsync();
+			lb.Drop();
+			var (json, reason) = await TwitchEventSub.ReceiveFullMessage(lb.Client, Stopwatch.StartNew(), TimeSpan.FromSeconds(5), CancellationToken.None);
+			Assert.Equal(Reason.ConnectionLost, reason);
+			Assert.Equal("", json);
 		}
 
 		[Fact]

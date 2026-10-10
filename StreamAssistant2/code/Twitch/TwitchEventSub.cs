@@ -16,6 +16,7 @@ namespace StreamAssistant2 {
 			CancelRequested,
 			SocketClosed,
 			SocketDied,
+			ConnectionLost,
 		}
 		
 		static readonly bool IS_TEST = false;
@@ -275,7 +276,7 @@ namespace StreamAssistant2 {
 		}
 
 		// Reason is None when a whole message arrived. Gives up with KeepAliveTimeout once keepAlive passes timeout;
-		// a timed-out receive aborts the socket. Cancelling token throws.
+		// a timed-out receive aborts the socket. A dropped connection returns ConnectionLost. Cancelling token throws.
 		internal static async Task<(string Json, SessionExitReason Reason)> ReceiveFullMessage(WebSocket socket, Stopwatch keepAlive, TimeSpan timeout, CancellationToken token) {
 			var buffer = new byte[8192];
 			var sb = new StringBuilder();
@@ -297,6 +298,10 @@ namespace StreamAssistant2 {
 					}
 					catch (OperationCanceledException) when (!token.IsCancellationRequested) {
 						return ("", SessionExitReason.KeepAliveTimeout);
+					}
+					catch (WebSocketException ex) {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"EventSub connection lost ({ex.WebSocketErrorCode}): {ex.GetBaseException().Message}");
+						return ("", SessionExitReason.ConnectionLost);
 					}
 				}
 				if (result.MessageType == WebSocketMessageType.Close) {

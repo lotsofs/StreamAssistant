@@ -76,7 +76,7 @@ subscriptions carrying over. It is not proof: no event has arrived on a reconnec
 
 **Why waiting hasn't worked:** the reconnect comes at about 19:10 to 19:40, off-stream, when nothing
 happens on the channel. Neither reconnected session saw a single notification. Both ended in a Twitch
-connection reset (see [RST](#rst--eventsub-connection-reset-logged-as-an-unknown-error)): 10-08 after 65 min,
+connection reset (now logged as `ConnectionLost`, see [twitch.md § Session lifecycle](twitch.md#session-lifecycle)): 10-08 after 65 min,
 10-09 after 2 h 07 min. Each was followed by a fresh session and a full resubscribe.
 
 **Next check (owner):** after the next `EventSub reconnected` line, and before that session ends, change the
@@ -88,38 +88,6 @@ on a fresh session does save one; if it does, the reconnect lost the subscriptio
 
 **Docs when done:** delete this section and the TODO row; drop the "not yet seen working" sentence in
 [twitch.md § Planned reconnects](twitch.md#planned-reconnects).
-
-## RST — EventSub connection reset logged as an unknown error
-
-**Reproduced 2026-10-08, 20:17:** Twitch dropped the EventSub connection without a Close frame ("An existing
-connection was forcibly closed by the remote host", `SocketException 10054`). `socket.ReceiveAsync` in
-`ReceiveFullMessage` threw a `WebSocketException`. Nothing catches it there, so it reached the generic catch
-in `StartConnectionLoop` with no reason set, and the log showed `Error TES1: None` (stack trace to the file),
-`Error TES3` and `EventSub session ended: None (socket Aborted, close none)`. Recovery was correct: a
-fresh session and full resubscribe 4 s later. Only the logging is wrong: a normal drop is logged as two
-unexplained errors.
-
-**Proposed fix (shelved):** catch `WebSocketException` around `ReceiveAsync` in `ReceiveFullMessage`, log
-its message on `EventSubConfusion` (`EventSub connection lost: …`), and return `SocketDied`. Other
-exceptions keep the `TES1`/`TES3` path. Alternative: a separate `ConnectionReset` reason. Add a loopback test
-in `EventSubReceiveTimeoutTests` where the fake server resets the connection.
-
-**Shelved by the owner to gather more data:** how often resets happen and whether they show other
-exception types or messages, so the fix covers what actually arrives. To find them, search the logs for
-`Error TES1: None` and check each exception in the file log.
-
-**Data so far (to 2026-10-10):** five resets since this item was opened: 10-08 20:17, 10-09 04:30, 05:08 and
-21:24, and 10-10 08:31. All five had the same exception chain, thrown from `ReceiveAsync` in
-`ReceiveFullMessage`: `WebSocketException` "The remote party closed the WebSocket connection without
-completing the close handshake" ← `IOException` ← `SocketException 10054`. Each one recovered with a fresh
-session 3 to 4 s later. The logs back to May (earlier code) show about 200 `TES1: None` resets, all with
-that same `WebSocketException` message. The other common `TES1: None` there is
-`WebSocketException: Unable to connect to the remote server`. That comes from a failed *connect* (the network
-was down) rather than a reset, so the proposed fix wouldn't change it.
-
-**Docs when done:** the `SocketDied` row and the lifecycle steps in [twitch.md](twitch.md), `TES1`/`TES3`
-in [reference.md](reference.md), the throw path in [eventsub-flow.md](eventsub-flow.md); delete this
-section and the TODO row.
 
 ## DCD — Connection timeouts unverified live
 

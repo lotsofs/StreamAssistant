@@ -18,7 +18,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `TIRC2` | `TwitchIRCManager.ListenLoop` | IRC connection lost (always followed by `1`) | rethrows to the loop |
 | `TIRC3` | `FireForget.Run` (from `TwitchIRCManager.SendMessage`) | Writing a chat message failed | message dropped |
 | `7` | `ChatHandler.ProcessMessage` | A raw IRC line couldn't be parsed, **or** a command handler threw synchronously (including the colour commands) | line dropped |
-| `TES1` | `TwitchEventSub.StartConnectionLoop` | The EventSub session ended with an exception; suffix is the `SessionExitReason` | cleanup, 3 s, reconnect |
+| `TES1` | `TwitchEventSub.StartConnectionLoop` | The EventSub session ended with an exception; suffix is the `SessionExitReason`. A dropped connection doesn't land here: it ends as `ConnectionLost` | cleanup, 3 s, reconnect |
 | `TES2` | `TwitchEventSub.CleanupSession` | Closing the old socket threw | continues |
 | `TES3` | `TwitchEventSub.StartConnectionLoop` | The session ended without setting a reason, including every failed or timed-out connect (after `TES1: None`) | cleanup, reconnect |
 | `TES4` | `TwitchEventSub.ConnectToReconnectUrlAsync` | Connecting to `reconnect_url` or reading its welcome threw (timeout, refused, bad JSON) | fresh session on the default URL |

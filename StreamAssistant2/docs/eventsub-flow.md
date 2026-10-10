@@ -50,7 +50,7 @@ flowchart TD
     alive -- yes --> ka{"KeepAliveTimer > KeepAliveTimeout (20 s)?"}
     ka -- yes --> kat(["exit: KeepAliveTimeout"]):::exit
     ka -- no --> recv[["ReceiveFullMessage(_socket, KeepAliveTimer, 20 s)"]]
-    recv -- "reason ≠ None:<br/>KeepAliveTimeout, SocketClosed, SocketDied" --> rexit(["exit with that reason"]):::exit
+    recv -- "reason ≠ None:<br/>KeepAliveTimeout, SocketClosed, SocketDied, ConnectionLost" --> rexit(["exit with that reason"]):::exit
     recv -- whole message --> parse["parse JSON, read metadata.message_type"]
     parse --> mtype{"message type"}
 
@@ -134,7 +134,7 @@ flowchart TD
 flowchart TD
     mk["new ClientWebSocket<br/>log: Connecting to url"] --> conn["ConnectOrTimeoutAsync (≤ connectTimeout)"]
     conn --> first[["ReceiveFullMessage(socket, fresh stopwatch, welcomeTimeout)"]]
-    first -- "reason ≠ None, e.g. 4007 close" --> nowel["log: EventSub reconnect: no welcome (reason)"] --> fail
+    first -- "reason ≠ None, e.g. 4007 close or a dropped connection" --> nowel["log: EventSub reconnect: no welcome (reason)"] --> fail
     first -- message --> isw{"session_welcome with a session id?"}
     isw -- yes --> ok(["return socket + id"])
     isw -- no --> wrong["log: expected a session_welcome with an id, got type<br/>message to the file log"] --> fail
@@ -151,7 +151,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     sw["start a stopwatch"] --> r[["ReceiveFullMessage(old, stopwatch, limit)"]]
-    r -- "reason ≠ None: closed, died or limit reached" --> done(["return count"])
+    r -- "reason ≠ None: closed, dropped, died or limit reached" --> done(["return count"])
     r -- message --> isn{"notification?"}
     isn -- yes --> h["onNotification(root), count++"] --> r
     isn -- no --> r
@@ -172,6 +172,7 @@ flowchart TD
     rem -- yes --> rx["ReceiveAsync, cancelled after remaining"]
     rx -.->|"cancelled by the timer"| to2(["return KeepAliveTimeout<br/>(socket is aborted)"])
     rx -.->|"outer token cancelled"| thr(["throw OperationCanceledException"])
+    rx -.->|"WebSocketException:<br/>dropped without a Close frame"| lost["log: EventSub connection lost (error): message"] --> lostr(["return ConnectionLost"])
     rx --> isclose{"Close frame?"}
     isclose -- yes --> logc["log: EventSub closed the socket: code description"] --> closed(["return SocketClosed"])
     isclose -- no --> append["append frame text"]

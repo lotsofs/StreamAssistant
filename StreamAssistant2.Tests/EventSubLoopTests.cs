@@ -210,6 +210,20 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public async Task ConnectionDropped_StartsFreshSessionWithoutErrors() {
+			var dropped = await StartSessionAsync("s1");
+			dropped.Abort();
+
+			var fresh = await _twitch.NextSocketAsync(Wait);
+			await SendAsync(fresh, Welcome("s2"));
+			await WaitForPostsAsync(2 * SubscriptionCount);
+
+			Assert.Contains(Log, l => l.Contains("EventSub session ended: ConnectionLost"));
+			Assert.DoesNotContain(Log, l => l.Contains("Error TES1"));
+			Assert.DoesNotContain(Log, l => l.Contains("Error TES3"));
+		}
+
+		[Fact]
 		public async Task Subscribe409_IsNotAFailure() {
 			_twitch.SubscribeStatus = 409;
 			var ws = await StartSessionAsync("s1");

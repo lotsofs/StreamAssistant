@@ -22,11 +22,10 @@ Detail and a plan for each: [robustness-fixes.md](robustness-fixes.md), except L
 
 | Code | Area | Summary | Severity |
 |---|---|---|---|
-| [LIV](live-checks.md) | All | Owner's checklist of built-and-unit-tested behaviour not yet seen live: OBS capture-source setup, per-game setup on boot, category change and stream start, chatter reset and greeting, train overlap and refund, gift bombs without `💣` | Medium |
+| [LIV](live-checks.md) | All | Owner's checklist of built-and-unit-tested behaviour not yet seen live: OBS capture-source setup, per-game setup on boot, category change and stream start, chatter reset and greeting, train overlap and refund, gift bombs without `💣`, EventSub reset logging | Medium |
 | [TRS](robustness-fixes.md#trs--train-left-on-screen-after-the-bot-closes-mid-train) | OBS | Closing the bot while a train is showing leaves `Image: Train` visible for good (seen by the owner); hide and reset it when the bot next connects to OBS | Medium |
 | [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` now succeeds live (no `4007`, no resubscribe, same session ID kept; reproduced 2026-10-08 and 10-09). Left: see an event delivered on a reconnected session, proving the subscriptions carried over (owner: change the stream title after the next reconnect) | Low |
 | [DCD](robustness-fixes.md#dcd--connection-timeouts-unverified-live) | Twitch | IRC and EventSub now time out silent connections and hung connects; unit-tested. The EventSub keepalive timeout has been seen live (2026-10-09); the IRC silence timeout and both connect timeouts are still to be verified with a firewall block (owner, off-stream) | Low |
-| [RST](robustness-fixes.md#rst--eventsub-connection-reset-logged-as-an-unknown-error) | Twitch | A TCP reset from Twitch ends the EventSub session as `Error TES1: None` + `TES3` with reason `None` instead of a named reason (reproduced 2026-10-08, four more by 10-10, all the same exception). Shelved while more drops are collected | Low |
 | [BOT](robustness-fixes.md#bot--chat-as-the-bot-account-not-lotsofs) | Twitch | The bot logs into IRC as `lotsofs` with the broadcaster's token; give chat its own bot-account token and login, keeping the broadcaster token for EventSub and Helix | Low |
 | [SOE](robustness-fixes.md#soe--log-twitch-stream-online-and-offline) | Twitch | Nothing logs Twitch's own stream online/offline events; subscribe `stream.online` and `stream.offline` and log them | Low |
 

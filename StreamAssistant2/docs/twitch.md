@@ -159,7 +159,8 @@ Four `internal static` fields exist only so tests can run the real loop against 
    `Error TES1: None` followed by `Error TES3`
 3. `ListenLoop` until something sets an exit reason
 4. exceptions log `Error TES1: <reason>` plus the exception to the file; a loop that ends without a
-   reason logs `Error TES3`. Every exit then logs `EventSub session ended: <reason> (socket <state>,
+   reason logs `Error TES3`. A dropped connection is not an exception here: it ends the loop with
+   `ConnectionLost`. Every exit then logs `EventSub session ended: <reason> (socket <state>,
    close <code> <name> "<description>")` on `EventSubConfusion`
 5. `CleanupSession`: a graceful close handshake only when the reason is `CancelRequested`, otherwise
    `Abort()`; then `_sessionId` cleared and the stopwatch restarted (`Error TES2` if cleanup throws)
@@ -212,7 +213,11 @@ tested on its own (`EventSubReceiveTimeoutTests`).
 
 `SessionExitReason` says why a session ended, and the `EventSub session ended` line reports it for every
 exit. When a Close frame arrives, `ReceiveFullMessage` also logs `EventSub closed the socket:` with the
-close code and description (Twitch uses 4xxx codes to say why):
+close code and description (Twitch uses 4xxx codes to say why). When the connection drops without one,
+`ReceiveAsync` throws a `WebSocketException`; `ReceiveFullMessage` catches it and logs `EventSub connection
+lost (<WebSocketError>): <innermost message>`. Twitch drops it with a TCP reset most days, sometimes several
+times a day, which reads `EventSub connection lost (ConnectionClosedPrematurely): An existing connection was
+forcibly closed by the remote host.`
 
 | Reason | Set when |
 |---|---|
@@ -224,6 +229,7 @@ close code and description (Twitch uses 4xxx codes to say why):
 | `CancelRequested` | the token was cancelled (shutdown) |
 | `SocketClosed` | a Close frame arrived |
 | `SocketDied` | the socket stopped being `Open` mid-receive |
+| `ConnectionLost` | the connection dropped without a Close frame (`ReceiveAsync` threw a `WebSocketException`), usually a TCP reset from Twitch |
 
 ### Subscribing
 
