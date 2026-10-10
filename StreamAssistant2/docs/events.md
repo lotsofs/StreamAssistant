@@ -143,12 +143,18 @@ seen (`CategoryChangeMessage`, tested): the same id does nothing. A different on
 no previous id, which only happens if the boot query below failed, and then a title edit re-applies the
 game once), and runs `Games.Apply` on the thread pool after `await Task.Yield()`, off the listen loop (`Error GMS_86`
 if it throws). An empty `category_id` (no category set) counts as an id like any other.
+The admin commands `!changegame` / `!changecategory <id or game name>` call the same `ChangeCategory`, so they post
+the real chat line, change OBS and update the stored category, without changing Twitch's category
+([twitch.md](twitch.md#admin-commands)).
 
 **On bot start**, `Games.OnBootAsync` (`Error GMS_boot`) asks Helix for the channel's category
-(`GetChannelCategoryIdAsync`), stores it, logs `Boot: category <id>, applied when OBS is connected`, and
-applies it once: straight away if OBS is up, else the first time OBS connects ([obs.md](obs.md#per-game-setup)).
-No chat line of its own, but the colour change posts its usual one. If Helix has no channel it logs
-`Boot: category unknown, no game setup`.
+(`GetChannelCategoryIdAsync`), stores it, logs `Boot: category <id>`, and applies it once: straight away if
+OBS is ready, else the first time OBS connects, in which case it also logs `Boot: OBS not ready, game setup
+waits for it` ([obs.md](obs.md#per-game-setup)). No chat line of its own, but the colour change posts its
+usual one. If Helix has no channel it logs `Boot: category unknown, no game setup`. If a category change
+arrived while the fetch was out, that change has already stored and applied its category (Helix's answer
+may even be the stale one), so the boot keeps it, logs `Boot: category <id> already set up by a category
+change, boot setup skipped`, and doesn't apply again (tested).
 
 **Going live** means OBS starting its stream ([obs.md](obs.md#connection)), not Twitch's `stream.online`.
 `OnStreamStartedAsync` runs on the thread pool (`Error GMS_live`) and applies the last category seen.

@@ -48,7 +48,7 @@ full explanation is. Skim this before making a change you think is small.
 - **`CheckForCommands` matches and then sends nothing**; the public FAQ commands are off.
   ([legacy.md](legacy.md))
 - **A silent connection is recycled, not just shown red**: IRC after 7 minutes, EventSub after 20 s.
-  Not yet verified live. ([TODO.md](TODO.md), item DCD)
+  The EventSub one has been seen live; the IRC one hasn't yet. ([TODO.md](TODO.md), item DCD)
 
 ## Colour (details in [color.md](color.md))
 

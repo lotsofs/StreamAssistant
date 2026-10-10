@@ -28,19 +28,26 @@ Read from the code. The connection and animation were not run against a live OBS
   the loop with an exception in a discarded task, which is harmless at shutdown.
 - `IsConnected()` is the guard every OBS action starts with. If not connected it logs `Trying to do an
   OBS action but not connected to OBS` on `Important` and returns false.
+- **Socket open is not the same as ready.** The library's `ObsSocket.IsConnected` is true as soon as the
+  WebSocket is running, which is before OBS has finished the Hello/Identify handshake and accepted the
+  bot; requests sent in that window fail. `Connected` fires only once OBS has identified the bot, so
+  `ObsConnection.IsReady` is a flag set in the `Connected` handler and cleared in `Disconnected`. The
+  game setup (`WhenConnected`, `GameCapture.Set`) uses `IsReady`; `Loop`, `Disconnect()` and the
+  `IsConnected()` guard still use the socket state.
 
 OBS being closed is a normal state, not an error: actions are skipped, not queued, and nothing is
 retried afterwards.
 
 ## The wrapper
 
-[Obs.cs](../code/Obs/Obs.cs) holds four calls, each of which does nothing but log when OBS is unreachable:
+[Obs.cs](../code/Obs/Obs.cs) holds five calls, each of which does nothing but log when OBS is unreachable:
 
 | Method | OBS request | Used by |
 |---|---|---|
 | `SetSourceEnabled(scene, source, enabled)` | `GetSceneItemId(scene, source, 0)` then `SetSceneItemEnabled` | `LayoutColoring`, the train reward |
 | `SetInputSetting(input, key, value)` | `SetInputSettings(input, {key: value}, overlay: true)` | `SetImageSource`, `GameCapture` |
 | `SetImageSource(source, file)` | `SetInputSetting(source, "file", file)` | the train reward, `GameBackground` |
+| `SetInputVolumeDb(input, dB)` | `SetInputVolume(input, dB, inputVolumeDb: true)` | `GameCapture` |
 | `SetFilterProperty(source, filter, property, value)` | `SetSourceFilterSettings(source, filter, {property: value}, overlay: true)` | `LayoutColoring` |
 
 None of them catch. A missing scene, source or filter name makes the library throw. That is handled
@@ -153,17 +160,34 @@ with a clearer `Couldn't set <source>: …` warning.
   set to `PLACEHOLDER-TITLE:PLACEHOLDER-CLASS:<exe>` (OBS's `title:class:executable` form; the title and
   class are deliberately fake, so each source must match by executable, which is set in OBS, as is a
   game capture source's capture mode). A used slot is then shown (eye on) in `!Scene: Games 1920x1080`, an
-  unused one hidden there. Each shown slot logs `<source> → <exe>, shown`; the hidden ones share one line,
+  unused one hidden there. A shown slot also gets its volume, in dB: the slot's own, else `games.json`'s
+  `default` volume, clamped to OBS's −100 to 26; with neither, the volume is left alone. Hidden slots keep
+  theirs. Each shown slot logs `<source> → <exe>, shown, <dB> dB` (no dB part if none was set); the
+  hidden ones share one line,
   slot numbers grouped by kind, e.g. `→ none, hidden: Game: Game Capture 1, 2; Game: Window Capture 0, 1, 2;
   Audio 5: App Capture 1, 2` (`HiddenLine`, tested). A source
   that can't be set (missing or renamed in OBS, or not in that scene) logs `Couldn't set …` and the
   rest still go. With OBS disconnected it logs `OBS not connected, capture sources not set` once.
   Audio capture is a fallback: most game audio now comes from the video capture source itself.
-  (`Assignments`, `IsUsed` and `WindowValue`, tested.)
+  (`Assignments`, `IsUsed`, `VolumeFor`, `ShownLine` and `WindowValue`, tested.)
+
+  A capture list entry is either a plain `"exe"` string or an object with its own volume:
+
+  ```json
+  "default": { "Volume": -4 },
+  "461492": {
+    "Name": "KTANE",
+    "GameCaptureExecutable": [ { "Exe": "ktane.exe", "Volume": -6 } ],
+    "AudioCaptureExecutable": [ "ktane.exe" ]
+  }
+  ```
+
+  The `default` entry isn't a game: it only holds the fallback volume, and `!changegame default` doesn't
+  resolve to it. Loading logs `Loaded <n> games, default volume <dB> dB` (or that there is none).
 
 On bot start, `Games.OnBootAsync` hands its apply to `ObsConnection.WhenConnected`, which runs it at
-once if OBS is connected, otherwise on OBS's next `Connected` event, however late. So the capture
-sources and background aren't skipped because OBS connects after the bot. It applies once per boot:
-later reconnects (an OBS restart mid-stream) don't re-apply, since OBS keeps the settings.
-`WhenConnected` can fire twice if OBS connects during the call, so the boot apply guards itself with a
-flag.
+once if OBS is ready (`IsReady`, see [Connection](#connection)), otherwise on OBS's next `Connected` event,
+however late, and returns which it did. So the capture sources and background aren't skipped because OBS
+connects after the bot, and aren't sent mid-handshake. It applies once per boot: later reconnects (an OBS
+restart mid-stream) don't re-apply, since OBS keeps the settings. `WhenConnected` can fire twice if OBS
+connects during the call, so the boot apply guards itself with a flag.

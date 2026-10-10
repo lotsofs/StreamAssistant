@@ -1,27 +1,31 @@
+using Capture = StreamAssistant2.Games.Capture;
 using Game = StreamAssistant2.Games.Game;
 
 namespace StreamAssistant2 {
 	internal static class GameCapture {
 		internal const int SLOTS = 3;
 		internal const string NONE = "none";
+		const double MIN_DB = -100;
+		const double MAX_DB = 26;
 		const string GAME_CAPTURE = "Game: Game Capture ";
 		const string WINDOW_CAPTURE = "Game: Window Capture ";
 		const string AUDIO_CAPTURE = "Audio 5: App Capture ";
 		const string SCENE = "!Scene: Games 1920x1080";
 
 		/// <summary>
-		/// Points and shows a capture slot per game executable; the rest are pointed at none and hidden.
+		/// Points, shows and sets the volume of a capture slot per game executable; the rest are pointed at none and hidden.
 		/// Logs each shown slot, and the hidden ones together on one line.
 		/// </summary>
 		internal static void Set(Game game) {
-			if (!ObsConnection.ObsSocket.IsConnected) {
+			if (!ObsConnection.IsReady) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "OBS not connected, capture sources not set");
 				return;
 			}
 			List<(string Kind, int Slot)> hidden = new();
-			SetKind(GAME_CAPTURE, game.GameCapture, hidden);
-			SetKind(WINDOW_CAPTURE, game.WindowCapture, hidden);
-			SetKind(AUDIO_CAPTURE, game.AudioCapture, hidden);
+			double? defaultVolume = Games.DefaultVolume;
+			SetKind(GAME_CAPTURE, game.GameCapture, defaultVolume, hidden);
+			SetKind(WINDOW_CAPTURE, game.WindowCapture, defaultVolume, hidden);
+			SetKind(AUDIO_CAPTURE, game.AudioCapture, defaultVolume, hidden);
 			if (hidden.Count > 0) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChangesUnimportant, HiddenLine(hidden));
 			}
@@ -38,23 +42,26 @@ namespace StreamAssistant2 {
 		/// <summary>
 		/// Sets one kind's slots, adding the hidden ones to the list; a source that can't be set is logged and the rest still go.
 		/// </summary>
-		static void SetKind(string prefix, IReadOnlyList<string> executables, List<(string Kind, int Slot)> hidden) {
-			for (int i = SLOTS; i < executables.Count; i++) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {prefix.Trim()} slot for {executables[i]}, only {SLOTS}");
+		static void SetKind(string prefix, IReadOnlyList<Capture> captures, double? defaultVolume, List<(string Kind, int Slot)> hidden) {
+			for (int i = SLOTS; i < captures.Count; i++) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {prefix.Trim()} slot for {captures[i].Executable}, only {SLOTS}");
 			}
-			var slots = Assignments(prefix, executables);
+			var slots = Assignments(prefix, captures);
 			for (int i = 0; i < slots.Count; i++) {
-				(string source, string executable) = slots[i];
+				(string source, Capture capture) = slots[i];
 				try {
-					bool used = IsUsed(executable);
-					Obs.SetInputSetting(source, "window", WindowValue(executable));
+					bool used = IsUsed(capture.Executable);
+					Obs.SetInputSetting(source, "window", WindowValue(capture.Executable));
 					Obs.SetSourceEnabled(SCENE, source, used);
-					if (used) {
-						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"{source} → {executable}, shown");
-					}
-					else {
+					if (!used) {
 						hidden.Add((prefix.Trim(), i));
+						continue;
 					}
+					double? volume = VolumeFor(capture, defaultVolume);
+					if (volume is double db) {
+						Obs.SetInputVolumeDb(source, db);
+					}
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, ShownLine(source, capture.Executable, volume));
 				}
 				catch (Exception ex) {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Couldn't set {source}: {ex.Message}");
@@ -63,15 +70,29 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Each slot's source name, numbered from 0, with its executable or none.
+		/// Each slot's source name, numbered from 0, with its capture or none.
 		/// </summary>
-		internal static List<(string Source, string Executable)> Assignments(string prefix, IReadOnlyList<string> executables) {
-			List<(string, string)> slots = new();
+		internal static List<(string Source, Capture Capture)> Assignments(string prefix, IReadOnlyList<Capture> captures) {
+			List<(string, Capture)> slots = new();
 			for (int i = 0; i < SLOTS; i++) {
-				slots.Add(($"{prefix}{i}", i < executables.Count ? executables[i] : NONE));
+				slots.Add(($"{prefix}{i}", i < captures.Count ? captures[i] : new Capture(NONE)));
 			}
 			return slots;
 		}
+
+		/// <summary>
+		/// The slot's own dB, else the default, clamped to what OBS takes; null if neither is set.
+		/// </summary>
+		internal static double? VolumeFor(Capture capture, double? defaultVolume) {
+			double? db = capture.Volume ?? defaultVolume;
+			return db is double d ? Math.Clamp(d, MIN_DB, MAX_DB) : null;
+		}
+
+		/// <summary>
+		/// The log line for a shown slot, with its volume when one was set.
+		/// </summary>
+		internal static string ShownLine(string source, string executable, double? volume) =>
+			volume is double db ? $"{source} → {executable}, shown, {db} dB" : $"{source} → {executable}, shown";
 
 		/// <summary>
 		/// Whether a slot's executable is a real one rather than none.

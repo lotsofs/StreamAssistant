@@ -8,6 +8,13 @@ namespace StreamAssistant2 {
 		public static OBSWebsocket ObsSocket = new OBSWebsocket();
 		
 		static CancellationTokenSource? _cts;
+		static volatile bool _ready;
+
+		/// <summary>
+		/// True once OBS has accepted the connection (its Connected event), false again when it drops.
+		/// The socket alone counts as connected earlier, during the handshake, when requests still fail.
+		/// </summary>
+		internal static bool IsReady => _ready;
 
 		public static void Connect() {
 			if (_cts != null) {
@@ -45,10 +52,12 @@ namespace StreamAssistant2 {
 		}
 
 		static void OnConnected(object? sender, EventArgs e) {
+			_ready = true;
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "Connected to OBS");
 		}
 
 		static void OnDisconnected(object? sender, ObsDisconnectionInfo e) {
+			_ready = false;
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Lost connection to OBS: {e.DisconnectReason}");
 		}
 
@@ -75,20 +84,22 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Runs the action now if OBS is connected, else on its next connect. Can run twice if OBS connects
-		/// during the call, so the action guards itself.
+		/// Runs the action now if OBS is ready, else on its next connect; returns whether it ran now. Can run
+		/// twice if OBS connects during the call, so the action guards itself.
 		/// </summary>
-		internal static void WhenConnected(Action action) {
+		internal static bool WhenConnected(Action action) {
 			EventHandler? handler = null;
 			handler = (_, _) => {
 				ObsSocket.Connected -= handler;
 				action();
 			};
 			ObsSocket.Connected += handler;
-			if (ObsSocket.IsConnected) {
-				ObsSocket.Connected -= handler;
-				action();
+			if (!IsReady) {
+				return false;
 			}
+			ObsSocket.Connected -= handler;
+			action();
+			return true;
 		}
 
 		public static bool IsConnected() {

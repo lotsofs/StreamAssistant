@@ -66,11 +66,25 @@ during the switch, close none)` 1 s after that. There was no 4007, nothing in ch
 session then stayed up on keepalives for 65 minutes. So the 4007 was caused by the old socket being gone, and
 that part is fixed.
 
-**What's left:** no event arrived on the reconnected session, so it isn't proven yet that the subscriptions
-carried over. That session ended at 20:17 when Twitch reset the connection (`Error TES1: None` + `TES3`,
-the documented exception path). The bot then started a fresh session with a full resubscribe. The next check: in
-the log after a reconnect, find an `EventSub reconnected` line followed by a delivered event (a saved file in
-`AssistantLogs\EventSubs\`) before the next `EventSub session ended`.
+**Reproduced again on 2026-10-09, 19:17**, with the same timings: reconnected 0.4 s after
+`session_reconnect`, old connection closed 1 s later, 0 events during the switch, close none, nothing in chat.
+
+**Both reconnects kept the session ID.** The new socket's `session_welcome` carried the same id as the old
+session (10-08: `AgoQQmqx…`, 10-09: `AgoQJP7b…`, each logged at its `EventSub reconnected` line). Each
+subscription is bound to a session id (`transport.session_id` in the subscribe responses), so this fits the
+subscriptions carrying over. It is not proof: no event has arrived on a reconnected session yet.
+
+**Why waiting hasn't worked:** the reconnect comes at about 19:10 to 19:40, off-stream, when nothing
+happens on the channel. Neither reconnected session saw a single notification. Both ended in a Twitch
+connection reset (see [RST](#rst--eventsub-connection-reset-logged-as-an-unknown-error)): 10-08 after 65 min,
+10-09 after 2 h 07 min. Each was followed by a fresh session and a full resubscribe.
+
+**Next check (owner):** after the next `EventSub reconnected` line, and before that session ends, change the
+stream **title** (not the category) in the Twitch dashboard. That fires `channel.update`. A title-only change
+does nothing in the bot (`Games.HandleUpdate` acts only on a category change), but the event is saved as
+`channel.update_<time>.log` in `AssistantLogs\EventSubs\`. If a file appears with a timestamp after the
+reconnect, the subscriptions carried over and this item is done. If no file appears, check that a title change
+on a fresh session does save one; if it does, the reconnect lost the subscriptions.
 
 **Docs when done:** delete this section and the TODO row; drop the "not yet seen working" sentence in
 [twitch.md § Planned reconnects](twitch.md#planned-reconnects).
@@ -94,6 +108,15 @@ in `EventSubReceiveTimeoutTests` where the fake server resets the connection.
 exception types or messages, so the fix covers what actually arrives. To find them, search the logs for
 `Error TES1: None` and check each exception in the file log.
 
+**Data so far (to 2026-10-10):** five resets since this item was opened: 10-08 20:17, 10-09 04:30, 05:08 and
+21:24, and 10-10 08:31. All five had the same exception chain, thrown from `ReceiveAsync` in
+`ReceiveFullMessage`: `WebSocketException` "The remote party closed the WebSocket connection without
+completing the close handshake" ← `IOException` ← `SocketException 10054`. Each one recovered with a fresh
+session 3 to 4 s later. The logs back to May (earlier code) show about 200 `TES1: None` resets, all with
+that same `WebSocketException` message. The other common `TES1: None` there is
+`WebSocketException: Unable to connect to the remote server`. That comes from a failed *connect* (the network
+was down) rather than a reset, so the proposed fix wouldn't change it.
+
 **Docs when done:** the `SocketDied` row and the lifecycle steps in [twitch.md](twitch.md), `TES1`/`TES3`
 in [reference.md](reference.md), the throw path in [eventsub-flow.md](eventsub-flow.md); delete this
 section and the TODO row.
@@ -110,8 +133,12 @@ Both transports now time out a connection that goes silent without closing, and 
 | `TwitchEventSub.ConnectTimeout` | 15 s | hung EventSub connect → `Error TES1`, retry |
 
 The helpers are unit-tested against loopback servers (`IrcReadTimeoutTests`, `IrcConnectTimeoutTests`,
-`EventSubReceiveTimeoutTests`, `EventSubConnectTimeoutTests`). Not yet reproduced against Twitch: it
-needs a connection that goes quiet without a TCP close.
+`EventSubReceiveTimeoutTests`, `EventSubConnectTimeoutTests`). The EventSub keepalive timeout has now been
+seen live: on 2026-10-09 at 03:28, `EventSub quiet for 00:15, reconnecting at 00:20` was followed about 4 s
+later by `EventSub session ended: KeepAliveTimeout (socket Aborted, close none)`. A fresh session, a full
+resubscribe and `EventSub recovered after 00:19 of silence` followed within 4 s. The cause was not recorded.
+The IRC silence timeout and both connect timeouts have not been seen against Twitch: they need a
+connection that goes quiet without a TCP close.
 
 Reading `keepalive_timeout_seconds` from the welcome message was considered and dropped: the bot never
 asks for a non-default keepalive, and there is no reason to (raising it only slows dead-socket detection;
@@ -133,7 +160,7 @@ asks for a non-default keepalive, and there is no reason to (raising it only slo
    give the recovery line with no reconnect.
 5. Restore the constants.
 
-**Docs when done:** delete this section and the TODO row; drop "not yet verified live" from the bullet
+**Docs when done:** delete this section and the TODO row; drop "the IRC one hasn't yet" from the bullet
 in [gotchas.md](gotchas.md#twitch-and-helix).
 
 ## SOE — Log Twitch stream online and offline

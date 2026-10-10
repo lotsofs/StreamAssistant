@@ -116,6 +116,7 @@ Command is the first word (case-sensitive); the rest, trimmed, is the argument.
 | `!changecolorrandom` | `LayoutColoring.ChangeToRandom` |
 | `!test <script> …` | `TestEventRunner.Run`: simulated events, see [the test harness](#the-test-harness) |
 | `!train` | `ChannelPoints.TryStartTrain`, the train reward without a redemption (ignored while one is showing; `Error TRN1` if it throws) |
+| `!changegame <id or name>`, `!changecategory <id or name>` | `Games.TryChangeCategory`: switches the bot's category locally (Twitch's stays as is), posting `Stream category change …` and running the game setup. Takes a `games.json` key, a game `Name` (any case) or any numeric id; anything else logs `No game or category id "…"`, and the current category logs `Category is already <id>` |
 | `!stoppaneltimer` | stub (its `MsgQueue` call is commented out) |
 
 ### Public commands
@@ -184,7 +185,8 @@ leaving `ListenLoop`:
    (`ConnectTimeout`, 15 s) and waits for its first message (`ReconnectWelcomeTimeout`, 10 s). It must be
    a `session_welcome` with a session id.
 2. On success, `_socket`, `_sessionId` and the stopwatch switch to the new session. **No resubscribe**:
-   subscriptions carry over. Logs `EventSub reconnected. Session ID: …`.
+   subscriptions carry over. Logs `EventSub reconnected. Session ID: …`. Live, the session ID has been
+   the same as the old session's.
 3. `DrainOldSocketAsync` reads the old socket for up to `OldSocketDrainLimit` (1 s) or until it closes,
    handling any notifications that arrived there during the switch. Then the old socket is closed (2 s
    limit) and logged as `EventSub old connection closed (<n> events delivered during the switch, close …)`.

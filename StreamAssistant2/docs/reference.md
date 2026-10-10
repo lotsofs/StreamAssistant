@@ -123,8 +123,8 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 
 ### OBS volumes
 
-Not set by the bot; recorded as a baseline for per-source volume (GAM 10 in
-[porting.md](porting.md#gam--per-game-setup-on-category-change)). Read from OBS on 2026-10-08 with a read-only
+A baseline from before the bot set any volume; the capture sources now take theirs from `games.json`
+([obs.md](obs.md#per-game-setup)). Read from OBS on 2026-10-08 with a read-only
 query. obs-websocket keeps each volume as dB (≤ 0, below −100 is −∞) and as a linear multiplier (0–1);
 `SetInputVolume(name, dB, inputVolumeDb: true)` takes dB directly.
 

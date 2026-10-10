@@ -24,15 +24,15 @@ Detail and a plan for each: [robustness-fixes.md](robustness-fixes.md), except L
 |---|---|---|---|
 | [LIV](live-checks.md) | All | Owner's checklist of built-and-unit-tested behaviour not yet seen live: OBS capture-source setup, per-game setup on boot, category change and stream start, chatter reset and greeting, train overlap and refund, gift bombs without `💣` | Medium |
 | [TRS](robustness-fixes.md#trs--train-left-on-screen-after-the-bot-closes-mid-train) | OBS | Closing the bot while a train is showing leaves `Image: Train` visible for good (seen by the owner); hide and reset it when the bot next connects to OBS | Medium |
-| [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` now succeeds live (no `4007`, no resubscribe; reproduced 2026-10-08). Left: see an event delivered on a reconnected session, proving the subscriptions carried over | Low |
-| [DCD](robustness-fixes.md#dcd--connection-timeouts-unverified-live) | Twitch | IRC and EventSub now time out silent connections and hung connects; unit-tested, still to be verified live with a firewall block (owner, off-stream) | Low |
-| [RST](robustness-fixes.md#rst--eventsub-connection-reset-logged-as-an-unknown-error) | Twitch | A TCP reset from Twitch ends the EventSub session as `Error TES1: None` + `TES3` with reason `None` instead of a named reason (reproduced 2026-10-08). Shelved while more drops are collected | Low |
+| [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` now succeeds live (no `4007`, no resubscribe, same session ID kept; reproduced 2026-10-08 and 10-09). Left: see an event delivered on a reconnected session, proving the subscriptions carried over (owner: change the stream title after the next reconnect) | Low |
+| [DCD](robustness-fixes.md#dcd--connection-timeouts-unverified-live) | Twitch | IRC and EventSub now time out silent connections and hung connects; unit-tested. The EventSub keepalive timeout has been seen live (2026-10-09); the IRC silence timeout and both connect timeouts are still to be verified with a firewall block (owner, off-stream) | Low |
+| [RST](robustness-fixes.md#rst--eventsub-connection-reset-logged-as-an-unknown-error) | Twitch | A TCP reset from Twitch ends the EventSub session as `Error TES1: None` + `TES3` with reason `None` instead of a named reason (reproduced 2026-10-08, four more by 10-10, all the same exception). Shelved while more drops are collected | Low |
 | [BOT](robustness-fixes.md#bot--chat-as-the-bot-account-not-lotsofs) | Twitch | The bot logs into IRC as `lotsofs` with the broadcaster's token; give chat its own bot-account token and login, keeping the broadcaster token for EventSub and Helix | Low |
 | [SOE](robustness-fixes.md#soe--log-twitch-stream-online-and-offline) | Twitch | Nothing logs Twitch's own stream online/offline events; subscribe `stream.online` and `stream.offline` and log them | Low |
 
 ## Open — porting from the Streamer.Bot era
 
-Streamer.Bot-era features not yet rebuilt. A plan for each: [porting.md](porting.md), which also lists the decisions each one needs. UTX, CLK and GAM share a new OBS wrapper (porting.md § Shared pieces).
+Streamer.Bot-era features not yet rebuilt. A plan for each: [porting.md](porting.md), which also lists the decisions each one needs. UTX and CLK can use the existing `Obs.SetInputSetting` wrapper (porting.md § Shared pieces).
 
 | Code | Area | Summary | Severity |
 |---|---|---|---|
@@ -41,7 +41,6 @@ Streamer.Bot-era features not yet rebuilt. A plan for each: [porting.md](porting
 | [CLK](porting.md#clk--obs-clock-text) | OBS | Nothing writes `Text: Time Of Day` any more | Low |
 | [RAD](porting.md#rad--raid-announcement) | Twitch | No raid announcement; raids already arrive as a `raid` chat notification and are logged as unhandled | Low |
 | [FAQ](porting.md#faq--public-faq-commands) | Twitch | Public FAQ commands match but never send, and matching lost its case-insensitivity | Low |
-| [GAM](porting.md#gam--per-game-setup-on-category-change) | OBS | Per-game background, colour scheme and audio sources on a category change (built: background, colour and capture sources on category change and going live; left: a `!test category` script, cleanup, and per-source volume) | Low |
 | [MNY](porting.md#mny--money-tracking) | Twitch | Money goal tracking from cheers, subs and tips; never displayed even before. Keep or delete | Low |
 | [TIP](porting.md#tip--tips) | Twitch | Tip alerts (`Donations.cs`) need a StreamElements connection; keep or delete | Low |
 | [LFP](porting.md#lfp--left-panel-and-stoppaneltimer) | OBS | `LeftPanel.cs` scaffolding and `!stoppaneltimer`: nothing working to port; keep or delete | Low |

@@ -170,6 +170,10 @@ namespace StreamAssistant2 {
 				case "!train":
 					ChannelPoints.TryStartTrain();
 					break;
+				case "!changegame":
+				case "!changecategory":
+					Games.TryChangeCategory(argument);
+					break;
 			}
 		}
 

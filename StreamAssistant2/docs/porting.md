@@ -66,7 +66,7 @@ default), how to verify, and which docs to touch. Ordered roughly easiest first.
 
 Building blocks some items share:
 
-- **`Obs.SetInputSetting(input, key, value)`**: built (GAM 7), a one-key `SetInputSettings` with
+- **`Obs.SetInputSetting(input, key, value)`**: built for the per-game setup, a one-key `SetInputSettings` with
   `overlay: true`. UTX and CLK set a text source's `text` with it.
 
 ### DSA — Disk-space alarm sound
@@ -170,39 +170,6 @@ misses) and the send is commented out.
 
 **Docs:** [twitch.md § Public commands](twitch.md#public-commands); legacy.md's ChatHandler section.
 
-### GAM — Per-game setup on category change
-
-**Was:** `Games.cs`. On a category change or going live: look the Twitch game id up in `games.json`, then
-post `Stream category change to <id>` / `From <id>` (or `Stream live with category <id>`), set
-`Image: Background` to `Images\Backgrounds\<game>.png`, recolour with the game's `gameschemes` scheme, and
-point `Audio: Z5 Game0`…`4` at the game's executables (`none` for unused slots). Id `0` was the fallback.
-
-**Data, checked:** `games.json` is now at `Bot Input\games.json`, mapping Twitch game
-id → `{ Name, GameCaptureExecutable, WindowCaptureExecutable, AudioCaptureExecutable }` (the old
-`Executables` became `AudioCaptureExecutable`), with `"0"` → `None` as the fallback. Every name has a background in
-`Images\Backgrounds\` except `None`, and a `gameschemes` category except `RoN`. `gameschemes <Name>`
-resolves through the normal colour parser (set + category → the category's `Default`).
-
-**Plan:**
-1. [x] Move `games.json` to `Bot Input\games.json`; add a `Backgrounds` entry to `paths.json`, `paths.json.example` and `Config.Directories`. No `Games` entry: like `secrets.json`, the file is found as `BotInput` + a fixed name
-2. [x] Rewrite `Games.cs` as `code/Obs/Games.cs`: `Games.Load()` reads `<BotInput>\games.json` at startup (`Error GMS1` if it breaks), `Lookup` resolves an id with the `0` fallback (`GamesTests`), and `Apply(categoryId)` is the entry point, which only logs `Game setup: <name> (<id>)` until steps 5–7 add the actions
-3. [x] Subscribe `channel.update` (v2); `Games.HandleUpdate` applies only on a real category change (the current category is fetched from Helix at boot, `Games.OnBootAsync`, which also applies it once, when OBS is first connected), posts `Stream category change [from <id>] to <id>`, and runs `Apply` off the listen loop ([events.md](events.md#category-change-and-going-live))
-4. [x] Apply on going live: on OBS's stream start (not `stream.online`), `Games.OnStreamStartedAsync` applies the last category seen, or asks Helix `GET /channels` when none has been; no chat line
-5. [x] Background: `Obs.SetImageSource("Image: Background", <Backgrounds>\<Name>.png)`; a missing file (the `None` fallback) logs and leaves the background as is
-6. [x] Colour: `GameColor.Set` sends `gameschemes <Name>` through `LayoutColoring.TryChangeToSingle` after checking `ColorSchemeRegistry.TryGetScheme`, so a game without a scheme (RoN) logs instead of posting `Couldn't find a color` to chat. Always replaces the current colour; keeps the usual chat line
-7. [x] Capture sources: `GameCapture.Set` points `Game: Game Capture 0–2`, `Game: Window Capture 0–2` and `Audio 5: App Capture 0–2` at the game's `GameCaptureExecutable`, `WindowCaptureExecutable` and `AudioCaptureExecutable` entries and shows them in `!Scene: Games 1920x1080`; unused slots get `none` and are hidden. Logs each one ([obs.md](obs.md#per-game-setup)). Matching by executable and the game-capture mode are set in OBS, by the owner. `games.json` has an `example` entry with every key; the game and window capture lists are still to be filled
-8. [ ] `!test category <id>` script (the lookup, fallback and change detection are already unit-tested in `GamesTests`)
-9. [ ] Once it works: delete legacy.md's Games section, and `Bot Input\!OLD_Streamerbot\` if its `scenes.json` and `Scenes\` aren't wanted either
-10. [ ] Per-source volume from `games.json`. obs-websocket keeps a volume as both a linear multiplier (`inputVolumeMul`, 0–1) and decibels (`inputVolumeDb`, ≤ 0, below −100 is −∞), and `SetInputVolume(name, value, inputVolumeDb: true)` takes dB directly, so the JSON can hold plain dB numbers (e.g. `-4`). Today the game captures sit around −4 dB; the full snapshot is in [reference.md § OBS volumes](reference.md#obs-volumes). Design with the owner: per game or per source, and what an absent value means
-
-**Verify:** `!test category 461492` (KTANE): background, colour (with its chat line) and capture sources
-switch. `!test category 511701` (RoN): background and capture sources switch, colour skipped with a log
-line.
-
-**Docs:** new section in [events.md](events.md); [obs.md](obs.md); [reference.md](reference.md) (paths,
-OBS names, error codes); [infrastructure.md](infrastructure.md) (config); CLAUDE.md (external
-dependencies).
-
 ### MNY — Money tracking
 
 **Was:** `Money.Goal` (999) and `Money.Current`, credited by cheers (`bits × 0.005`), subs (`0.09` ×1
@@ -253,7 +220,8 @@ StreamElements integration.
 
 **Was:** `LeftPanel.cs` and the deleted `SceneManager.cs` were scaffolding for cycling splits panels in
 `!Scene: Left Panel`; `!stoppaneltimer` sent `Termint`, whose meaning is lost. Never finished.
-**Now:** all commented out; `!stoppaneltimer` is an empty `case`.
+**Now:** all commented out; `!stoppaneltimer` is an empty `case`. Its per-game panel data,
+`Bot Input\!OLD_Streamerbot\scenes.json`, is kept for later ([legacy.md](legacy.md#leftpanelcs-rotating-left-panel)).
 
 **Decide:** drop or redesign. **Recommend drop**: there's no working behaviour to keep, and git has the
 sketch.

@@ -37,25 +37,6 @@ element; the field names differ (`tipAmount` → there is no EventSub equivalent
 
 ## Entirely commented out
 
-### Games.cs: per-game setup on a category change
-
-The commented-out root `Games.cs` was replaced by [code/Obs/Games.cs](../code/Obs/Games.cs) and its
-siblings, which now do all of it ([obs.md](obs.md#per-game-setup)); GAM in [TODO.md](TODO.md) has the
-leftovers. What the old one did:
-
-On a stream-category change (or going live) it looked the game id up in a `games.json` kept under the
-old Streamer.Bot input folder (now moved to `Bot Input\games.json`), then:
-
-- switched the OBS background image to `<Backgrounds>\<game name>.png`
-- recoloured the layout with a colour scheme `gameschemes[<game name>]`, using a `Coloring.ChangeColor`
-  API that no longer exists
-- retargeted up to five OBS audio-capture sources to the game's executables, through a window string of
-  the form `GAMESOUND:Set by StreamerBot:<exe>`, with `none` for unused slots
-
-The old OBS source names it used survive in the commented `Sources` enum in `Obs.cs`. The new code uses
-three numbered kinds of capture source instead of the five `Audio: Z5 Game0`–`4`, and `games.json`'s
-`Executables` became `AudioCaptureExecutable`.
-
 ### [Donations.cs](../Donations.cs): tip alerts
 
 A tip added `amount` to `Money.Current`, played the Indian anthem, and queued TTS six seconds later:
@@ -65,6 +46,11 @@ A tip added `amount` to `Money.Current`, played the Indian anthem, and queued TT
 
 Unfinished scaffolding for cycling OBS sources in the `!Scene: Left Panel` scene (split times lists and
 labels, double-buffered with `…1`/`…2` source pairs). Mostly stubs; no behaviour to preserve.
+
+Its data survives, kept on purpose for later: `Bot Input\!OLD_Streamerbot\scenes.json` maps a game key
+(`GTASA1`, `GTA3`, …) to a `GenericSceneList` of panels, each with a `Name`, a `Duration`, `Enabled`, and
+optionally a LiveSplit text source to change (`ChangeTextOf`, `ChangeTextTo`). See LFP in
+[TODO.md](TODO.md).
 
 ## Partly commented out
 

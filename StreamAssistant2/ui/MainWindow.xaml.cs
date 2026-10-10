@@ -20,7 +20,7 @@ namespace StreamAssistant2 {
 			[ConsoleLogger.ColorType.None] = MakeBrush("#EEEEEE"),
 			[ConsoleLogger.ColorType.Error] = MakeBrush("#EE4444"),
 			[ConsoleLogger.ColorType.ChatIncoming] = MakeBrush("#EEEEBB"),
-			[ConsoleLogger.ColorType.ChatOutgoing] = MakeBrush("#EEEE88"),
+			[ConsoleLogger.ColorType.ChatOutgoing] = MakeBrush("#EEEE44"),
 			[ConsoleLogger.ColorType.Notification] = MakeBrush("#44EE44"),
 			[ConsoleLogger.ColorType.ConnectionNotification] = MakeBrush("#BBEEBB"),
 			[ConsoleLogger.ColorType.Helix] = MakeBrush("#44EEEE"),

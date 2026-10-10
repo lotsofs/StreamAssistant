@@ -36,6 +36,14 @@ namespace StreamAssistant2 {
 			_obs.SetInputSettings(inputName, set, true);
 		}
 
+		/// <summary>
+		/// Sets an input's volume in dB (OBS takes -100 to 26; -100 and below is silent).
+		/// </summary>
+		public static void SetInputVolumeDb(string inputName, double db) {
+			if (!ObsConnection.IsConnected()) return;
+			_obs.SetInputVolume(inputName, (float)db, true);
+		}
+
 		public static void SetFilterProperty(string sourceName, string filterName, string propertyName, JToken value) {
 			if (!ObsConnection.IsConnected()) return;
 

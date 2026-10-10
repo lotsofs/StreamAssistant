@@ -65,7 +65,7 @@ The colour for each channel is looked up in `_logColors`:
 | `None` | `#EEEEEE` |
 | `Error` | `#EE4444` |
 | `ChatIncoming` | `#EEEEBB` |
-| `ChatOutgoing` | `#EEEE88` |
+| `ChatOutgoing` | `#EEEE44` (the same yellow as the status bar's warn colour) |
 | `Notification` | `#44EE44` |
 | `ConnectionNotification` | `#BBEEBB` |
 | `Helix` | `#44EEEE` |

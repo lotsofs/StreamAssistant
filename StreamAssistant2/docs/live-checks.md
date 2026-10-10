@@ -5,7 +5,7 @@ Things built and unit-tested but not yet seen working in the real bot, OBS and T
 the LIV row. Checks are numbered through the whole file, so `LIV 12` names one. If something fails,
 note it here and raise it.
 
-## OBS setup (before the GAM checks)
+## OBS setup (before the per-game checks)
 
 1. [ ] In `!Scene: Games 1920x1080`, create `Game: Game Capture 0`, `1`, `2`
 2. [ ] … `Game: Window Capture 0`, `1`, `2`
@@ -20,17 +20,21 @@ note it here and raise it.
 
 ## Bot start (F5, OBS open)
 
-8. [ ] Log shows `Loaded 22 games`
-9. [ ] Log shows `HELIX> channel info: 200` and `Boot: category <id>` (no `, waiting for OBS`, since OBS is open)
+8. [ ] Log shows `Loaded 22 games, default volume -4 dB`
+9. [ ] Log shows `HELIX> channel info: 200` and `Boot: category <id>` (no `Boot: OBS not ready` line, since OBS is open)
 10. [ ] Log shows `Game setup: <name> (<id>)`
 11. [ ] `Image: Background` switches to that game's PNG, and the log shows `Image: Background → <name>.png` in orange (`SceneChanges`)
 12. [ ] Chat shows `Changing to color …` and the layout animates to the game's scheme
-13. [ ] Log shows a `<source> → <exe>, shown` line per used slot, and one `→ none, hidden: …` line listing the rest by kind (`Game: Game Capture 1, 2; …`), nine slots in all
+13. [ ] Log shows a `<source> → <exe>, shown, <dB> dB` line per used slot, and one `→ none, hidden: …` line listing the rest by kind (`Game: Game Capture 1, 2; …`), nine slots in all
 14. [ ] In OBS, a set source's window field shows `PLACEHOLDER-TITLE:PLACEHOLDER-CLASS:<exe>`
 15. [ ] A shown source actually captures the running game
 16. [ ] Unused slots are hidden (eye off)
 
 ## Category changes (on Twitch)
+
+17–22 can also be driven with `!changegame <id or game name>` (e.g. `!changegame KTANE`,
+`!changegame 999` for one not in `games.json`) instead of changing the category on Twitch; 19 still
+needs a real title edit.
 
 17. [ ] Changing category posts `Stream category change from <old> to <new>`
 18. [ ] … and switches background, colour and capture sources
@@ -61,3 +65,8 @@ note it here and raise it.
 ## Gift bombs
 
 33. [ ] `!test bomb 3`: no `💣` lines in chat; the spoken list still plays
+
+## Capture volumes
+
+34. [ ] After a game change, a shown source's volume slider in OBS sits at its slot's dB, or at the `default` (−4 dB) when the slot sets none
+35. [ ] A slot with its own `"Volume"` (e.g. `{ "Exe": "…", "Volume": -10 }`) gets exactly that, and a hidden slot's volume is left alone
