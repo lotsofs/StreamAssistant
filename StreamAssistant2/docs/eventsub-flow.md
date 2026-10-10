@@ -86,19 +86,20 @@ carry over). One POST per entry in `TwitchEventSubSubscription.Subscriptions`, i
 flowchart TD
     each["for each subscription descriptor"] --> cond["build condition: broadcaster / moderator / user ids<br/>(IS_TEST redirects to the test broadcaster)"]
     cond --> post["POST to SubscriptionsUrl with type, version, condition,<br/>transport = websocket + _sessionId"]
-    post --> logcode["log: EventSub attempt to type: status"]
+    post --> s202{"202?"}
+    s202 -- yes --> collect["response body to the file log;<br/>type added to the subscribed list"] --> next
+    s202 -- no --> logcode["log: EventSub attempt to type: status"]
     logcode --> s409{"409?"}
     s409 -- yes --> exists["log: Subscription type already exists"] --> next
-    s409 -- no --> s202{"202?"}
-    s202 -- yes --> ok["response body to the file log"] --> next
-    s202 -- no --> unexpected["log: Unexpected response code"]
+    s409 -- no --> unexpected["log: Unexpected response code"]
     unexpected --> success{"other 2xx?"}
-    success -- yes --> ok
+    success -- yes --> ok["response body to the file log"] --> next
     success -- no --> mark["_exitReason = SubscriptionFailed"]
     mark --> s400{"400?"}
     s400 -- yes --> f400["log: Subscription type failed, carry on"] --> ok
     s400 -- no --> thrown(["throw: Subscription failed (status)<br/>→ session ends via Error TES1"]):::exit
     next["next descriptor"] --> each
+    next -- none left --> summary["log once: EventSub subscribed (202): the list"]
 
     classDef exit fill:#f8d7da,stroke:#c0392b,color:#000
 ```

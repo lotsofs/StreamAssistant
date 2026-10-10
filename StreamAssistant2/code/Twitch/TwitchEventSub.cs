@@ -316,13 +316,21 @@ namespace StreamAssistant2 {
 			return (sb.ToString(), SessionExitReason.None);
 		}
 
+		// Subscribes to every event, logging the 202s together on one line
 		static async Task SubscribeToEvents() {
+			List<string> subscribed = new();
 			foreach (TwitchEventSubSubscription.TwitchEventSubEvent es in TwitchEventSubSubscription.Subscriptions) {
-				await Subscribe(es);
+				if (await Subscribe(es)) {
+					subscribed.Add(es.Type);
+				}
+			}
+			if (subscribed.Count > 0) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, $"EventSub subscribed (202): {string.Join(", ", subscribed)}");
 			}
 		}
 
-		static async Task Subscribe(TwitchEventSubSubscription.TwitchEventSubEvent es) {
+		// POSTs one subscription; true on a 202, which it leaves to the caller to log
+		static async Task<bool> Subscribe(TwitchEventSubSubscription.TwitchEventSubEvent es) {
 			var condition = new Dictionary<string, object>();
 			if (es.RequiresBroadcasterId) {
 				condition["broadcaster_user_id"] = _broadcasterId;
@@ -359,16 +367,19 @@ namespace StreamAssistant2 {
 
 			int responseCode = (int)response.StatusCode;
 
+			if (responseCode == 202) {
+				ConsoleLogger.LogToFile(responseText);
+				return true;
+			}
+
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, $"EventSub attempt to {es.Type}: {responseCode}");
 
 			if (responseCode == 409) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubNotification, $"Subscription {es.Type} already exists");
-				return;
+				return false;
 			}
 
-			if (responseCode != 202) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unexpected response code");
-			}
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Unexpected response code");
 
 			if (!response.IsSuccessStatusCode) {
 				_exitReason = SessionExitReason.SubscriptionFailed;
@@ -382,6 +393,7 @@ namespace StreamAssistant2 {
 				}
 			}
 			ConsoleLogger.LogToFile(responseText);
+			return false;
 		}
 
 		internal static void Disconnect() {

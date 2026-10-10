@@ -259,11 +259,13 @@ The current table:
 | `stream.offline` | 1 | broadcaster | yes, `StreamEvents.Offline` (logs only) |
 | `channel.follow` | 2 | broadcaster + moderator (= broadcaster) | **no**: each follow logs "not handled in code" on `EventSubConfusion` |
 
-Responses: `202` is expected. `409` (the subscription already exists) counts as success: it logs
+Responses: `202` is expected, and the 202s are logged together once all are done, as one line:
+`EventSub subscribed (202): channel.ad_break.begin, …`. Anything else gets its own `EventSub attempt to
+<type>: <status>` line first. `409` (the subscription already exists) counts as success: it logs
 `Subscription <type> already exists` and carries on. Any other non-success status sets
 `SubscriptionFailed`; a `400` just logs `Subscription <type> failed` and carries on with the next one, any
-other failing status throws and recycles the session. The response body goes to the log file except
-after a 409.
+other failing status throws and recycles the session (before the 202 line, which is then not logged). The
+response body goes to the log file except after a 409.
 
 `IS_TEST` is a `static readonly bool` in `TwitchEventSub`, so using it means editing and rebuilding.
 

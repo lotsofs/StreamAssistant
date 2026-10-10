@@ -105,10 +105,14 @@ account. The shape is in `secrets.json.example`.
 ## Twitch stream events
 
 51. [ ] `!test online` logs `Twitch: stream online (<now>)`, and `!test offline` logs `Twitch: stream offline`
-52. [ ] At the next real stream, the connect lines show `stream.online` and `stream.offline` subscribed (no `Subscription … failed`), and going live and ending log the two lines. Note here how long after `OBS started streaming` the online line came
+52. [ ] At the next real stream, the connect's single `EventSub subscribed (202): …` line includes `stream.online` and `stream.offline` (no `Subscription … failed`), and going live and ending log the two lines. Note here how long after `OBS started streaming` the online line came
 
 ## Uptime text
 
 53. [ ] With OBS open, F5: within a minute `Text: Stream Uptime` shows `U: Offline`. Close and reopen OBS: it's right again within a minute, with no `Trying to do an OBS action…` line every minute while OBS was closed
 54. [ ] Type something else into `Text: Stream Uptime` in OBS, then `!test online`: within a second or so it's back to `U: Offline` (the wake polled at once)
 55. [ ] At a real stream, the text shows the uptime once decapi has it, then changes just after each uptime minute (within a second or so of the stream's own minute). Note whether the go-live polls (OBS's start, Twitch's online) already found it live
+
+## EventSub subscribe line
+
+56. [ ] On F5, the EventSub connect logs one `EventSub subscribed (202): …` line listing every subscription, instead of an `EventSub attempt to …: 202` line each
