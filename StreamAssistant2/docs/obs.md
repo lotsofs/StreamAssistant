@@ -17,8 +17,9 @@ Read from the code. The connection and animation were not run against a live OBS
   `Lost connection to OBS: <reason>`) and `StreamStateChanged`, and starts `Loop`.
 - `OnStreamStateChanged` logs `OBS started streaming` and `OBS stopped streaming` (the in-between
   states are ignored). On start it resets the chatter list (`ChatterList.Reset`, see
-  [twitch.md](twitch.md#chatterlist)) and starts the go-live game setup
-  ([events.md](events.md#category-change-and-going-live)). It runs on obs-websocket's receive thread and catches its own
+  [twitch.md](twitch.md#chatterlist)), starts the go-live game setup
+  ([events.md](events.md#category-change-and-going-live)) and wakes the uptime poll (`TwitchUptime.PollNow`,
+  [infrastructure.md](infrastructure.md#uptime)). It runs on obs-websocket's receive thread and catches its own
   exceptions (`Error OSS1`). Connecting to an OBS that is already streaming raises no event, so no reset.
   Unit-tested with the event args obs-websocket builds; not yet seen at a real stream start.
 - `Loop` checks once a second while connected. When not connected it fires `ConnectAsync` (which
@@ -45,7 +46,7 @@ retried afterwards.
 | Method | OBS request | Used by |
 |---|---|---|
 | `SetSourceEnabled(scene, source, enabled)` | `GetSceneItemId(scene, source, 0)` then `SetSceneItemEnabled` | `LayoutColoring`, the train reward |
-| `SetInputSetting(input, key, value)` | `SetInputSettings(input, {key: value}, overlay: true)` | `SetImageSource`, `GameCapture` |
+| `SetInputSetting(input, key, value)` | `SetInputSettings(input, {key: value}, overlay: true)` | `SetImageSource`, `GameCapture`, `Clock`, `TwitchUptime` |
 | `SetImageSource(source, file)` | `SetInputSetting(source, "file", file)` | the train reward, `GameBackground` |
 | `SetInputVolumeDb(input, dB)` | `SetInputVolume(input, dB, inputVolumeDb: true)` | `GameCapture` |
 | `SetFilterProperty(source, filter, property, value)` | `SetSourceFilterSettings(source, filter, {property: value}, overlay: true)` | `LayoutColoring` |

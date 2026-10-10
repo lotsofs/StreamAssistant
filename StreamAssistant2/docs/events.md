@@ -17,6 +17,8 @@ Read from the code. Nothing here was run against live Twitch events.
 | `channel.channel_points_custom_reward_redemption.add` | `ChannelPoints.ProcessAdd` |
 | `channel.cheer` | `Cheers.Process` |
 | `channel.update` | `Games.HandleUpdate` ([Category change](#category-change-and-going-live)) |
+| `stream.online` | `StreamEvents.Online`: logs `Twitch: stream online (<started_at>)` on `Important` and wakes the uptime poll ([infrastructure.md](infrastructure.md#uptime)) |
+| `stream.offline` | `StreamEvents.Offline`: logs `Twitch: stream offline` on `Important`, nothing else |
 | anything else (including `channel.follow`) | logged on `EventSubConfusion`, nothing else |
 
 After the switch it appends the raw event JSON to the day's log file.
@@ -183,7 +185,8 @@ arrived while the fetch was out, that change has already stored and applied its 
 may even be the stale one), so the boot keeps it, logs `Boot: category <id> already set up by a category
 change, boot setup skipped`, and doesn't apply again (tested).
 
-**Going live** means OBS starting its stream ([obs.md](obs.md#connection)), not Twitch's `stream.online`.
+**Going live** means OBS starting its stream ([obs.md](obs.md#connection)), not Twitch's `stream.online`,
+which only logs and wakes the uptime poll ([Dispatch](#dispatch)). OBS's start wakes that poll too.
 `OnStreamStartedAsync` runs on the thread pool (`Error GMS_live`) and applies the last category seen.
 If none is known (the boot query failed and no `channel.update` has come since), it asks Helix once (`GetChannelCategoryIdAsync`) and stores
 the answer, so a `channel.update` with the same category afterwards does nothing. If Helix has no channel

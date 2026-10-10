@@ -1,7 +1,7 @@
 namespace StreamAssistant2 {
 	/// <summary>
 	/// Wall-clock arithmetic for work that should land on clock marks (every whole minute, every 12
-	/// minutes past the hour, local midnight). Pure functions of the time passed in.
+	/// minutes past the hour). Pure functions of the time passed in.
 	/// </summary>
 	internal static class ClockMarks {
 		static readonly TimeSpan MIN_WAKE_DELAY = TimeSpan.FromMilliseconds(10);
@@ -21,10 +21,5 @@ namespace StreamAssistant2 {
 			TimeSpan wait = TimeSpan.FromMinutes(1) - TimeSpan.FromTicks(now.Ticks % TimeSpan.TicksPerMinute);
 			return wait < MIN_WAKE_DELAY ? MIN_WAKE_DELAY : wait;
 		}
-
-		/// <summary>
-		/// The first local midnight strictly after the given time.
-		/// </summary>
-		internal static DateTime NextLocalMidnight(DateTime now) => now.Date.AddDays(1);
 	}
 }

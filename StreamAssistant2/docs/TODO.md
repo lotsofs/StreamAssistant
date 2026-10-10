@@ -22,22 +22,18 @@ Detail and a plan for each: [robustness-fixes.md](robustness-fixes.md), except L
 
 | Code | Area | Summary | Severity |
 |---|---|---|---|
-| [LIV](live-checks.md) | All | Owner's checklist of built-and-unit-tested behaviour not yet seen live: OBS capture-source setup, per-game setup on boot, category change and stream start, chatter reset and greeting, train overlap and refund, gift bombs without `💣`, EventSub reset logging, StreamElements tips (`!test tip`, a real tip, quiet probe replies, a resumed reconnect; the connection and probe work live) | Medium |
+| [LIV](live-checks.md) | All | Owner's checklist of built-and-unit-tested behaviour not yet seen live: OBS capture-source setup, per-game setup on boot, category change and stream start, chatter reset and greeting, train overlap and refund, gift bombs without `💣`, EventSub reset logging, StreamElements tips (`!test tip`, a real tip, quiet probe replies, a resumed reconnect; the connection and probe work live), the disk-space warning sound, the OBS clock text and midnight date post, Twitch's stream online/offline lines, the OBS uptime text and its go-live poll | Medium |
 | [TRS](robustness-fixes.md#trs--train-left-on-screen-after-the-bot-closes-mid-train) | OBS | Closing the bot while a train is showing leaves `Image: Train` visible for good (seen by the owner); hide and reset it when the bot next connects to OBS | Medium |
 | [ESR](robustness-fixes.md#esr--eventsub-reconnect-path-unverified) | Twitch | The daily `session_reconnect` now succeeds live (no `4007`, no resubscribe, same session ID kept; reproduced 2026-10-08 and 10-09). Left: see an event delivered on a reconnected session, proving the subscriptions carried over (owner: change the stream title after the next reconnect) | Low |
 | [DCD](robustness-fixes.md#dcd--connection-timeouts-unverified-live) | Twitch | IRC and EventSub now time out silent connections and hung connects; unit-tested. The EventSub keepalive timeout has been seen live (2026-10-09); the IRC silence timeout and both connect timeouts are still to be verified with a firewall block (owner, off-stream) | Low |
 | [BOT](robustness-fixes.md#bot--chat-as-the-bot-account-not-lotsofs) | Twitch | The bot logs into IRC as `lotsofs` with the broadcaster's token; give chat its own bot-account token and login, keeping the broadcaster token for EventSub and Helix | Low |
-| [SOE](robustness-fixes.md#soe--log-twitch-stream-online-and-offline) | Twitch | Nothing logs Twitch's own stream online/offline events; subscribe `stream.online` and `stream.offline` and log them | Low |
 
 ## Open — porting from the Streamer.Bot era
 
-Streamer.Bot-era features not yet rebuilt. A plan for each: [porting.md](porting.md), which also lists the decisions each one needs. UTX and CLK can use the existing `Obs.SetInputSetting` wrapper (porting.md § Shared pieces).
+Streamer.Bot-era features not yet rebuilt. A plan for each: [porting.md](porting.md), which also lists the decisions each one needs.
 
 | Code | Area | Summary | Severity |
 |---|---|---|---|
-| [DSA](porting.md#dsa--disk-space-alarm-sound) | Infra | The below-1 GB disk alert no longer plays the `Warning` sound (`TODO: Sound`) | Low |
-| [UTX](porting.md#utx--obs-uptime-text) | OBS | Uptime is computed every minute but no longer written to `Text: Stream Uptime` | Low |
-| [CLK](porting.md#clk--obs-clock-text) | OBS | Nothing writes `Text: Time Of Day` any more | Low |
 | [RAD](porting.md#rad--raid-announcement) | Twitch | No raid announcement; raids already arrive as a `raid` chat notification and are logged as unhandled | Low |
 | [FAQ](porting.md#faq--public-faq-commands) | Twitch | Public FAQ commands match but never send, and matching lost its case-insensitivity | Low |
 | [MNY](porting.md#mny--money-tracking) | Twitch | Money goal tracking from cheers, subs and tips; never displayed even before. Keep or delete | Low |

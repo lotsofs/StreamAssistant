@@ -62,7 +62,7 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Logs OBS starting or stopping its stream; on start, resets the chatter list and sets up the game.
+		/// Logs OBS starting or stopping its stream; on start, resets the chatter list, sets up the game and polls the uptime.
 		/// </summary>
 		internal static void OnStreamStateChanged(object? sender, StreamStateChangedEventArgs e) {
 			try {
@@ -71,6 +71,7 @@ namespace StreamAssistant2 {
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "OBS started streaming");
 						ChatterList.Reset();
 						FireForget.Run("GMS_live", "go-live game setup", Games.OnStreamStartedAsync);
+						TwitchUptime.PollNow();
 						break;
 					case OutputState.OBS_WEBSOCKET_OUTPUT_STOPPED:
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "OBS stopped streaming");

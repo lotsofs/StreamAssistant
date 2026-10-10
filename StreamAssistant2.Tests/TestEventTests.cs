@@ -185,6 +185,21 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void Online_IsStreamOnlineWithAStart() {
+			List<TestEvent> events = Build(TestStream.Online, "");
+			Assert.Single(events);
+			Assert.Equal("stream.online", events[0].Type);
+			Assert.True(DateTime.TryParse(events[0].Event.ReadString("started_at"), out _));
+		}
+
+		[Fact]
+		public void Offline_IsStreamOffline() {
+			List<TestEvent> events = Build(TestStream.Offline, "");
+			Assert.Single(events);
+			Assert.Equal("stream.offline", events[0].Type);
+		}
+
+		[Fact]
 		public void Tip_ShapedLikeAStreamElementsTip() {
 			List<TestEvent> events = Build(TestTip.Script, "4.20 msg hello there");
 			Assert.Single(events);

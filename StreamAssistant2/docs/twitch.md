@@ -255,6 +255,8 @@ The current table:
 | `channel.chat.notification` | 1 | broadcaster + user | yes, fans out on `notice_type` |
 | `channel.cheer` | 1 | broadcaster | yes, `Cheers.Process` |
 | `channel.update` | 2 | broadcaster | yes, `Games.HandleUpdate` (acts only on a category change) |
+| `stream.online` | 1 | broadcaster | yes, `StreamEvents.Online` (logs, and wakes the uptime poll) |
+| `stream.offline` | 1 | broadcaster | yes, `StreamEvents.Offline` (logs only) |
 | `channel.follow` | 2 | broadcaster + moderator (= broadcaster) | **no**: each follow logs "not handled in code" on `EventSubConfusion` |
 
 Responses: `202` is expected. `409` (the subscription already exists) counts as success: it logs
@@ -297,7 +299,7 @@ synchronously, so its part before the first `await` still runs on the listen loo
 `JsonElement`. Blocking work that needs no JSON goes after an `await Task.Yield()`, as in
 `ChannelPoints.RunTrainAsync`. `Handle`'s own try/catch (`Error TEH1`) covers only the dispatch. `HandleCommunitySubGiftNotif`
 keeps its own `Error SUB1` catch. `SendMessage` uses the same helper (`Error TIRC3`). Other fire-and-forget sites (`ConsoleLogger`, the
-`LayoutColoring` and `TextToSpeech` workers, the `DiskSpace` and `TwitchUptime` loops, the connection
+`LayoutColoring` and `TextToSpeech` workers, the `DiskSpace`, `TwitchUptime` and `Clock` loops, the connection
 loops) catch their own exceptions.
 
 ### The test harness
@@ -315,6 +317,8 @@ loops) catch their own exceptions.
 | `gift` | `[tier <1-3>] [total <n>] [months <1-12>] [anon]` | a targeted `sub_gift` (`community_gift_id` null); `total` is the gifter's channel total |
 | `bomb` | `<gifts> [late] [missing <k>] [anon] [tier <1-3>]` | a gift bomb, below. `bomb 1` is a single random community gift, which Twitch sends as a bomb of one |
 | `cheer` | `<bits> [anon] [msg <text…>]` | a `channel.cheer` |
+| `online` | none | a `stream.online` from `lotsofs`, `started_at` now |
+| `offline` | none | a `stream.offline` from `lotsofs` |
 | `tip` | `<amount> [msg <text…>]` | a StreamElements `channel.tips` from `testtipper` in EUR, under a fresh `_id`; `amount` takes a dot (`4.20`), 0.01 to 100000 |
 | `replay` | `<file>` | a real EventSub or StreamElements event saved in `AssistantLogs\EventSubs\`, below |
 

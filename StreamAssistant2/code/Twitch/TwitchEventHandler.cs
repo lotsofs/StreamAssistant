@@ -32,6 +32,12 @@ namespace StreamAssistant2 {
 					case "channel.update":
 						Games.HandleUpdate(evtJson);
 						break;
+					case "stream.online":
+						StreamEvents.Online(evtJson);
+						break;
+					case "stream.offline":
+						StreamEvents.Offline();
+						break;
 					default:
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"Event Sub Event happened, but is not handled in code: {type}");
 						break;

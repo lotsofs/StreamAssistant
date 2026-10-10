@@ -1,11 +1,11 @@
 # Infrastructure
 
 The supporting modules that aren't Twitch, OBS or colour: configuration, logging, periodic work, the
-database, sound, speech, the language filter and the two periodic watchdogs. Each is a `static class`
+database, sound, speech, the language filter, the two periodic watchdogs and the clock. Each is a `static class`
 holding its own state.
 
-Read from the code. Where something was also run it says so. The scheduling code (disk alerts, midnight
-date, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
+Read from the code. Where something was also run it says so. The scheduling code (disk alerts, the clock's
+text format, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
 
 ## Config
 
@@ -98,12 +98,12 @@ can't stop another.
 | Loop | Started by | Runs | Error code |
 |---|---|---|---|
 | disk-space check | `DiskSpace.Start()` | every whole minute | `DSK1` |
-| midnight date post | `TwitchUptime.Start()` | once at each local midnight | `UpT6` |
-| uptime poll | `TwitchUptime.Start()` | about when the stream's uptime ticks over a minute | `UpT5` |
+| OBS clock text and midnight date post | `Clock.Start()` | every whole minute | `CLK1`, `CLK2` |
+| uptime poll | `TwitchUptime.Start()` | about when the stream's uptime ticks over a minute, and at once on going live | `UpT5` |
 | ad warnings | `Ads.Process` | once per ad break, see below | `ADS1` per warning |
 | connection health | `ConnectionHealth.Start()` | every second | `CHL1` |
 
-Details of each are under [Disk space](#disk-space), [Uptime and clock check](#uptime-and-clock-check),
+Details of each are under [Disk space](#disk-space), [Clock](#clock), [Uptime](#uptime),
 [Connection health](#connection-health) and [events.md](events.md#ads). The loops end with the process; there is no shutdown hook.
 
 **Ad warnings** are not a loop but one method, `Ads.RunScheduleAsync`, run per ad break with a
@@ -157,7 +157,7 @@ Sounds\`. A missing file throws `FileNotFoundException` into the caller.
 | `Team17Applauds` | `Team17-Applauds.mp3` | 0.75 | cheers |
 | `IndianAnthem` | `IndianAnthem.mp3` | 0.4 | StreamElements tips |
 | `Flush` | `Flush.wav` | 0.4 | the flush reward |
-| `Warning` | `Warning.wav` | 0.6 | nothing yet |
+| `Warning` | `Warning.wav` | 0.6 | the `Spam` disk-space alert |
 
 There is no delayed variant: handlers `await Task.Delay(...)` between sounds.
 
@@ -201,7 +201,7 @@ at drive `A:\` and falls back to the first drive from `DriveInfo.GetDrives()` if
 from the current time each pass, with a 10 ms floor) and checks free bytes against three thresholds (GiB, `1073741824`
 bytes):
 
-| Free space | Level | Repeat interval | TTS |
+| Free space | Level | Repeat interval | Sound and TTS |
 |---|---|---|---|
 | under 2 GiB | `Spam` | every minute | yes, with each alert |
 | under 15 GiB | `Warn` | every 12 minutes | no |
@@ -218,37 +218,72 @@ bytes):
   doesn't alert early.
 
 A first crossing at, say, 12:11 alerts immediately and then again at the 12:12 mark. The time arithmetic lives in
-[ClockMarks.cs](../code/Timing/ClockMarks.cs), pure functions shared with the midnight post, covered by
+[ClockMarks.cs](../code/Timing/ClockMarks.cs), pure functions shared with the [clock](#clock), covered by
 `ClockMarksTests`. The state is a pure
 class (`AlertState`), covered by `DiskAlertTests`. The alert text is the `*_CHAT` constants at the top of the
-file; the TTS line is spoken only for `Spam`.
+file. Only `Spam` adds more: the `Warning` sound before the chat line and the TTS line after it, with no
+delay between them.
 
-## Uptime and clock check
+## Clock
 
-[TwitchUptime.cs](../TwitchUptime.cs) has two unrelated jobs, started together by `TwitchUptime.Start()`.
+[Clock.cs](../code/Timing/Clock.cs) does the time-of-day work. `Clock.Start()` runs one loop that wakes on every
+whole minute (`ClockMarks.UntilNextMinute`, local time, recomputed each pass) and does two jobs, each in its own
+try/catch, so one failing can't stop the other:
 
-**The midnight date post.** At each local midnight it posts the date (`yyyy-MM-dd`) to chat. The loop works out
-the next local midnight (`ClockMarks.NextLocalMidnight`, strictly after now), waits in steps of at most ten minutes until
-the clock reaches it (so a clock change or a sleep can't leave it asleep past midnight), and posts the
-*target's* date, so waking a hair early can't post yesterday's. Errors log `UpT6`. The OBS clock-text update is
-a `TODO`, and would be its own per-minute loop.
+- **The OBS clock text.** It writes `yyyy-MM-dd HH:mm` to the text source `Text: Time Of Day` with
+  `Obs.SetInputSetting`. The format quotes its separators (`yyyy'-'MM'-'dd HH':'mm`), because an unquoted `:` is
+  the culture's time separator. While OBS isn't ready (`ObsConnection.IsReady`) it skips silently, rather than
+  logging the `IsConnected()` warning every minute. There is no write at start or on connect, so after the bot
+  starts, or OBS restarts, the text can be up to a minute stale. Errors (a missing source, OBS dropping
+  mid-request) log `CLK1`.
+- **The midnight date post.** On the first pass of a new local day it posts the date (`yyyy-MM-dd`) to chat.
+  `Start()` records the boot date, so starting the bot never posts. Errors log `CLK2`.
 
-**The uptime poll** asks `https://decapi.me/twitch/uptime/lotsofs` (a third-party scraper, used instead of
-Helix) how long the stream has been live.
+**Timing.** The wake lands within one Windows timer tick (about 16 ms) of :00. When it lands early, the pass
+rewrites the minute that's still current and sees the old date, then `UntilNextMinute`'s 10 ms floor brings
+the real pass. So the OBS text flips, and the date posts, within a few tens of ms of the mark. Waits are
+recomputed every pass, so nothing drifts, and a sleep or clock change costs at most one minute.
 
-- The loop calls `UptimeCheck()` and then waits `SecondsUntilNextMinute`. Its first run is immediate. Errors
-  that escape the check log `UpT5`.
-- `UptimeCheck` refuses to call twice within 5 s (`UPTIME_READ_TIMEOUT`), logging a warning.
+`ClockText` is pure, covered by `ClockTests`.
+
+## Uptime
+
+[TwitchUptime.cs](../TwitchUptime.cs), started by `TwitchUptime.Start()`, asks
+`https://decapi.me/twitch/uptime/lotsofs` (a third-party scraper, used instead of Helix) how long the stream
+has been live, and writes the answer to the OBS text source `Text: Stream Uptime`.
+
+- The loop calls `UptimeCheck()`, then waits `SecondsUntilNextMinute` or until woken, whichever comes
+  first. Its first run is immediate. Errors that escape the check log `UpT5`.
+- **Go-live wake.** `PollNow()` wakes the loop for an immediate poll. It's called on OBS's stream start
+  (`ObsConnection.OnStreamStateChanged`) and on Twitch's `stream.online` (`StreamEvents.Online`). The wake is a
+  `SemaphoreSlim(0, 1)`, so any number of calls leaves at most one wake pending (the rest are dropped), and a
+  wake during a poll triggers one more poll right after it. If Twitch or decapi still report offline at that
+  moment, the next poll is the normal 60 s later.
+- **Rate limit.** `UptimeCheck` is private and only the loop calls it, so requests are serial. A request
+  less than 5 s (`MIN_GAP`) after the previous one waits out the rest first. A burst of wakes therefore
+  never sends decapi two requests within 5 s.
 - On success `ProcessUptime` turns the text into `Offline` (the response ends ` is offline`) or
   `<h>h <mm>m`, parsing days, hours, minutes and seconds with one regex. Every group in that regex is
   optional, so it always matches; text it doesn't understand, such as an error message, yields `0h 00m`,
   and the `Regex Error` chat message in the code is unreachable.
-- The seconds it read are kept, and the next poll is `60 - seconds` later, so successive polls land just
-  after the stream's uptime ticks over to a new minute. HTTP failures set the stored seconds to 0, so a failure
-  waits a full minute instead of retrying at once.
-- HTTP failures set the value to the status code, or `Error` (log `Error UpT4`).
-- The result is stored in `_previousUptime` and **goes nowhere**: writing it to an OBS text source is a
-  `TODO`. Right now the feature only generates traffic.
+- Any failure gives `?`: a non-success status (logged `Uptime request: HTTP Response Code <n>`) or an
+  exception (`Error UpT4`).
+- **The OBS text** is `U: <value>` (`U: 2h 05m`, `U: Offline`, `U: ?`), written on every poll, so a restarted
+  OBS is right again by the next poll. While OBS isn't ready (`ObsConnection.IsReady`) it skips silently,
+  rather than logging the `IsConnected()` warning every minute. An OBS error (such as a renamed source)
+  escapes to the loop and logs `UpT5`.
+
+**How the poll lands just after each uptime minute.** It's self-correcting rather than guaranteed.
+The seconds decapi reports (`37 minutes, 19 seconds`) are kept in `_lastSecondsListed`, and the loop waits
+`60 - seconds`. So the next request reaches decapi past the minute by about one round trip, plus the
+fraction of a second the whole-number seconds dropped. Each successful poll re-aims the next, so nothing
+drifts.
+
+This relies on decapi's seconds being current. Checked 2026-10-10: responses carry `cache-control:
+no-cache, private`, and a live channel read `:24`, `:28`, `:33` on calls 4–5 s apart. `Task.Delay` firing up to one
+timer tick (~16 ms) early is within the round-trip margin. After a failure, while offline, and on the first
+live poll, the seconds are 0, so the next poll is a plain 60 s later and not aimed until a live answer
+re-aims it.
 
 ## Connection health
 

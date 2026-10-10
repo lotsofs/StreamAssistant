@@ -20,6 +20,8 @@ namespace StreamAssistant2 {
 			TestGiftBomb.Script,
 			TestCheer.Script,
 			TestTip.Script,
+			TestStream.Online,
+			TestStream.Offline,
 			TestReplay.Script,
 		];
 

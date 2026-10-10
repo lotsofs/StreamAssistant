@@ -124,9 +124,9 @@ namespace StreamAssistant2 {
 
 			switch (alert.Level) {
 				case DiskLevel.Spam:
+					Sound.PlaySound(Sound.Sounds.Warning);
 					TwitchIRCManager.SendMessage(string.Format(SPAM_CHAT, SPAM_GB_THRESHOLD, DRIVE_LETTER, space.ToString("N0").Replace(","," ")));
 					TextToSpeech.EnqueueSpeech(string.Format(SPAM_SPEAK, SPAM_GB_THRESHOLD, DRIVE_LETTER));
-					// TODO: Sound
 					break;
 				case DiskLevel.Warn:
 					TwitchIRCManager.SendMessage(string.Format(WARN_CHAT, WARN_GB_THRESHOLD, DRIVE_LETTER, space/GIBIBYTE));

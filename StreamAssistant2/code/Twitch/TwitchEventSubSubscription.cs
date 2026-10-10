@@ -37,6 +37,16 @@ namespace StreamAssistant2 {
 				RequiresBroadcasterId = true,
 			},
 			new() {
+				Type = "stream.online",
+				Version = "1",
+				RequiresBroadcasterId = true,
+			},
+			new() {
+				Type = "stream.offline",
+				Version = "1",
+				RequiresBroadcasterId = true,
+			},
+			new() {
 				Type = "channel.follow",
 				Version = "2",
 				RequiresBroadcasterId = true,

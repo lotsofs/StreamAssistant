@@ -93,17 +93,14 @@ Compiled and reachable by name, with no caller:
 | `Money` | `Goal` and `Current`; only commented code touches them |
 | `ISaveable` | `LoadSettings`/`SaveSettings`; nothing implements it |
 | `TextToSpeech.StopSpeech`, `PurgeQueue`, `Dispose` | would back a "shut up" command |
-| `Sound.Sounds.Warning` | nothing plays it yet (DSA in [TODO.md](TODO.md)) |
 | `ColorUtil.Darken(Color)`, `Lighten(Color)` | only the string overloads are used by the bot; tests cover both |
 | `SplitColors` in colour scheme files | loaded, never read ([color.md](color.md)) |
 | `TwitchIds.ModeratorId` branch | used only if a subscription sets `RequiresModeratorId` without `WantsBroadcasterAsModerator` |
 | `secrets.json` `twitchTestNames` | in the example, absent from the model |
 | `TwitchEventSub.IS_TEST` | a `static readonly bool`; flipping it needs a rebuild |
-| `TwitchUptime` results | computed every minute, written nowhere (`TODO: Write in OBS`) |
 | `channel.follow` subscription | subscribed, never handled |
 
 ## Stubs with a `TODO` in the code
 
 `TwitchIRCManager` (`TODO: handle`,
-`notify no connection`), `ChatHandler.ProcessMessage` (`TODO: Handle`),
-`TwitchUptime` (two OBS-text TODOs), `DiskSpace` (`TODO: Sound`). They are all marked in place.
+`notify no connection`), `ChatHandler.ProcessMessage` (`TODO: Handle`). They are all marked in place.

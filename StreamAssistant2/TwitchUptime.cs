@@ -5,14 +5,13 @@ using System.Threading.Tasks;
 namespace StreamAssistant2 {
 	internal static class TwitchUptime {
 		const string URL_UPTIME = @"https://decapi.me/twitch/uptime/lotsofs";
+		const string SOURCE = "Text: Stream Uptime";
 
-		const int UPTIME_READ_TIMEOUT = 5;
+		static readonly TimeSpan MIN_GAP = TimeSpan.FromSeconds(5);
 
 		private static readonly HttpClient _httpClient = new HttpClient();
+		static readonly SemaphoreSlim _wake = new(0, 1);
 
-		static readonly TimeSpan MAX_WAIT = TimeSpan.FromMinutes(10);
-
-		static string _previousUptime = "";
 		static int _lastSecondsListed = 60;
 
 		static DateTime _lastUptimeCheck = DateTime.MinValue;
@@ -24,30 +23,20 @@ namespace StreamAssistant2 {
 		}
 
 		internal static void Start() {
-			_ = DatePostLoopAsync();
 			_ = UptimeLoopAsync();
 		}
 
-		// TODO: Update OBS clock text (needs its own per-minute loop)
-		static async Task DatePostLoopAsync() {
-			while (true) {
-				try {
-					DateTime target = ClockMarks.NextLocalMidnight(DateTime.Now);
-					TimeSpan remaining;
-					// Waits in bounded steps so a clock change or a sleep can't leave it asleep past midnight.
-					while ((remaining = target - DateTime.Now) > TimeSpan.Zero) {
-						await Task.Delay(remaining < MAX_WAIT ? remaining : MAX_WAIT);
-					}
-					TwitchIRCManager.SendMessage(target.ToString("yyyy'-'MM'-'dd"));
-				}
-				catch (Exception ex) {
-					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error UpT6");
-					ConsoleLogger.LogToFile(ex);
-					await Task.Delay(1000);
-				}
+		// Polls at once instead of at the next aimed minute
+		internal static void PollNow() {
+			try {
+				_wake.Release();
+			}
+			catch (SemaphoreFullException) {
+				// already pending
 			}
 		}
 
+		// Polls, then waits until just after the next uptime minute or a wake
 		static async Task UptimeLoopAsync() {
 			while (true) {
 				try {
@@ -57,22 +46,19 @@ namespace StreamAssistant2 {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error UpT5");
 					ConsoleLogger.LogToFile(ex);
 				}
-				await Task.Delay(TimeSpan.FromSeconds(SecondsUntilNextMinute));
+				await _wake.WaitAsync(TimeSpan.FromSeconds(SecondsUntilNextMinute));
 			}
 		}
 
-		public static async Task UptimeCheck() {
-			// Don't spam the server. Prevent rate limits.
-			DateTime now = DateTime.UtcNow;
-			TimeSpan duration = now - _lastUptimeCheck;
-			double secs = duration.TotalSeconds;
-			if (secs < UPTIME_READ_TIMEOUT) {
-				_lastSecondsListed = 0;
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Attempted to read uptime twice in {UPTIME_READ_TIMEOUT} seconds. {secs}s");
-				return;
+		// Fetches the uptime and writes it to OBS
+		static async Task UptimeCheck() {
+			// At most one request per MIN_GAP; a wake too soon waits out the rest
+			TimeSpan since = DateTime.UtcNow - _lastUptimeCheck;
+			if (since < MIN_GAP) {
+				await Task.Delay(MIN_GAP - since);
 			}
-			_lastUptimeCheck = now;
-			
+			_lastUptimeCheck = DateTime.UtcNow;
+
 			// Do the thing
 			string formattedUptime;
 			HttpResponseMessage response;
@@ -86,21 +72,19 @@ namespace StreamAssistant2 {
 				}
 				else {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Uptime request: HTTP Response Code {(int)statusCode}");
-					formattedUptime = ((int)statusCode).ToString();
+					formattedUptime = "?";
 					_lastSecondsListed = 0;
 				}
 			}
 			catch (Exception ex) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error UpT4: Connection lost");
 				ConsoleLogger.LogToFile(ex);
-				formattedUptime = "Error";
+				formattedUptime = "?";
 				_lastSecondsListed = 0;
 			}
-			if (formattedUptime == _previousUptime) {
-				return;
+			if (ObsConnection.IsReady) {
+				Obs.SetInputSetting(SOURCE, "text", "U: " + formattedUptime);
 			}
-			_previousUptime = formattedUptime;
-			// TODO: Write in OBS
 		}
 
 		static string ProcessUptime(string input) {
@@ -116,7 +100,7 @@ namespace StreamAssistant2 {
 			var match = regex.Match(input);
 			if (!match.Success) {
 				TwitchIRCManager.SendMessage("❌ Regex Error: " + input);
-				return "Error";
+				return "?";
 			}
 
 			if (!string.IsNullOrEmpty(match.Groups[2].Value)) {

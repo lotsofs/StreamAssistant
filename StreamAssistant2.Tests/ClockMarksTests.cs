@@ -32,27 +32,5 @@ namespace StreamAssistant2.Tests {
 		public void UntilNextMinute_NeverReturnsLessThanTheFloor() {
 			Assert.Equal(TimeSpan.FromMilliseconds(10), ClockMarks.UntilNextMinute(At(11, 59, 59.9999)));
 		}
-
-		[Fact]
-		public void NextLocalMidnight_JustBeforeMidnightIsTheComingMidnight() {
-			DateTime now = new(2026, 10, 7, 23, 59, 59, 900);
-			Assert.Equal(new DateTime(2026, 10, 8, 0, 0, 0), ClockMarks.NextLocalMidnight(now));
-		}
-
-		[Fact]
-		public void NextLocalMidnight_ExactlyMidnightIsTheFollowingOne() {
-			DateTime now = new(2026, 10, 8, 0, 0, 0);
-			Assert.Equal(new DateTime(2026, 10, 9, 0, 0, 0), ClockMarks.NextLocalMidnight(now));
-		}
-
-		[Fact]
-		public void NextLocalMidnight_MiddayIsTheNextMidnight() {
-			Assert.Equal(new DateTime(2026, 10, 8, 0, 0, 0), ClockMarks.NextLocalMidnight(new DateTime(2026, 10, 7, 12, 30, 0)));
-		}
-
-		[Fact]
-		public void NextLocalMidnight_CrossesMonthAndYearEnds() {
-			Assert.Equal(new DateTime(2027, 1, 1, 0, 0, 0), ClockMarks.NextLocalMidnight(new DateTime(2026, 12, 31, 18, 0, 0)));
-		}
 	}
 }

@@ -47,11 +47,12 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `GMS1` | `Games.Load` | `games.json` couldn't be read or parsed | no games loaded; every category resolves to `None` |
 | `OSS1` | `ObsConnection.OnStreamStateChanged` | Handling OBS's stream start or stop threw | chatter list not reset |
 | `DSK1` | `DiskSpace.WatchAsync` | A disk-space check threw | next minute |
-| `UpT5` | `TwitchUptime.UptimeLoopAsync` | An uptime check threw (outside its own HTTP handling) | next poll |
-| `UpT6` | `TwitchUptime.DatePostLoopAsync` | The midnight loop threw | retries after 1 s |
+| `UpT5` | `TwitchUptime.UptimeLoopAsync` | An uptime check threw (outside its own HTTP handling), including the OBS write | next poll |
+| `CLK1` | `Clock.WatchAsync` | Writing the OBS clock text threw (a missing source, or OBS dropping mid-request) | next minute |
+| `CLK2` | `Clock.WatchAsync` | The midnight date post threw | that day's date isn't posted; the next midnight's is |
 | `ADS1` | `Ads.RunScheduleAsync` | One ad warning threw | later warnings still go out |
 | `5` | `TextToSpeech.ProcessQueueAsync` | Speaking an item failed | next item |
-| `UpT4` | `TwitchUptime.UptimeCheck` | The decapi.me request failed | value set to `Error` |
+| `UpT4` | `TwitchUptime.UptimeCheck` | The decapi.me request failed | the OBS text shows `U: ?` |
 | `LOG1` | `ConsoleLogger` | Log files can't be written (once, until a write succeeds) | window only |
 
 Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from its body; use
@@ -69,9 +70,10 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `StreamElements stopped: fix streamElements in secrets.json and restart the bot` | StreamElements refused the JWT (after `Error SES3`) |
 | `Tip <id> already alerted, skipped` | the same tip arrived twice |
 | `Unhandled chat notice event` | a `channel.chat.notification` `notice_type` with no case |
+| `Twitch: stream online (<started_at>)` | Twitch marked the channel live (`stream.online`); `started_at` is Twitch's start time, UTC |
+| `Twitch: stream offline` | Twitch marked the channel offline (`stream.offline`) |
 | `Trying to do an OBS action but not connected to OBS` | OBS is closed; the action was skipped |
 | `Color change request FAILED: <text>` | no colour matched; the points were refunded |
-| `Attempted to read uptime twice in 5 seconds` | the uptime rate limit |
 
 ## Hardcoded values
 
@@ -127,6 +129,8 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 | `!Scene: Basics Colored` | `ChannelPoints` | scene of the train image |
 | `Image: Train` | `ChannelPoints` | the train image input |
 | `Image: Background` | `GameBackground` | the per-game background image input |
+| `Text: Stream Uptime` | `TwitchUptime` | the uptime text, `U: <h>h <mm>m`, `U: Offline` or `U: ?`, setting `text` |
+| `Text: Time Of Day` | `Clock` | the clock text, `yyyy-MM-dd HH:mm`, setting `text` |
 | `Game: Game Capture 0`–`2` | `GameCapture` | game capture sources, retargeted per game |
 | `Game: Window Capture 0`–`2` | `GameCapture` | window capture sources, retargeted per game |
 | `Audio 5: App Capture 0`–`2` | `GameCapture` | application audio capture, fallback, retargeted per game |
@@ -195,7 +199,7 @@ Every other input with audio (window captures for chat, S Keys, Winamp, LiveSpli
 | 62 s | train reward | how long the image stays up |
 | 5.5 s, 2.5 s, 1 s | `LayoutColoring.ChangeColorAsync` | the recolour animation, nine seconds in all |
 | 60 min; warnings at 5, 3, 2, 1 min before | `Ads` | assumed ad cadence |
-| 5 s | `TwitchUptime` | uptime request rate limit |
+| 5 s | `TwitchUptime.MIN_GAP` | least time between uptime requests; a poll inside it waits out the rest |
 | 60 s | `TwitchHelixApi` | HTTP timeout (EventSub's separate client keeps the default) |
 
 ### Thresholds

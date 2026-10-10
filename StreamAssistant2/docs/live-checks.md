@@ -92,3 +92,23 @@ account. The shape is in `secrets.json.example`.
 45. [ ] Closing the bot (the window, not the debugger) posts no `💥 SE Disconnected`
 46. [ ] The log file no longer has a `StreamElements probe-N: err_bad_request already subscribed to topic` line every 30 s, and `StreamElements subscribed to channel.tips` appears once per session
 47. [ ] A StreamElements `reconnect`, if one is ever seen (`StreamElements sent reconnect`): `Connecting to wss://astro.streamelements.com (resuming)`, then `StreamElements subscribed to channel.tips`, with no `Error SES3` and neither chat line
+
+## Disk space
+
+48. [ ] Off-stream, temporarily raise `SPAM_GB_THRESHOLD` in `DiskSpace.cs` above A:'s free space and F5: at the next whole minute the warning beep plays, chat shows the `Alert: Less than …` line, and TTS speaks the alert, with no `Error DSK1`. Restore the constant afterwards
+
+## Clock
+
+49. [ ] With OBS open, F5: by the next whole minute `Text: Time Of Day` shows the current `yyyy-MM-dd HH:mm`, and it then changes right on each minute boundary, with no `Error CLK1`. Close and reopen OBS: it's right again by the next minute
+50. [ ] At local midnight, chat gets the date (`yyyy-MM-dd`) once and the OBS clock shows `00:00`, with no `Error CLK2`
+
+## Twitch stream events
+
+51. [ ] `!test online` logs `Twitch: stream online (<now>)`, and `!test offline` logs `Twitch: stream offline`
+52. [ ] At the next real stream, the connect lines show `stream.online` and `stream.offline` subscribed (no `Subscription … failed`), and going live and ending log the two lines. Note here how long after `OBS started streaming` the online line came
+
+## Uptime text
+
+53. [ ] With OBS open, F5: within a minute `Text: Stream Uptime` shows `U: Offline`. Close and reopen OBS: it's right again within a minute, with no `Trying to do an OBS action…` line every minute while OBS was closed
+54. [ ] Type something else into `Text: Stream Uptime` in OBS, then `!test online`: within a second or so it's back to `U: Offline` (the wake polled at once)
+55. [ ] At a real stream, the text shows the uptime once decapi has it, then changes just after each uptime minute (within a second or so of the stream's own minute). Note whether the go-live polls (OBS's start, Twitch's online) already found it live

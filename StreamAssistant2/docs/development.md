@@ -47,7 +47,7 @@ The owner runs the bot from the editor with F5, often while a stream is on. So:
 
 ## Verification, by area
 
-`code/Color/`, the scheduling logic (disk alerts, the midnight calculation, ad warnings), the IRC and
+`code/Color/`, the scheduling logic (disk alerts, the clock's text format, ad warnings), the IRC and
 EventSub timeouts, the EventSub and StreamElements session loops and the tip sentences have automated tests.
 Everything else is checked by running the app and reading the dashboard.
 
@@ -67,7 +67,8 @@ compile it). The test project references the bot's project, and the bot grants i
 | `RealDataSmokeTest` | loads the real colour data named in `paths.json`; skipped if absent |
 | `ColorData.cs` | fixture loading helpers and the `RealDataFact` attribute |
 | `DiskAlertTests` | `DiskSpace.AlertState`: immediate first and worsening alerts, repeats on the clock marks, the early-wake case, recovery |
-| `ClockMarksTests` | `ClockMarks`: window numbering on the marks, `UntilNextMinute` and its floor, `NextLocalMidnight` |
+| `ClockMarksTests` | `ClockMarks`: window numbering on the marks, `UntilNextMinute` and its floor |
+| `ClockTests` | `Clock.ClockText`: the format holds under a culture with other separators. Never runs the loop, which writes to OBS and chat |
 | `AdsScheduleTests` | `Ads.RunScheduleAsync`: order, cancelling, a throwing sender, isolation from other work. Uses fake senders, never `SendMessage` |
 | `IrcReadTimeoutTests` | `TwitchIRCManager.ReadLineOrTimeoutAsync` over a loopback `TcpListener`: silence times out, outer cancellation stays a cancellation, lines and a close come through |
 | `EventSubReceiveTimeoutTests` | `TwitchEventSub.ReceiveFullMessage` over a loopback `HttpListener` WebSocket: silence and a stall mid-message time out, split frames join, a Close frame and a dead socket give their reasons, outer cancellation throws. A raw-TCP WebSocket (handshake by hand) drops the connection with a TCP reset or a plain close, which gives `ConnectionLost` |

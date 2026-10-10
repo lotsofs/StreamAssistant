@@ -28,7 +28,8 @@ hardcoded on purpose ([reference.md](reference.md) lists them).
                          │      ▼                           ▼  ▼      │
                          │  TwitchHelixApi            Sound  TextToSpeech
                          │                                            │
-                         │  DiskSpace, TwitchUptime, Ads: own loops   │
+                         │  DiskSpace, TwitchUptime, Clock, Ads:      │
+                         │    own loops                               │
   StreamElements (WS) ──►│  StreamElementsSocket ──► Tips: sound,     │
                          │    chat, TextToSpeech                      │
                          │  Obs / ObsConnection ◄── LayoutColoring    │
@@ -54,7 +55,8 @@ service registry.
    3. `Games.Load()`: `<BotInput>\games.json`, the game behind each Twitch category. Never throws.
    4. `Database.InitAsync()`: opens `streamAssistant.db`, creates the `flushes` table if missing.
    5. Logs `Data loaded`.
-   6. `DiskSpace.Start()`, `TwitchUptime.Start()` and `ConnectionHealth.Start()`: the periodic loops.
+   6. `DiskSpace.Start()`, `TwitchUptime.Start()`, `Clock.Start()` and `ConnectionHealth.Start()`: the
+      periodic loops. `Clock` doesn't need OBS yet: it skips its OBS write until OBS is ready.
    7. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
       `OnMessage += ChatHandler.ProcessMessage`, `TwitchHelixApi.Init()`, `TwitchEventSub.Connect()`,
       `StreamElementsSocket.Connect()` (only logs "tips are off" without credentials),
@@ -79,8 +81,8 @@ Stopping the debugger kills the process without running any of the shutdown path
 - **Everything else is the thread pool.** Each long-lived loop is started as `_ = Task.Run(...)` or
   `_ = SomethingAsync()` from `StartBotAsync`'s context: the IRC connection and listen loops, the
   EventSub session loop, the StreamElements session loop and its per-session sender task, the OBS
-  reconnect loop, the colour worker, the TTS worker, and the periodic loops in `DiskSpace` and
-  `TwitchUptime`.
+  reconnect loop, the colour worker, the TTS worker, and the periodic loops in `DiskSpace`,
+  `TwitchUptime` and `Clock`.
 - **Handlers run on the read loops.** `TwitchIRCManager.OnMessage` is invoked synchronously inside the
   IRC listen loop, `TwitchEventHandler.Handle` synchronously inside the EventSub listen loop, and
   `StreamElementsEventHandler.Handle` inside the StreamElements one. A
@@ -112,7 +114,7 @@ transport classes and the colour code (the test project reaches internals throug
 | [TextToSpeech.cs](../TextToSpeech.cs) | SAPI speech queue | [infrastructure.md](infrastructure.md#text-to-speech) |
 | [LanguageFilter.cs](../LanguageFilter.cs) | Naive bad-word replacement before TTS | [infrastructure.md](infrastructure.md#language-filter) |
 | [DiskSpace.cs](../DiskSpace.cs) | Free-space watchdog for drive `A:\` | [infrastructure.md](infrastructure.md#disk-space) |
-| [TwitchUptime.cs](../TwitchUptime.cs) | Scrapes uptime from decapi.me; midnight date post | [infrastructure.md](infrastructure.md#uptime-and-clock-check) |
+| [TwitchUptime.cs](../TwitchUptime.cs) | Scrapes uptime from decapi.me and writes it to OBS | [infrastructure.md](infrastructure.md#uptime) |
 | [LayoutColoring.cs](../LayoutColoring.cs) | Serialised colour-change queue and the OBS animation | [obs.md](obs.md#layout-recolouring) |
 | [Util.cs](../Util.cs) | `TrueModulo` overloads; used only by `ColorUtil.HsvToRgb` | |
 | [Money.cs](../Money.cs), [ISaveable.cs](../ISaveable.cs) | Unused leftovers | [legacy.md](legacy.md) |
@@ -134,6 +136,7 @@ transport classes and the colour code (the test project reaches internals throug
 | [ChannelPoints.cs](../code/Twitch/ChannelPoints.cs) | What each channel-point reward does |
 | [Ads.cs](../code/Twitch/Ads.cs) | Ad-break handling and chat warnings |
 | [Cheers.cs](../code/Twitch/Cheers.cs) | Bits alert |
+| [StreamEvents.cs](../code/Twitch/StreamEvents.cs) | Logs Twitch's stream online and offline |
 | [Subscriptions.cs](../code/Twitch/Subscriptions.cs) | Sub, resub, gift and gift-bomb alerts: sound, delay, speech; the gift-bomb list (plus a large commented-out legacy block) |
 | [SubscriptionMessages.cs](../code/Twitch/SubscriptionMessages.cs) | The spoken sentences for those alerts |
 | [CommunityGiftSub.cs](../code/Twitch/CommunityGiftSub.cs) | Collects the recipients of one gift bomb |
@@ -173,7 +176,10 @@ audio capture sources at the game's executables, `none` for unused slots. All th
 ### `code/Timing/`
 
 [ClockMarks.cs](../code/Timing/ClockMarks.cs): pure wall-clock arithmetic (window numbering on clock marks, time to the
-next minute, next local midnight) for the periodic loops. See [infrastructure.md](infrastructure.md#periodic-work).
+next minute) for the periodic loops. See [infrastructure.md](infrastructure.md#periodic-work).
+
+[Clock.cs](../code/Timing/Clock.cs): the per-minute loop that writes the OBS clock text and posts the date to chat
+at local midnight. See [infrastructure.md](infrastructure.md#clock).
 
 ### `code/Util/`
 
