@@ -15,6 +15,18 @@
 			</TextBlock>
 		</Border>
 
+		<Border DockPanel.Dock="Right" Width="360" Background="#141414" Padding="6,4" BorderBrush="#333333" BorderThickness="1,0,0,0">
+			<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+				<ItemsControl x:Name="LeftPanelList">
+					<ItemsControl.ItemTemplate>
+						<DataTemplate>
+							<TextBlock Text="{Binding Text}" Foreground="{Binding Brush}" TextWrapping="Wrap" />
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+			</ScrollViewer>
+		</Border>
+
 		<ListBox x:Name="LogList"
 				 Background="Transparent" BorderThickness="0"
 				 SelectionMode="Extended"

@@ -41,9 +41,19 @@ namespace StreamAssistant2 {
 		static readonly Brush _statusBad = MakeBrush("#EE8844");
 		static readonly Brush _statusDead = MakeBrush("#EE4444");
 
+		static readonly Dictionary<LeftPanel.LineKind, Brush> _leftPanelColors = new() {
+			[LeftPanel.LineKind.Title] = MakeBrush("#CCCCCC"),
+			[LeftPanel.LineKind.Heading] = MakeBrush("#888888"),
+			[LeftPanel.LineKind.Item] = MakeBrush("#EEEEEE"),
+			[LeftPanel.LineKind.Marked] = MakeBrush("#EEEEEE"),
+			[LeftPanel.LineKind.On] = MakeBrush("#EE8844"),
+			[LeftPanel.LineKind.Current] = MakeBrush("#EE8844"),
+		};
+
 		readonly ObservableCollection<LogLine> _lines = new();
 		readonly DispatcherTimer _statusTimer;
 		ScrollViewer? _logScroller;
+		List<LeftPanel.StatusLine>? _leftPanelLines;
 
 		public MainWindow() {
 			InitializeComponent();
@@ -78,6 +88,20 @@ namespace StreamAssistant2 {
 				StreamElementsAge.Text = "off";
 				StreamElementsAge.Foreground = _statusHealthy;
 			}
+			UpdateLeftPanel();
+		}
+
+		/// <summary>
+		/// Redraws the left-panel column when its lines differ from the last draw: the rotation moved on, or its timer
+		/// reached another second.
+		/// </summary>
+		void UpdateLeftPanel() {
+			List<LeftPanel.StatusLine> lines = LeftPanel.StatusLines(LeftPanel.Status, DateTime.UtcNow);
+			if (_leftPanelLines != null && lines.SequenceEqual(_leftPanelLines)) {
+				return;
+			}
+			_leftPanelLines = lines;
+			LeftPanelList.ItemsSource = lines.Select(line => new LogLine(line.Text, _leftPanelColors[line.Kind])).ToList();
 		}
 
 		/// <summary>

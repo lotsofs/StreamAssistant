@@ -263,7 +263,11 @@ namespace StreamAssistant2.Tests {
 				return Task.CompletedTask;
 			});
 
-		Task Run(PanelSet set) => LeftPanel.RunAsync("GTA3", set, Calls(), _cts.Token);
+		readonly List<(int?, int?)> _shown = new();
+
+		Task Run(PanelSet set) => LeftPanel.RunAsync("GTA3", set, Calls(), _cts.Token, (panel, previous) => _shown.Add((panel, previous)));
+
+		static (int?, int?) S(int? panel, int? previous = null) => (panel, previous);
 
 		static Panel P(double seconds, params string[] show) => new(show.ToList(), new(), new(), seconds);
 
@@ -298,6 +302,7 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal([Hide("Labels 1"), Hide("Labels 1", COLORED), Hide("Values 2")], Between("wait 30", "wait 1"));
 			Assert.Equal([Show("Labels 1"), Show("Labels 1", COLORED), Show("Values 1")], Between("wait 1", "wait 50"));
 			Assert.Equal(2, _calls.Count(c => c.StartsWith("list")));
+			Assert.Equal([S(0), S(1), S(2), S(0)], _shown);
 		}
 
 		[Fact]
@@ -326,6 +331,7 @@ namespace StreamAssistant2.Tests {
 			Assert.DoesNotContain(_calls, c => c.StartsWith("wait"));
 			Assert.Contains(Show("Basics"), _calls);
 			Assert.Contains(Hide("Key Count"), _calls);
+			Assert.Equal([S(null)], _shown);
 		}
 
 		[Fact]
@@ -358,14 +364,15 @@ namespace StreamAssistant2.Tests {
 		static PanelSet WithPrevious(List<Panel> panels) => new(["Basics"], panels) { Previous = [P(2), P(25, "Gold"), P(2)] };
 
 		[Fact]
-		public async Task SplitDuringAPanel_PlaysPrevious_ThenTheNextPanel() {
+		public async Task SplitDuringAPanel_PlaysPrevious_ThenTheInterruptedPanelAgain() {
 			_splitAtWaits.Add(1);
 			_stopAfterWaits = 5;
 			await Run(WithPrevious([P(50, "Labels 1", "Values 1"), P(30, "Key Count")]));
-			Assert.Equal(["wait 50", "wait 2", "wait 25", "wait 2", "wait 30"], Waits());
+			Assert.Equal(["wait 50", "wait 2", "wait 25", "wait 2", "wait 50"], Waits());
 			Assert.Equal([Hide("Labels 1"), Hide("Labels 1", COLORED), Hide("Values 1")], Between("wait 50", "wait 2"));
 			Assert.Equal([Show("Gold", COLORED)], Between("wait 2", "wait 25"));
-			Assert.Equal([Show("Key Count")], Between("wait 2", "wait 30")[^1..]);
+			Assert.Equal([Show("Labels 1"), Show("Labels 1", COLORED), Show("Values 1")], _calls.Skip(_calls.LastIndexOf("wait 2") + 1).SkipLast(1));
+			Assert.Equal([S(0), S(0, 0), S(0, 1), S(0, 2), S(0)], _shown);
 		}
 
 		[Fact]
@@ -373,7 +380,8 @@ namespace StreamAssistant2.Tests {
 			_splitAtWaits.UnionWith([1, 3]);
 			_stopAfterWaits = 7;
 			await Run(WithPrevious([P(50, "Labels 1", "Values 1"), P(30, "Key Count")]));
-			Assert.Equal(["wait 50", "wait 2", "wait 25", "wait 2", "wait 25", "wait 2", "wait 30"], Waits());
+			Assert.Equal(["wait 50", "wait 2", "wait 25", "wait 2", "wait 25", "wait 2", "wait 50"], Waits());
+			Assert.Equal([S(0), S(0, 0), S(0, 1), S(0, 0), S(0, 1), S(0, 2), S(0)], _shown);
 		}
 
 		[Fact]
@@ -392,6 +400,7 @@ namespace StreamAssistant2.Tests {
 			await Run(WithPrevious([P(50, "Key Count")]));
 			Assert.Equal(["wait forever", "wait 2", "wait 25", "wait 2", "wait forever"], Waits());
 			Assert.Equal(2, _calls.Count(c => c == Show("Key Count")));
+			Assert.Equal([S(0), S(0, 0), S(0, 1), S(0, 2), S(0)], _shown);
 		}
 
 		static readonly string[] Known = ["Basics", "Labels 1", "Values 1", "Values 2", "Key Count"];
@@ -430,6 +439,88 @@ namespace StreamAssistant2.Tests {
 				Previous = [P(2, "Previous", "Key Count")],
 			};
 			Assert.Equal(["Gone", "Big Delta", "Little Delta", "Previous"], LeftPanel.Missing(set, Known));
+		}
+	}
+
+	public class LeftPanelStatusLinesTests {
+		static readonly PanelSet Set = new(["Splits Basics"], [
+			new Panel(["Splits List Labels 1", "Splits List Values 1"], new() { ["Header Left 1"] = "Splits", ["Header Right 1"] = "Finished at" }, new(), 50),
+			new Panel([], new(), new(), 1.5),
+		]) { Previous = [new Panel(["Splits Previous"], new(), new(), 30)] };
+
+		const string LIST = "Splits List Labels 1, Splits List Values 1 · \"Splits\", \"Finished at\"";
+
+		static readonly DateTime Shown = new(2026, 10, 11, 20, 0, 0, DateTimeKind.Utc);
+		static readonly DateTime Now = Shown.AddSeconds(12.7);
+
+		static LeftPanel.RotationStatus Status(int? panel, int? previous = null, bool isDefault = false, bool stopped = false, PanelSet? set = null) {
+			return new("GTA3", isDefault, set ?? Set, panel, previous, panel == null ? null : Shown, stopped, CancellationToken.None);
+		}
+
+		static LeftPanel.StatusLine L(string text, LeftPanel.LineKind kind) => new(text, kind);
+
+		[Fact]
+		public void NoRotation_IsOneTitleLine() {
+			Assert.Equal([L("Left panel: none", LeftPanel.LineKind.Title)], LeftPanel.StatusLines(null, Now));
+		}
+
+		[Fact]
+		public void EverySection_WithAlwaysOn_AndTheLoopPanelUpMarkedAndTimed() {
+			Assert.Equal([
+				L("Left panel: GTA3", LeftPanel.LineKind.Title),
+				L("Always", LeftPanel.LineKind.Heading),
+				L("  Splits Basics", LeftPanel.LineKind.On),
+				L("Loop", LeftPanel.LineKind.Heading),
+				L($"> {LIST} · 12 / 50 s", LeftPanel.LineKind.Current),
+				L("  (blank) · 1.5 s", LeftPanel.LineKind.Item),
+				L("Previous split", LeftPanel.LineKind.Heading),
+				L("  Splits Previous · 30 s", LeftPanel.LineKind.Item),
+			], LeftPanel.StatusLines(Status(0), Now));
+		}
+
+		[Fact]
+		public void DuringASplit_TheLoopPanelToReturnToKeepsItsMarker_AndThePreviousPanelIsCurrentAndTimed() {
+			List<LeftPanel.StatusLine> lines = LeftPanel.StatusLines(Status(0, 0), Now);
+			Assert.Equal(L($"> {LIST} · 50 s", LeftPanel.LineKind.Marked), lines[4]);
+			Assert.Equal(L("> Splits Previous · 12 / 30 s", LeftPanel.LineKind.Current), lines[7]);
+		}
+
+		[Fact]
+		public void Timer_StopsAtThePanelsSeconds() {
+			Assert.Equal(L($"> {LIST} · 50 / 50 s", LeftPanel.LineKind.Current), LeftPanel.StatusLines(Status(0), Shown.AddSeconds(500))[4]);
+		}
+
+		[Fact]
+		public void Stopped_KeepsTheMarker_ButNoTimer() {
+			List<LeftPanel.StatusLine> lines = LeftPanel.StatusLines(Status(0, stopped: true), Now);
+			Assert.Equal(L("Left panel: GTA3, stopped", LeftPanel.LineKind.Title), lines[0]);
+			Assert.Equal(L($"> {LIST} · 50 s", LeftPanel.LineKind.Current), lines[4]);
+		}
+
+		[Fact]
+		public void OnlyPanel_StaysUp_SoNoTimer() {
+			PanelSet single = new(["Sellout Basics"], [new Panel(["Sellout Key Count"], new(), new(), 220)]);
+			Assert.Equal(L("> Sellout Key Count · 220 s", LeftPanel.LineKind.Current), LeftPanel.StatusLines(Status(0, set: single), Now)[4]);
+		}
+
+		[Fact]
+		public void BeforeTheFirstPanel_NothingIsMarked_AndAlwaysIsNotOnYet() {
+			List<LeftPanel.StatusLine> lines = LeftPanel.StatusLines(Status(null, isDefault: true), Now);
+			Assert.Equal(L("Left panel: GTA3 (default)", LeftPanel.LineKind.Title), lines[0]);
+			Assert.Equal(L("  Splits Basics", LeftPanel.LineKind.Item), lines[2]);
+			Assert.DoesNotContain(lines, l => l.Text.StartsWith('>'));
+		}
+
+		[Fact]
+		public void EmptySections_SayNone_AndNoPreviousMeansNoPreviousSection() {
+			LeftPanel.RotationStatus status = new("KTANE", true, new PanelSet([], []), null, null, Shown, false, CancellationToken.None);
+			Assert.Equal([
+				L("Left panel: KTANE (default)", LeftPanel.LineKind.Title),
+				L("Always", LeftPanel.LineKind.Heading),
+				L("  (none)", LeftPanel.LineKind.Item),
+				L("Loop", LeftPanel.LineKind.Heading),
+				L("  (none)", LeftPanel.LineKind.Item),
+			], LeftPanel.StatusLines(status, Now));
 		}
 	}
 
@@ -484,6 +575,23 @@ namespace StreamAssistant2.Tests {
 			LeftPanel.Start("GTA3");
 			LeftPanel.OnObsConnected();
 			Assert.Equal(3, Count("Left panel: GTA3"));
+		}
+
+		[Fact]
+		public void Status_FollowsStartAndStop() {
+			LeftPanel.Start("GTA3");
+			LeftPanel.RotationStatus? status = LeftPanel.Status;
+			Assert.NotNull(status);
+			Assert.Equal("GTA3", status.Game);
+			Assert.False(status.IsDefault);
+			Assert.Null(status.Panel);
+			Assert.False(status.Stopped);
+
+			LeftPanel.Stop();
+			Assert.True(LeftPanel.Status!.Stopped);
+
+			LeftPanel.Start("KTANE");
+			Assert.Null(LeftPanel.Status);
 		}
 
 		[Fact]

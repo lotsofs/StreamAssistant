@@ -181,7 +181,8 @@ shown and the panels to take turns) and finds a game's entry, falling back to `d
 called from `Games.Apply`, rotates those panels in OBS until the next `Start`; `OnObsConnected`, from
 `ObsConnection`'s `Connected` handler, restarts it after an OBS restart; `Stop` and `Resume` back the
 `!stoppaneltimer` / `!startpaneltimer` admin commands; `OnSplit`, from `SplitWatcher`, plays a game's
-previous-split panels. See [obs.md](obs.md#left-panel).
+previous-split panels; `Status` and `StatusLines` feed the dashboard's left-panel column. See
+[obs.md](obs.md#left-panel).
 
 ### `code/LiveSplit/`
 
@@ -213,8 +214,8 @@ See [color.md](color.md), which is the authority on them.
 
 ### `ui/`
 
-[MainWindow.xaml](../ui/MainWindow.xaml) and its code-behind: the dashboard. See
-[dashboard.md](dashboard.md).
+[MainWindow.xaml](../ui/MainWindow.xaml) and its code-behind: the dashboard (status bar, log, and the
+left-panel column on the right). See [dashboard.md](dashboard.md).
 
 ## Data flows worth knowing
 

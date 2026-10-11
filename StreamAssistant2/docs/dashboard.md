@@ -14,6 +14,9 @@ A `DockPanel` on a near-black background, Consolas 13, default size 1100 × 650:
 - **Status bar** (docked top): `Twitch IRC time since last ping: mm:ss  |  Event Sub time since last
   keepalive: mm:ss  |  StreamElements time since last reply: mm:ss`. The three ages are `Run` elements
   named `IrcAge`, `EventSubAge` and `StreamElementsAge`.
+- **Left-panel column** (docked right, 360 px, `#141414`, under the status bar): an `ItemsControl` named
+  `LeftPanelList` in a vertical `ScrollViewer`, each row a wrapping `TextBlock` in its own colour. See
+  [The left panel](#the-left-panel).
 - **Log** (fills the rest): a `ListBox` named `LogList`, extended selection, no horizontal scrollbar,
   virtualised with container recycling, bound to an `ObservableCollection<LogLine>`. Each row is a
   wrapping `TextBlock` in that line's colour, with a custom item template that has no hover state and a
@@ -47,6 +50,40 @@ an hour wraps.
 
 Before the first IRC line arrives `_lastPingTime` is `DateTime.MinValue`, so the IRC age starts out huge
 (and red) until the first line. EventSub's and StreamElements' stopwatches start at process start.
+
+## The left panel
+
+The right-hand column shows what the left-panel rotation ([obs.md](obs.md#the-rotation)) is doing:
+
+- **How it updates:** the status bar's 250 ms tick also calls `UpdateLeftPanel()`. That builds the lines
+  with `LeftPanel.StatusLines(LeftPanel.Status, DateTime.UtcNow)` and redraws only when they differ from
+  the last draw. That happens when the rotation moves on (the bot replaces the immutable `RotationStatus`)
+  and once a second while a timer counts. `StatusLines` is a pure function in the bot (tested), so the
+  window only maps each line's kind to a brush.
+- **What it shows**, from top to bottom:
+  - a title: `Left panel: <game>`, with ` (default)` when the game has no entry of its own, and
+    `, stopped` after `!stoppaneltimer`
+  - the `Always` groups
+  - the `Loop` panels
+  - `Previous split`, only for a game with previous-split panels
+- **Each panel's line:** its groups (`(blank)` for a pause), the texts it sets in quotes (what tells the
+  split-list panels apart), and its seconds. For example:
+  `Splits List Labels 1, Splits List Values 1 · "Splits", "Finished at" · 50 s`.
+- **Marking:** the panel up is orange with a `> `. During a previous split, the playing `Previous` panel is
+  the orange one, and the loop panel the rotation will return to keeps a white `> `. The `Always` groups
+  are orange too once the rotation has shown its first panel, since they stay up throughout.
+- **Timer:** the orange panel's seconds read `<elapsed> / <seconds> s`, whole seconds since it was shown,
+  stopping at its length. There's no timer when a panel stays up for good: a stopped rotation, or a loop
+  with only one panel.
+- **No rotation:** before any rotation, and for a game whose panel is left as is, the column reads
+  `Left panel: none`.
+
+| Line | Hex |
+|---|---|
+| Title | `#CCCCCC` |
+| Section heading | `#888888` |
+| Panel, group, and the marked loop panel during a split | `#EEEEEE` |
+| The panel up, and the `Always` groups once shown | `#EE8844` (the `SceneChanges` orange) |
 
 ## The log
 

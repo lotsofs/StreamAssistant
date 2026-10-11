@@ -300,9 +300,9 @@ It runs all the time, not only while streaming.
      their copy is still hidden.
    - It then waits the panel's `Seconds` and moves to the next panel, wrapping round at the end.
 4. **A split**, when the entry has `Previous`, cuts that wait short. The `Previous` panels play once, each
-   for its `Seconds`, and a split during them starts them over. Then the rotation carries on with the next
-   panel, not the one that was cut short. Without `Previous`, splits are ignored. While OBS isn't ready,
-   the 5 s retry ignores them too.
+   for its `Seconds`, and a split during them starts them over. Then the rotation returns to the panel that
+   was cut short and shows it again for its full time. Without `Previous`, splits are ignored. While OBS
+   isn't ready, the 5 s retry ignores them too.
 5. **One panel, or none:** with a single panel, or none (only `Always`), the rotation ends once it is up,
    unless the entry has `Previous`. Then it waits for splits instead, and shows that panel again after each
    one.
@@ -324,6 +324,11 @@ More detail on the edges:
   - A rotation stopped with `!stoppaneltimer` stays stopped.
   - At boot no game has started yet, so the first connect does nothing here.
   - `Error LPN4` if the restart itself throws; it runs on obs-websocket's thread.
+- **On the dashboard:** `RunAsync` reports each panel it shows: the loop index, plus the `Previous` index
+  during a split. `Start` turns those reports into `LeftPanel.Status`, a `RotationStatus` record holding
+  the game, its set, the panel up, when it was shown, and whether it's stopped. It's replaced under a small lock of its own, and
+  only by the rotation it belongs to. The window's right-hand column draws it
+  ([dashboard.md](dashboard.md#the-left-panel)).
 - **Stopping by command:** `!stoppaneltimer` (`LeftPanel.Stop`) cancels the rotation, leaves the current
   panel up and logs `Left panel rotation stopped`. It stays stopped through OBS reconnects. Any `Start`
   clears the stop: `!startpaneltimer` (`LeftPanel.Resume`, the last game's rotation from its first panel),
