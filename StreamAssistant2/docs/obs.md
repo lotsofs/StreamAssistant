@@ -171,6 +171,9 @@ with a clearer `Couldn't set <source>: …` warning.
   Audio 5: App Capture 1, 2` (`HiddenLine`, tested). A source
   that can't be set (missing or renamed in OBS, or not in that scene) logs `Couldn't set …` and the
   rest still go. With OBS disconnected it logs `OBS not connected, capture sources not set` once.
+  For a category id not in `games.json`, `Apply` skips this step and logs
+  `<id> not in games.json, capture sources left as is`; the `0` fallback only supplies the name for the
+  background and colour. Choosing `0` (`None`) explicitly does run it, hiding every slot.
   Audio capture is a fallback: most game audio now comes from the video capture source itself.
   (`Assignments`, `IsUsed`, `VolumeFor`, `ShownLine` and `WindowValue`, tested.)
 

@@ -215,7 +215,9 @@ that missing too, it logs `No background for <name> and no Template.png, left as
 background alone. Then `GameColor.Set` queues the
 game's `gameschemes` colour scheme, which replaces any colour showing and posts the usual
 `Changing to color …` chat line; a game without a scheme (RoN) only logs. Last, `GameCapture.Set` points
-the numbered game, window and audio capture sources at the game's executables, logging each one.
+the numbered game, window and audio capture sources at the game's executables, logging each one. An id
+not in `games.json` skips that step, logging `<id> not in games.json, capture sources left as is`, so
+the captures from the last known game stay; picking `0` (`None`) itself still hides them all.
 Details in [obs.md](obs.md#per-game-setup).
 
 ## Channel-point rewards

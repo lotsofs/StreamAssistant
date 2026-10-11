@@ -164,7 +164,7 @@ wrappers; the rest of the file is commented out ([obs.md](obs.md#the-wrapper)).
 [Games.cs](../code/Obs/Games.cs): loads `<BotInput>\games.json` (Twitch category id → game name and
 game, window and audio capture executables) and resolves a category to its game, falling back to id `0`. `HandleUpdate` takes
 `channel.update` and calls `Apply`, the per-game setup, when the category changes;
-`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, colour and capture sources.
+`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, colour and capture sources; the capture sources only for a category in `games.json`.
 
 [GameBackground.cs](../code/Obs/GameBackground.cs): `Set(gameName)` points `Image: Background` at the
 game's PNG in `Directories.Backgrounds`, else `Template.png` there, or logs and leaves it when neither exists.

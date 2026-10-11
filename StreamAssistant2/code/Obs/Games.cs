@@ -282,13 +282,18 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Sets up the layout for a category's game; a step that throws is logged and the later steps still run.
+		/// Sets up the layout for a category's game, leaving the capture sources alone for a category not in games.json;
+		/// a step that throws is logged and the later steps still run.
 		/// </summary>
 		internal static void Apply(string categoryId) {
 			Game game = Lookup(_games, categoryId);
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChangesImportant, $"Game setup: {game.Name} ({categoryId})");
 			RunStep("background", () => GameBackground.Set(game.Name));
 			RunStep("colour", () => GameColor.Set(game.Name));
+			if (!_games.ContainsKey(categoryId)) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"{categoryId} not in {GAMES_FILE}, capture sources left as is");
+				return;
+			}
 			RunStep("capture sources", () => GameCapture.Set(game));
 		}
 

@@ -39,7 +39,7 @@ needs a real title edit.
 17. [ ] Changing category posts `Stream category change from <old> to <new>`
 18. [ ] … and switches background, colour and capture sources
 19. [ ] Editing only the title does nothing
-20. [ ] A category not in `games.json`: `No background for None, using Template.png`, then `Image: Background → Template.png`, the `none` colour scheme applies, one `→ none, hidden:` line listing all three kinds with slots `0, 1, 2`
+20. [ ] A category not in `games.json`: `No background for None, using Template.png`, then `Image: Background → Template.png`, the `none` colour scheme applies, then `999 not in games.json, capture sources left as is`, and the capture sources in OBS stay as they were
 21. [ ] Ready or Not: `No colour scheme for RoN, colour left as is`
 22. [ ] A missing or misnamed source logs `Couldn't set <source>: …` and the rest still apply (also try it with `Image: Background` renamed: colour and captures must still change)
 
