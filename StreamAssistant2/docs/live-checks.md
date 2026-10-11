@@ -141,7 +141,7 @@ account. The shape is in `secrets.json.example`.
 70. [ ] On F5, the log shows `Watching LiveSplit's split index`, with no `previous-split panel off` line
 71. [ ] `!changegame SWAT4`: `Left panel: SWAT4, 10 panels, 3 on a split`
 72. [ ] With LiveSplit running SWAT4 splits during the rotation, a split: the panel goes blank (Splits Basics only) for 2 s, shows the previous split (`Splits Previous` with its run, segment and gold differences) for 30 s, goes blank for 2 s, then shows the panel that was cut short again, for its full time
-73. [ ] Starting a run, undoing a split and resetting don't show it; a split during the previous-split panel starts it over
+73. [ ] Starting a run, undoing a split, skipping a split and resetting don't show it; a split during the previous-split panel starts it over
 74. [ ] In another game (say `!changegame GTA3` while LiveSplit runs), a split changes nothing in the rotation
 
 ## Dashboard left-panel column

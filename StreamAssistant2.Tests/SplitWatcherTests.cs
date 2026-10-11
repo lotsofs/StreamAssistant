@@ -20,6 +20,17 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Theory]
+		[InlineData("-", true)]
+		[InlineData(" -\r\n", true)]
+		[InlineData("1:23.45", false)]
+		[InlineData("12:03:04", false)]
+		[InlineData("", false)]
+		[InlineData(null, false)]
+		public void IsSkip_OnlyAnEmptyTime(string? previousRunTime, bool skip) {
+			Assert.Equal(skip, SplitWatcher.IsSkip(previousRunTime));
+		}
+
+		[Theory]
 		[InlineData("3", 3)]
 		[InlineData(" 3\r\n", 3)]
 		[InlineData("-1", -1)]

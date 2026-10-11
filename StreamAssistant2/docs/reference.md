@@ -52,6 +52,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `LSW1` | `SplitWatcher.OnChanged` | Handling a change to LiveSplit's split index threw | that change is missed; the next one is read as usual |
 | `LSW2` | `SplitWatcher` (the watcher's `Error` event) | The `FileSystemWatcher` failed, e.g. its buffer overflowed; the message is logged | events may be missed |
 | `LSW3` | `SplitWatcher.Start` | Starting the watcher threw | no previous-split panel this run |
+| `LSW4` | `FireForget.Run` (from `SplitWatcher.OnChanged`) | The skip check after a split threw | that split doesn't show the previous-split panel |
 | `OSS1` | `ObsConnection.OnStreamStateChanged` | Handling OBS's stream start or stop threw | chatter list not reset |
 | `DSK1` | `DiskSpace.WatchAsync` | A disk-space check threw | next minute |
 | `UpT5` | `TwitchUptime.UptimeLoopAsync` | An uptime check threw (outside its own HTTP handling), including the OBS write | next poll |
@@ -115,7 +116,7 @@ Single-user software, so these are constants in code rather than settings.
 | Drive `A:\` (falls back to the first drive) | `DiskSpace` |
 | `Template.png` in `Backgrounds`, the background for a game without its own | `GameBackground` |
 | `games.json` and `leftpanel.json` in `BotInput` | `Games`, `LeftPanel` |
-| `CurrentSplit\AllSplits\Index.txt` in `LivesplitGenerated` | `SplitWatcher` |
+| `CurrentSplit\AllSplits\Index.txt` and `PreviousSplit\AllSplits\RealTime\RunTime.txt` in `LivesplitGenerated` | `SplitWatcher` |
 | `AssistantLogs` and `AssistantLogs\EventSubs` under `BotOutput`, `streamAssistant.db` under `BotOutput` | `ConsoleLogger`, `TestReplay` (reads `EventSubs`, including StreamElements' `se.…` files), `Database` |
 
 ### Channel-point rewards

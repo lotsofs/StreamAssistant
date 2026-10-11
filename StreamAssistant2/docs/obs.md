@@ -353,20 +353,29 @@ OBS yet.
   the previous-split texts read (`PreviousSplit\AllSplits\…`).
 - On every change it reads the index, retrying for about 100 ms while LiveSplit holds the file. A read that
   fails or isn't a number is ignored, so a half-written file doesn't count.
-- It compares the index with the last one read. A rise of exactly one, to 1 or more, is a split, and it
-  calls `LeftPanel.OnSplit()`. Starting a run (-1 → 0), a reset, an undo or a repeat aren't splits. A skip
-  can't be told from a split by the index, so it counts too.
+- It compares the index with the last one read. A rise of exactly one, to 1 or more, is a split or a skip.
+  Starting a run (-1 → 0), a reset, an undo or a repeat are neither.
+- **A skip is told apart by the previous split's time.** Your component (`LiveSplit.OutputToFile`) writes
+  `PreviousSplit\AllSplits\RealTime\RunTime.txt` after `Index.txt`, as the previous split's live real-time
+  time. A split always has one. A skipped split has none, and the component writes that as `-`.
+  - So after a rise, `CheckSplitAsync` waits, off the watcher's thread, until that file has been written
+    since `Index.txt`. It checks every 50 ms, for up to 2 s.
+  - Then it reads the file. `-` means a skip, which does nothing.
+  - Anything else calls `LeftPanel.OnSplit()`. That includes a file that isn't rewritten in time or can't
+    be read, so the panel still shows for those.
+- `OnSplit` completes a `TaskCompletionSource` that the rotation's wait is watching, then swaps in a fresh
+  one. It runs continuations asynchronously, so the watcher's thread never runs a rotation step.
 - `OnSplit` completes a `TaskCompletionSource` that the rotation's wait is watching, then swaps in a fresh
   one. It runs continuations asynchronously, so the watcher's thread never runs a rotation step.
 - Logs:
   - `Watching LiveSplit's split index` on start.
   - `LivesplitGenerated not set in paths.json, previous-split panel off`, or `No <folder>, previous-split
     panel off`, when it can't start.
-  - Nothing per split.
-  - `Error LSW1` when handling a change throws, `Error LSW2: <message>` when the watcher itself fails, and
-    `Error LSW3` when starting it throws.
+  - Nothing per split or skip.
+  - `Error LSW1` when handling a change throws, `Error LSW2: <message>` when the watcher itself fails,
+    `Error LSW3` when starting it throws, and `Error LSW4: split check failed: …` when the skip check throws.
 
-`IsSplit` and `ParseIndex` are tested. The watcher itself isn't, since its file events don't arrive on a
+`IsSplit`, `IsSkip` and `ParseIndex` are tested. The watcher itself isn't, since its file events don't arrive on a
 fixed schedule.
 
 ### Where the data came from
