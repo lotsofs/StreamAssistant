@@ -79,6 +79,9 @@ namespace StreamAssistant2 {
 				case "community_sub_gift":
 					FireForget.Run("TEH_CN_csg", notice_type, () => Subscriptions.HandleCommunitySubGiftNotif(json));
 					break;
+				case "raid":
+					Raids.Handle(json);
+					break;
 				default:
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.EventSubConfusion, $"Unhandled chat notice event. | Type: {notice_type} | System_Message: {system_message} | Message: {message}");
 					break;

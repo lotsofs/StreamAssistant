@@ -23,8 +23,8 @@ Read from the code. Nothing here was run against live Twitch events.
 
 After the switch it appends the raw event JSON to the day's log file.
 
-Chat notifications fan out on `notice_type`: `sub`, `resub`, `sub_gift`, `community_sub_gift`.
-Anything else (raids, announcements, `bits_badge_tier`, `charity_donation`, …) logs `Unhandled chat
+Chat notifications fan out on `notice_type`: `sub`, `resub`, `sub_gift`, `community_sub_gift` and `raid`.
+Anything else (announcements, `bits_badge_tier`, `charity_donation`, …) logs `Unhandled chat
 notice event` with the type, system message and text. Like every real EventSub event, each chat
 notification, handled or not, is first written pretty-printed to
 `AssistantLogs\EventSubs\<notice_type>_<timestamp>.log` by `TwitchEventHandler.DumpEvent` (not `!test`
@@ -108,6 +108,19 @@ keyed by that id.
 message goes through `LanguageFilter`), plays *Team17 Applauds*, waits 5 s, then speaks
 `<user> cheered <bits>: <message>`. The user name isn't filtered. `MONEY_PER_BIT` and the `Money` update
 are leftovers (commented out).
+
+## Raids
+
+[Raids.cs](../code/Twitch/Raids.cs): a `raid` chat notification posts `Raid: <user> (<viewers>)` to chat,
+as in the Streamer.Bot era: `Raid: Dana_TV (13)`. The name is `raid.user_name`, the raider's display
+name (`Someone` if missing), and the count is `raid.viewer_count`. No sound, no speech, and the name
+isn't filtered. With nothing to wait for, the handler runs synchronously inside the dispatch, so a
+throw logs `Error TEH1` rather than its own code. `Raids.ChatLine` builds the line from the event and is
+tested against a real raid (`RaidsTests`).
+
+`!test raid [viewers <n>]` sends one from `TestRaider` ([twitch.md](twitch.md#the-test-harness)). The
+saved `raid_<stamp>.log` files replay too, but all of them came from other channels while `IS_TEST` was
+on, so a replay announces a raid the channel never had.
 
 ## Tips
 

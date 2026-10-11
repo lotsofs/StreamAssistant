@@ -73,7 +73,7 @@ needs a real title edit.
 
 ## EventSub
 
-36. [ ] After a Twitch connection reset (most days, no need to cause one), the log shows `EventSub connection lost (ConnectionClosedPrematurely): An existing connection was forcibly closed by the remote host.`, then `EventSub session ended: ConnectionLost (socket Aborted, close none)` and a fresh session, with no `Error TES1` or `Error TES3`
+36. [x] After a Twitch connection reset (most days, no need to cause one), the log shows `EventSub connection lost (ConnectionClosedPrematurely): An existing connection was forcibly closed by the remote host.`, then `EventSub session ended: ConnectionLost (socket Aborted, close none)` and a fresh session, with no `Error TES1` or `Error TES3` (2026-10-11, five resets)
 
 ## Tips (StreamElements)
 
@@ -90,7 +90,7 @@ account. The shape is in `secrets.json.example`.
 43. [ ] The first real tip: alerted once, dumped as `AssistantLogs\EventSubs\se.channel.tips_<stamp>.log` with no `email` in it, and the `Tip: …` line shows its `status` and `approved`. Note those values here, and whether a moderated tip arrives twice (the second would log `already alerted, skipped`)
 44. [ ] `!test replay se.channel.tips_<that stamp>` replays it
 45. [ ] Closing the bot (the window, not the debugger) posts no `💥 SE Disconnected`
-46. [ ] The log file no longer has a `StreamElements probe-N: err_bad_request already subscribed to topic` line every 30 s, and `StreamElements subscribed to channel.tips` appears once per session
+46. [x] The log file no longer has a `StreamElements probe-N: err_bad_request already subscribed to topic` line every 30 s, and `StreamElements subscribed to channel.tips` appears once per session (2026-10-11 run, 19.5 h)
 47. [ ] A StreamElements `reconnect`, if one is ever seen (`StreamElements sent reconnect`): `Connecting to wss://astro.streamelements.com (resuming)`, then `StreamElements subscribed to channel.tips`, with no `Error SES3` and neither chat line
 
 ## Disk space
@@ -115,4 +115,10 @@ account. The shape is in `secrets.json.example`.
 
 ## EventSub subscribe line
 
-56. [ ] On F5, the EventSub connect logs one `EventSub subscribed (202): …` line listing every subscription, instead of an `EventSub attempt to …: 202` line each
+56. [x] On F5, the EventSub connect logs one `EventSub subscribed (202): …` line listing every subscription, instead of an `EventSub attempt to …: 202` line each (2026-10-11 run, at boot and after each reset)
+
+## Raids
+
+57. [ ] `!test raid 42`: chat shows `Raid: TestRaider (42)`, with no sound or speech
+58. [ ] `!test raid_2026-06-12 23-46-46.480` (a real one, from another channel): chat shows `Raid: Dana_TV (13)`
+59. [ ] The first real raid: chat shows its `Raid:` line, and the log has no `Unhandled chat notice event` for it

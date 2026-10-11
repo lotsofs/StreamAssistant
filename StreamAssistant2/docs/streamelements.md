@@ -149,7 +149,8 @@ close handshake.` That was a clean end of the connection, unlike Twitch's resets
 remote host"). IRC and EventSub stayed up, so the home connection was fine. A probe reply had arrived 5 s
 earlier, so the bot's own timeout wasn't the cause either. `astro.streamelements.com` resolves to
 Cloudflare addresses, and Cloudflare can end long-lived WebSockets at its edge, so that is the likely
-cause. The next session ran past 22.5 minutes, which argues against a fixed lifetime. The bot handled it
+cause. It isn't a fixed lifetime: the next session ended the same way after 30 minutes, and on
+2026-10-11 one ran 9 h 32 min before ending the same way at 09:02, again with IRC and EventSub up. The bot handled it
 as designed: `ConnectionLost`, `💥 SE Disconnected`, a new session 3 s later, `🟣 SE Connected`. A tip
 sent during such a gap probably never reaches the bot. StreamElements' own overlays are unaffected.
 

@@ -17,7 +17,7 @@ Everything here was read, not run.
 ## What is already ported
 
 For orientation, so nothing below is mistaken for missing: subs, resubs, gift subs and gift bombs
-(`Subscriptions`), cheers (`Cheers`, minus money), the flush, retrieve and colour rewards
+(`Subscriptions`), cheers (`Cheers`, minus money), raids (`Raids`, the same chat line as before), the flush, retrieve and colour rewards
 (`ChannelPoints`, now a SQLite table instead of `Flushes.json`), the ad warnings (`Ads`, now scheduled
 after each ad break instead of from Streamer.Bot's upcoming-ad event), the disk-space alerts
 (`DiskSpace`), the uptime fetch and OBS uptime text (`TwitchUptime`), the OBS clock text (`Clock`), the colour admin
@@ -62,28 +62,6 @@ The root still holds files from both eras; new files go under `code/<Area>/` (se
 
 Each item: what it did, what's there now, the plan, the decisions that are yours (with a recommended
 default), how to verify, and which docs to touch. Ordered roughly easiest first.
-
-### RAD — Raid announcement
-
-**Was:** chat `Raid: <raider> (<viewers>)`.
-**Now:** raids already arrive, as `channel.chat.notification` with `notice_type: "raid"`, and fall into
-`HandleChannelChatNotification`'s default (`Unhandled chat notice event`). A real one is saved as
-`AssistantLogs\EventSubs\raid_2026-06-12 23-46-46.480.log`, with `raid.user_name`, `raid.user_login`
-and `raid.viewer_count`. No new subscription needed.
-
-**Plan:**
-1. [ ] Add `case "raid":` in `HandleChannelChatNotification`, calling a new `Raids.Handle(json)` in `code/Twitch/Raids.cs` through `FireForget.Run("TEH_CN_r", …)`
-2. [ ] It reads `raid.user_name` and `raid.viewer_count` and sends the chat line (and TTS, if chosen)
-3. [ ] Add a `!test raid <user> [viewers]` script (`TestEvents/TestRaid.cs`, using `TestEventRunner.ChatNotification`), listed in `Scripts`; the real one already replays by file name
-4. [ ] Test the script's argument parsing and event shape in the test project, as for the other scripts
-
-**Decide:** the line, and whether to add TTS or a sound. Recommend `🚨 Raid: <user> with <n> viewers 🚨`
-plus TTS `<user> is raiding with <n> viewers`; no sound.
-
-**Verify:** `!test raid_2026-06-12 23-46-46.480.log` (replay) and `!test raid somebody 42`.
-
-**Docs:** [events.md](events.md) (new section), [twitch.md](twitch.md) (notice types, test scripts),
-[reference.md](reference.md) (`TEH_CN_r`).
 
 ### FAQ — Public FAQ commands
 

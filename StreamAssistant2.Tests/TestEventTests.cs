@@ -185,6 +185,31 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void Raid_IsAChatNotificationThatRaidsReads() {
+			List<TestEvent> events = Build(TestRaid.Script, "42");
+			Assert.Single(events);
+			Assert.Equal("channel.chat.notification", events[0].Type);
+			Assert.Equal("raid", Notice(events[0]));
+			Assert.Equal(42, events[0].Event.ReadInt("raid.viewer_count"));
+			Assert.Equal("Raid: TestRaider (42)", Raids.ChatLine(events[0].Event));
+		}
+
+		[Fact]
+		public void Raid_DefaultAndKeyword() {
+			Assert.Equal(10, Single(TestRaid.Script, "").ReadInt("raid.viewer_count"));
+			Assert.Equal(7, Single(TestRaid.Script, "viewers 7").ReadInt("raid.viewer_count"));
+		}
+
+		[Theory]
+		[InlineData("0")]
+		[InlineData("100001")]
+		[InlineData("lots")]
+		[InlineData("somebody 42")]
+		public void Raid_RejectsBadViewers(string argument) {
+			Assert.Null(TestArgs.Parse(argument, TestRaid.Script.Required, TestRaid.Script.Optional));
+		}
+
+		[Fact]
 		public void Online_IsStreamOnlineWithAStart() {
 			List<TestEvent> events = Build(TestStream.Online, "");
 			Assert.Single(events);

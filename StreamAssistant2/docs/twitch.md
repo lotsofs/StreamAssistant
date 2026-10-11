@@ -217,7 +217,9 @@ close code and description (Twitch uses 4xxx codes to say why). When the connect
 `ReceiveAsync` throws a `WebSocketException`; `ReceiveFullMessage` catches it and logs `EventSub connection
 lost (<WebSocketError>): <innermost message>`. Twitch drops it with a TCP reset most days, sometimes several
 times a day, which reads `EventSub connection lost (ConnectionClosedPrematurely): An existing connection was
-forcibly closed by the remote host.`
+forcibly closed by the remote host.` On 2026-10-11 there were five, between 04:30 and 08:32, while IRC and
+StreamElements stayed up, which points at Twitch's side rather than the home connection. The first came
+16 s after the last keepalive, before the 20 s timeout; the rest came with no silence before them.
 
 | Reason | Set when |
 |---|---|
@@ -299,7 +301,8 @@ site has its own code: `TEH_adb`, `TEH_cpcrra` and `TEH_c` in `Handle`, `TEH_CN_
 `TEH_CN_sg` and `TEH_CN_csg` in `HandleChannelChatNotification` ([reference.md](reference.md#error-codes)). The handler is invoked
 synchronously, so its part before the first `await` still runs on the listen loop and can read the
 `JsonElement`. Blocking work that needs no JSON goes after an `await Task.Yield()`, as in
-`ChannelPoints.RunTrainAsync`. `Handle`'s own try/catch (`Error TEH1`) covers only the dispatch. `HandleCommunitySubGiftNotif`
+`ChannelPoints.RunTrainAsync`. `Handle`'s own try/catch (`Error TEH1`) covers only the dispatch, which
+includes the handlers it calls directly rather than through `Run`: `Games.HandleUpdate`, `StreamEvents` and `Raids.Handle`. `HandleCommunitySubGiftNotif`
 keeps its own `Error SUB1` catch. `SendMessage` uses the same helper (`Error TIRC3`). Other fire-and-forget sites (`ConsoleLogger`, the
 `LayoutColoring` and `TextToSpeech` workers, the `DiskSpace`, `TwitchUptime` and `Clock` loops, the connection
 loops) catch their own exceptions.
@@ -319,6 +322,7 @@ loops) catch their own exceptions.
 | `gift` | `[tier <1-3>] [total <n>] [months <1-12>] [anon]` | a targeted `sub_gift` (`community_gift_id` null); `total` is the gifter's channel total |
 | `bomb` | `<gifts> [late] [missing <k>] [anon] [tier <1-3>]` | a gift bomb, below. `bomb 1` is a single random community gift, which Twitch sends as a bomb of one |
 | `cheer` | `<bits> [anon] [msg <text…>]` | a `channel.cheer` |
+| `raid` | `[viewers <n>]` (default 10) | a chat `raid` notification from `TestRaider` (login `testraider`) |
 | `online` | none | a `stream.online` from `lotsofs`, `started_at` now |
 | `offline` | none | a `stream.offline` from `lotsofs` |
 | `tip` | `<amount> [msg <text…>]` | a StreamElements `channel.tips` from `testtipper` in EUR, under a fresh `_id`; `amount` takes a dot (`4.20`), 0.01 to 100000 |
@@ -369,8 +373,8 @@ handlers), so the folder holds only real events and replays don't duplicate them
 
 Each run logs `Test <script>: <values>` on `EventSubNotification`, then sends its events 50 ms apart
 through `FireForget.Run`; a failure logs `Error TEV1`. **They run the real handlers**: sounds play, TTS
-speaks, and anything a handler posts to chat (`🎁` for a gifted resub, `💸` for a tip) goes to
-the live channel.
+speaks, and anything a handler posts to chat (`🎁` for a gifted resub, `💸` for a tip, `Raid: …` for a
+raid) goes to the live channel.
 
 To add a script: a `TestScript` (name, required and optional `TestArgs` parameters, and a pure `Build`
 returning the events) in a file under `TestEvents/`, listed in `TestEventRunner.Scripts`. Build each event

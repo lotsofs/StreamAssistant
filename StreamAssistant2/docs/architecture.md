@@ -136,6 +136,7 @@ transport classes and the colour code (the test project reaches internals throug
 | [ChannelPoints.cs](../code/Twitch/ChannelPoints.cs) | What each channel-point reward does |
 | [Ads.cs](../code/Twitch/Ads.cs) | Ad-break handling and chat warnings |
 | [Cheers.cs](../code/Twitch/Cheers.cs) | Bits alert |
+| [Raids.cs](../code/Twitch/Raids.cs) | Raid chat line |
 | [StreamEvents.cs](../code/Twitch/StreamEvents.cs) | Logs Twitch's stream online and offline |
 | [Subscriptions.cs](../code/Twitch/Subscriptions.cs) | Sub, resub, gift and gift-bomb alerts: sound, delay, speech; the gift-bomb list (plus a large commented-out legacy block) |
 | [SubscriptionMessages.cs](../code/Twitch/SubscriptionMessages.cs) | The spoken sentences for those alerts |

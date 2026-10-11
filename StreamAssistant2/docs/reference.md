@@ -228,5 +228,5 @@ The bot's chat messages are prefixed with an emoji that says what kind they are.
 | ❌ | uptime regex failure (unreachable in practice) |
 | `sssDino` | the stream's own emote, at the start of the ad-break begging messages |
 
-Some lines carry no prefix: `Test <n>` (a first-time chatter), `YOOO BRO`, the ad warnings, and
-`Stream category change [from <id>] to <id>`.
+Some lines carry no prefix: `Test <n>` (a first-time chatter), `YOOO BRO`, the ad warnings,
+`Raid: <user> (<viewers>)`, and `Stream category change [from <id>] to <id>`.
