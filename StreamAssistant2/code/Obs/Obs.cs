@@ -21,6 +21,14 @@ namespace StreamAssistant2 {
 			_obs.SetSceneItemEnabled(sceneName, sceneItemId, enabled);
 		}
 
+		/// <summary>
+		/// The names of a scene's top-level sources; empty when not connected.
+		/// </summary>
+		public static List<string> GetSceneItemNames(string sceneName) {
+			if (!ObsConnection.IsConnected()) return [];
+			return _obs.GetSceneItemList(sceneName).Select(item => item.SourceName).ToList();
+		}
+
 		public static void SetImageSource(string sourceName, string newFile) {
 			SetInputSetting(sourceName, "file", newFile);
 		}

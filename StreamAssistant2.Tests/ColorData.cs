@@ -10,11 +10,12 @@ namespace StreamAssistant2.Tests {
 	/// Points Config at a colour data directory and loads it into the static registries.
 	/// </summary>
 	public static class ColorData {
-		// The real colour directories, read from the bot's own paths.json so the smoke test follows
+		// The real directories, read from the bot's own paths.json so the smoke tests follow
 		// wherever the data is moved. Null when there is no paths.json (e.g. a fresh clone).
 		static readonly DirectoriesConfig? _real = ReadRealDirectories();
 		public static string? RealColors => _real?.Colors;
 		public static string? RealColorSchemes => _real?.ColorSchemes;
+		public static string? RealBotInput => _real?.BotInput;
 
 		static DirectoriesConfig? ReadRealDirectories() {
 			// This source file's own path, fixed at compile time, so it works wherever the build output goes:

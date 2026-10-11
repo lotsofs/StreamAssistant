@@ -43,8 +43,15 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `CP1` | `ChannelPoints.CloseRedemption` | Helix refused to fulfil or cancel a train or colour redemption (often a 403; see [color.md](color.md)) | redemption left open |
 | `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | An OBS call threw during a colour change; the message is logged next | worker moves to the next request |
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
-| `GMS2` | `Games.RunStep` (from `Games.Apply`) | One game setup step (background, colour or capture sources) threw; the message names the step | that step skipped, the later ones still run |
+| `GMS2` | `Games.RunStep` (from `Games.Apply`) | One game setup step (background, colour, left panel or capture sources) threw; the message names the step | that step skipped, the later ones still run |
 | `GMS1` | `Games.Load` | `games.json` couldn't be read or parsed | no games loaded; every category resolves to `None` and leaves the capture sources alone |
+| `LPN1` | `LeftPanel.Load` | `leftpanel.json` couldn't be read or parsed | no left panels loaded |
+| `LPN2` | `LeftPanel.RunAsync` | One OBS call of the left-panel rotation threw (listing a scene, setting a text or file, showing or hiding a group); the message says which | the rest of that step still runs |
+| `LPN3` | `FireForget.Run` (from `LeftPanel.Start`) | The rotation threw outside its own handling | that rotation stops until the next `Start` |
+| `LPN4` | `LeftPanel.OnObsConnected` (from `ObsConnection`'s `Connected` handler) | Restarting the rotation on an OBS connect threw | the rotation isn't restarted; leftovers from before the connect may stay up |
+| `LSW1` | `SplitWatcher.OnChanged` | Handling a change to LiveSplit's split index threw | that change is missed; the next one is read as usual |
+| `LSW2` | `SplitWatcher` (the watcher's `Error` event) | The `FileSystemWatcher` failed, e.g. its buffer overflowed; the message is logged | events may be missed |
+| `LSW3` | `SplitWatcher.Start` | Starting the watcher threw | no previous-split panel this run |
 | `OSS1` | `ObsConnection.OnStreamStateChanged` | Handling OBS's stream start or stop threw | chatter list not reset |
 | `DSK1` | `DiskSpace.WatchAsync` | A disk-space check threw | next minute |
 | `UpT5` | `TwitchUptime.UptimeLoopAsync` | An uptime check threw (outside its own HTTP handling), including the OBS write | next poll |
@@ -69,6 +76,13 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `StreamElements: no channelId or jwt in secrets.json, tips are off` | no `streamElements` credentials; the bot runs without tips |
 | `StreamElements stopped: fix streamElements in secrets.json and restart the bot` | StreamElements refused the JWT (after `Error SES3`) |
 | `Tip <id> already alerted, skipped` | the same tip arrived twice |
+| `Left panel: <game>, <n> panels` | a left-panel rotation started, from a game setup or OBS connecting; `(default)` after the name when the game has no entry of its own, `, <n> on a split` at the end when it has previous-split panels |
+| `Watching LiveSplit's split index` | the split watcher started; `… previous-split panel off` instead when `LivesplitGenerated` isn't set or its folder is missing |
+| `Left panel: <game> has groups OBS doesn't: …` | the game's entry names groups missing from both left-panel scenes; they're skipped |
+| `No left panels for <game>, left as is` | the game has no entry and there's no `default`; the panel isn't touched |
+| `Left panel rotation stopped` | `!stoppaneltimer`; the current panel stays up, and OBS reconnects don't restart it |
+| `No left panel rotation to stop`, `No left panel to start` | `!stoppaneltimer` or `!startpaneltimer` with no game's rotation to act on |
+| `leftpanel.json: skipped <name>, …` | an entry naming another that leads to no panels (missing, or a loop), or a value that is neither panels nor a name |
 | `Unhandled chat notice event` | a `channel.chat.notification` `notice_type` with no case |
 | `Twitch: stream online (<started_at>)` | Twitch marked the channel live (`stream.online`); `started_at` is Twitch's start time, UTC |
 | `Twitch: stream offline` | Twitch marked the channel offline (`stream.offline`) |
@@ -100,6 +114,8 @@ Single-user software, so these are constants in code rather than settings.
 | `D:\Repositories\Stream-Resources\Alert Sounds\`, the only path not in `paths.json` | `Sound` |
 | Drive `A:\` (falls back to the first drive) | `DiskSpace` |
 | `Template.png` in `Backgrounds`, the background for a game without its own | `GameBackground` |
+| `games.json` and `leftpanel.json` in `BotInput` | `Games`, `LeftPanel` |
+| `CurrentSplit\AllSplits\Index.txt` in `LivesplitGenerated` | `SplitWatcher` |
 | `AssistantLogs` and `AssistantLogs\EventSubs` under `BotOutput`, `streamAssistant.db` under `BotOutput` | `ConsoleLogger`, `TestReplay` (reads `EventSubs`, including StreamElements' `se.…` files), `Database` |
 
 ### Channel-point rewards
@@ -135,6 +151,8 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 | `Game: Window Capture 0`–`2` | `GameCapture` | window capture sources, retargeted per game |
 | `Audio 5: App Capture 0`–`2` | `GameCapture` | application audio capture, fallback, retargeted per game |
 | `!Scene: Games 1920x1080` | `GameCapture` | scene holding those nine capture sources; unused ones are hidden in it |
+| `!Scene: Left Panel`, `!Scene: Left Panel Colored` | `LeftPanel` | the two scenes whose top-level `_Left Panel: <name>` groups the rotation shows and hides |
+| the text sources named in `leftpanel.json` (`Livesplit: …`) | `LeftPanel` | settings `text` and `file` |
 
 ### OBS volumes
 
@@ -197,6 +215,7 @@ Every other input with audio (window captures for chat, S Keys, Winamp, LiveSpli
 | 1 h | `Subscriptions.SweepOldBombs` | a gift-bomb entry older than this is dropped when a new one is created |
 | 5 s | `Cheers` | let the applause finish before speaking |
 | 62 s | train reward | how long the image stays up |
+| 5 s | `LeftPanel.OBS_WAIT` | while OBS isn't ready, the rotation checks again this often (each panel's own time is its `Seconds` in `leftpanel.json`) |
 | 5.5 s, 2.5 s, 1 s | `LayoutColoring.ChangeColorAsync` | the recolour animation, nine seconds in all |
 | 60 min; warnings at 5, 3, 2, 1 min before | `Ads` | assumed ad cadence |
 | 5 s | `TwitchUptime.MIN_GAP` | least time between uptime requests; a poll inside it waits out the rest |

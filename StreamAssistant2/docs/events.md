@@ -214,7 +214,8 @@ touch it. Tested in `GamesGoLiveTests`, with the Helix fetch replaced.
 that missing too, it logs `No background for <name> and no Template.png, left as is` and leaves the
 background alone. Then `GameColor.Set` queues the
 game's `gameschemes` colour scheme, which replaces any colour showing and posts the usual
-`Changing to color …` chat line; a game without a scheme (RoN) only logs. Last, `GameCapture.Set` points
+`Changing to color …` chat line; a game without a scheme (RoN) only logs. Then `LeftPanel.Start` starts
+rotating the game's left-panel panels, or the default ones ([obs.md](obs.md#left-panel)). Last, `GameCapture.Set` points
 the numbered game, window and audio capture sources at the game's executables, logging each one. An id
 not in `games.json` skips that step, logging `<id> not in games.json, capture sources left as is`, so
 the captures from the last known game stay; picking `0` (`None`) itself still hides them all.

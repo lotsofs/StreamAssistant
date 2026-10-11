@@ -290,6 +290,7 @@ namespace StreamAssistant2 {
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChangesImportant, $"Game setup: {game.Name} ({categoryId})");
 			RunStep("background", () => GameBackground.Set(game.Name));
 			RunStep("colour", () => GameColor.Set(game.Name));
+			RunStep("left panel", () => LeftPanel.Start(game.Name));
 			if (!_games.ContainsKey(categoryId)) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"{categoryId} not in {GAMES_FILE}, capture sources left as is");
 				return;

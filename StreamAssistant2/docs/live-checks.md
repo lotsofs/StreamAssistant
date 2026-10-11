@@ -122,3 +122,24 @@ account. The shape is in `secrets.json.example`.
 57. [ ] `!test raid 42`: chat shows `Raid: TestRaider (42)`, with no sound or speech
 58. [ ] `!test raid_2026-06-12 23-46-46.480` (a real one, from another channel): chat shows `Raid: Dana_TV (13)`
 59. [ ] The first real raid: chat shows its `Raid:` line, and the log has no `Unhandled chat notice event` for it
+
+## Left panel
+
+60. [ ] On F5, the log shows `Loaded left panels for 9 games and a default` just after the `Loaded 22 games…` line, with no `Error LPN1`
+61. [ ] With OBS open, F5: after `Game setup: …` the log shows `Left panel: <game>, <n> panels` (or `(default)`), and in OBS only that game's `Always` groups and first panel are visible in `!Scene: Left Panel` and `!Scene: Left Panel Colored`
+62. [ ] `!changegame GTA3`: Splits Basics stays up, the split lists change every 50 s (Finished at, Run Delta, Seg. Delta, Golds Delta), then Key Count, a 1 s blank, Sellout Goals, and back to the start
+63. [ ] On those swaps the new values appear at once, with no flash of the old column (the double-buffered `Values 1` / `Values 2`)
+64. [ ] `!changegame KTANE` (no entry of its own): `Left panel: KTANE (default), 2 panels`; Sellout Basics with Key Count for 220 s, then Sellout Goals for 30 s
+65. [ ] `!changegame SWAT4`: one `Left panel: SWAT4 has groups OBS doesn't: Splits Main List Highlights Gold, Splits Main List Big Delta, Splits Main List Little Delta` line, then the rest rotates, with no `Error LPN2`
+66. [ ] Close OBS mid-rotation: no `Trying to do an OBS action…` lines while it's closed. Reopen it: right after `Connected to OBS` the log shows `Left panel: <game>, …` again, the rotation starts over from its first panel, and only `Always` and that panel are up, with nothing left over from before the restart
+67. [ ] `!stoppaneltimer` mid-rotation: the log shows `Left panel rotation stopped` and the current panel stays up past its time. Close and reopen OBS: no `Left panel: …` line after `Connected to OBS`
+68. [ ] Then `!startpaneltimer`: `Left panel: <game>, …`, and the rotation starts over from its first panel
+69. [ ] `!stoppaneltimer`, then `!changegame <another game>`: that game's rotation runs, and closing and reopening OBS restarts it again
+
+## Previous-split panel
+
+70. [ ] On F5, the log shows `Watching LiveSplit's split index`, with no `previous-split panel off` line
+71. [ ] `!changegame SWAT4`: `Left panel: SWAT4, 10 panels, 3 on a split`
+72. [ ] With LiveSplit running SWAT4 splits during the rotation, a split: the panel goes blank (Splits Basics only) for 2 s, shows the previous split (`Splits Previous` with its run, segment and gold differences) for 30 s, goes blank for 2 s, then shows the panel after the one that was cut short
+73. [ ] Starting a run, undoing a split and resetting don't show it; a split during the previous-split panel starts it over
+74. [ ] In another game (say `!changegame GTA3` while LiveSplit runs), a split changes nothing in the rotation

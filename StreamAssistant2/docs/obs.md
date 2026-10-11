@@ -14,7 +14,8 @@ Read from the code. The connection and animation were not run against a live OBS
 - The address is hardcoded: `ws://127.0.0.1:4455`. The password is `Obs.SocketPassword` from
   `secrets.json`.
 - `Connect()` is idempotent. It hooks `Connected` and `Disconnected` (which log `Connected to OBS` and
-  `Lost connection to OBS: <reason>`) and `StreamStateChanged`, and starts `Loop`.
+  `Lost connection to OBS: <reason>`) and `StreamStateChanged`, and starts `Loop`. `Connected` also restarts
+  the left-panel rotation ([Left panel](#the-rotation)).
 - `OnStreamStateChanged` logs `OBS started streaming` and `OBS stopped streaming` (the in-between
   states are ignored). On start it resets the chatter list (`ChatterList.Reset`, see
   [twitch.md](twitch.md#chatterlist)), starts the go-live game setup
@@ -33,7 +34,7 @@ Read from the code. The connection and animation were not run against a live OBS
   WebSocket is running, which is before OBS has finished the Hello/Identify handshake and accepted the
   bot; requests sent in that window fail. `Connected` fires only once OBS has identified the bot, so
   `ObsConnection.IsReady` is a flag set in the `Connected` handler and cleared in `Disconnected`. The
-  game setup (`WhenConnected`, `GameCapture.Set`) uses `IsReady`; `Loop`, `Disconnect()` and the
+  game setup (`WhenConnected`, `GameCapture.Set`) and the left-panel rotation use `IsReady`; `Loop`, `Disconnect()` and the
   `IsConnected()` guard still use the socket state.
 
 OBS being closed is a normal state, not an error: actions are skipped, not queued, and nothing is
@@ -41,12 +42,13 @@ retried afterwards.
 
 ## The wrapper
 
-[Obs.cs](../code/Obs/Obs.cs) holds five calls, each of which does nothing but log when OBS is unreachable:
+[Obs.cs](../code/Obs/Obs.cs) holds these calls, each of which does nothing but log when OBS is unreachable:
 
 | Method | OBS request | Used by |
 |---|---|---|
-| `SetSourceEnabled(scene, source, enabled)` | `GetSceneItemId(scene, source, 0)` then `SetSceneItemEnabled` | `LayoutColoring`, the train reward |
-| `SetInputSetting(input, key, value)` | `SetInputSettings(input, {key: value}, overlay: true)` | `SetImageSource`, `GameCapture`, `Clock`, `TwitchUptime` |
+| `SetSourceEnabled(scene, source, enabled)` | `GetSceneItemId(scene, source, 0)` then `SetSceneItemEnabled` | `LayoutColoring`, the train reward, `LeftPanel` |
+| `GetSceneItemNames(scene)` | `GetSceneItemList(scene)`, the top-level items' `SourceName`s (empty when not connected) | `LeftPanel` |
+| `SetInputSetting(input, key, value)` | `SetInputSettings(input, {key: value}, overlay: true)` | `SetImageSource`, `GameCapture`, `Clock`, `TwitchUptime`, `LeftPanel` |
 | `SetImageSource(source, file)` | `SetInputSetting(source, "file", file)` | the train reward, `GameBackground` |
 | `SetInputVolumeDb(input, dB)` | `SetInputVolume(input, dB, inputVolumeDb: true)` | `GameCapture` |
 | `SetFilterProperty(source, filter, property, value)` | `SetSourceFilterSettings(source, filter, {property: value}, overlay: true)` | `LayoutColoring` |
@@ -130,7 +132,8 @@ blocking OBS calls run on the thread pool, not on the IRC or EventSub read loop 
 
 `Games.Apply`, on bot start, a category change, or when OBS starts streaming
 ([events.md](events.md#category-change-and-going-live)), runs on the thread pool, not on a read loop,
-and sets up the game's background, colour and capture sources from its `games.json` entry. Each step
+and sets up the game's background, colour, left panel ([Left panel](#left-panel)) and capture sources
+from its `games.json` entry. Each step
 runs through `Games.RunStep`, so one that throws logs `Error GMS2: game setup <step> failed: …` and the
 later steps still run (tested). The background and capture steps also catch OBS rejections themselves,
 with a clearer `Couldn't set <source>: …` warning.
@@ -195,5 +198,230 @@ On bot start, `Games.OnBootAsync` hands its apply to `ObsConnection.WhenConnecte
 once if OBS is ready (`IsReady`, see [Connection](#connection)), otherwise on OBS's next `Connected` event,
 however late, and returns which it did. So the capture sources and background aren't skipped because OBS
 connects after the bot, and aren't sent mid-handshake. It applies once per boot: later reconnects (an OBS
-restart mid-stream) don't re-apply, since OBS keeps the settings. `WhenConnected` can fire twice if OBS
+restart mid-stream) don't re-apply, since OBS keeps the settings. The left panel is the exception: its
+rotation restarts on every connect ([The rotation](#the-rotation)). `WhenConnected` can fire twice if OBS
 connects during the call, so the boot apply guards itself with a flag.
+
+## Left panel
+
+`!Scene: Left Panel` is the panel beside the game: split lists, the current split, the key count, the
+sellout goals. Each of these is a group named `_Left Panel: <name>`, and a game's panels take turns there.
+The bot rotates them, per game, from a file. For games that have one, a LiveSplit split interrupts the
+rotation with a previous-split panel ([Splits from LiveSplit](#splits-from-livesplit)).
+
+### The panel file
+
+[LeftPanel.cs](../code/Obs/LeftPanel.cs) loads `<BotInput>\leftpanel.json` at startup, after `games.json`.
+The file is keyed by `games.json` `Name` (any case), plus a `default` entry for a game without its own:
+
+```json
+"GTA3": {
+	"Always": ["Splits Basics"],
+	"Panels": [
+		{
+			"Show": ["Splits List Labels 1", "Splits List Values 2"],
+			"Text": {
+				"Livesplit: SL - Header Right 2": "Run Delta"
+			},
+			"File": {
+				"Livesplit: SL - Current 2": "D:\\Repositories\\Stream-Resources\\Text\\Livesplit Generated\\SplitList\\AllSplits\\RealTime\\Delta_Run.txt"
+			},
+			"Seconds": 50
+		},
+		{ "Show": ["Splits Key Count"], "Seconds": 50 },
+		{ "Show": [], "Seconds": 1 }
+	],
+	"Previous": [
+		{ "Show": ["Splits Previous", "Splits Previous Values"], "Seconds": 30 }
+	]
+},
+"GTA4": "GTA3"
+```
+
+- `Always` lists the groups shown for the whole game.
+- `Panels` take turns in order. Each panel lists the groups it shows (`Show`), the text and file to set on
+  text sources before showing them (`Text`, `File`), and how long it stays up (`Seconds`).
+- Setting the values before showing the groups is what makes the double-buffered pairs work
+  (`Values 1` / `Values 2`): the next panel's values go into the hidden copy.
+- Group names leave out the `_Left Panel: ` prefix. A name written with the prefix, or with spaces around
+  it, is cleaned up. The file doesn't say which of the two scenes (below) a group is in.
+- A panel without a positive `Seconds` is skipped. A panel with an empty `Show` is a pause: only the
+  `Always` groups stay up.
+- `Previous` is optional: the panels to play once after each LiveSplit split, same shape as `Panels`
+  ([Splits from LiveSplit](#splits-from-livesplit)). Only SWAT4 has it.
+- An entry can be another entry's name instead of its own panels: `"GTA4": "GTA3"` gives GTA4 GTA3's
+  panels (any case, and a name can lead on to another name). One that leads nowhere, or round in a loop, is
+  skipped and logged as `leftpanel.json: skipped <name>, "<target>" leads to no panels`. A value that is
+  neither panels nor a name logs `leftpanel.json: skipped <name>, not panels or a game name`.
+- Missing lists and maps count as empty, and `null` entries and values are skipped.
+
+`Lookup` returns a game's entry, else `default`, else nothing. A category not in `games.json` becomes the
+`None` game, which has no entry, so it gets `default`.
+
+Loading logs `Loaded left panels for <n> games and a default` (or `, no default`). A missing file logs
+`leftpanel.json not found, left panel off`. A file that can't be read or parsed logs `Error LPN1` and
+leaves no panels. `Parse` and `Lookup` are tested, and a real-data test checks that every key in the real
+file is a `games.json` name or `default`, that every name entry leads to panels, and that no panel is
+skipped.
+
+### The rotation
+
+`Games.Apply` calls `LeftPanel.Start(<game name>)` as one of its steps ([Per-game setup](#per-game-setup)),
+so a rotation starts on boot (once OBS is ready), on every category change and when OBS starts streaming.
+It also restarts whenever OBS connects (below).
+It runs all the time, not only while streaming.
+
+`Start` does the following:
+
+- It does nothing when no panels are loaded.
+- It cancels the running rotation, through a `CancellationTokenSource` swapped with `Interlocked.Exchange`,
+  as `Ads` does.
+- If `Lookup` finds no entry and there is no `default`, it logs `No left panels for <game>, left as is`.
+- Otherwise it logs `Left panel: <game>, <n> panels`, or `Left panel: <game> (default), <n> panels`, on
+  `SceneChanges`, with `, <n> on a split` added when the entry has `Previous`. Then it starts `RunAsync`
+  through `FireForget` (`Error LPN3` if it throws unexpectedly).
+
+`RunAsync` then loops over the panels, step by step:
+
+1. **OBS not ready** (`ObsConnection.IsReady`): it makes no OBS calls at all. It waits 5 s and tries again,
+   without moving on to the next panel. So a closed OBS logs nothing.
+2. **First step with OBS ready:** it lists the top-level items of `!Scene: Left Panel` and
+   `!Scene: Left Panel Colored` (`Obs.GetSceneItemNames`). Each `_Left Panel: ` item becomes a known
+   group, together with the scenes it is in. `Splits Main List Labels` is in both, so it is toggled in both.
+   Groups the game's entry names that OBS doesn't have are logged once per rotation, as
+   `Left panel: <game> has groups OBS doesn't: …`, and then skipped. SWAT4 gets this line.
+3. **Each step:**
+   - It sets the panel's `Text` and `File` (`Obs.SetInputSetting` with `text` / `file`).
+   - It shows the groups that are wanted but not up, then hides the ones that are up but not wanted
+     (`Transition`). Wanted means `Always` plus the panel's `Show`.
+   - On the first step nothing is known to be up, so it shows all of the wanted groups and hides every
+     other known group.
+   - Showing before hiding means the panel never goes blank between two panels, and the values land while
+     their copy is still hidden.
+   - It then waits the panel's `Seconds` and moves to the next panel, wrapping round at the end.
+4. **A split**, when the entry has `Previous`, cuts that wait short. The `Previous` panels play once, each
+   for its `Seconds`, and a split during them starts them over. Then the rotation carries on with the next
+   panel, not the one that was cut short. Without `Previous`, splits are ignored. While OBS isn't ready,
+   the 5 s retry ignores them too.
+5. **One panel, or none:** with a single panel, or none (only `Always`), the rotation ends once it is up,
+   unless the entry has `Previous`. Then it waits for splits instead, and shows that panel again after each
+   one.
+
+More detail on the edges:
+
+- **Concurrency:** each step runs under one lock and checks for cancellation first. A replaced rotation can
+  finish the step it is on, but it can't interleave with the next rotation.
+- **A failing call:** an OBS call that throws logs `Error LPN2: left panel <what> failed: <message>`, and the
+  rest of the step still runs. A cancelled rotation ends quietly.
+- **OBS connecting:** the groups' state is read once per rotation, at its first ready step. An OBS restart
+  reloads the scene as saved, which could leave groups from before up next to the current panel. So every
+  time OBS connects, `ObsConnection`'s `Connected` handler calls `LeftPanel.OnObsConnected`, which restarts
+  the last game's rotation with `Start`:
+  - The rotation starts over from its first panel, lists the groups again, and hides the leftovers.
+  - `Left panel: …` is logged again.
+  - It also covers a rotation that had already ended (one panel, or none).
+  - A game whose panel was "left as is" stays as it is.
+  - A rotation stopped with `!stoppaneltimer` stays stopped.
+  - At boot no game has started yet, so the first connect does nothing here.
+  - `Error LPN4` if the restart itself throws; it runs on obs-websocket's thread.
+- **Stopping by command:** `!stoppaneltimer` (`LeftPanel.Stop`) cancels the rotation, leaves the current
+  panel up and logs `Left panel rotation stopped`. It stays stopped through OBS reconnects. Any `Start`
+  clears the stop: `!startpaneltimer` (`LeftPanel.Resume`, the last game's rotation from its first panel),
+  a category change, or going live. With no rotation to act on they log `No left panel rotation to stop` or
+  `No left panel to start`.
+
+`Transition` and `Missing` are tested. The real `RunAsync` is also tested against fake OBS calls, covering:
+the order of a step, a group in both scenes, the timings and the wrap, waiting for OBS, one panel and none,
+cancelling, missing groups, a throwing call, and splits (with and without `Previous`, during `Previous`, and
+for a single panel). `LeftPanelStopTests` cover how a stop, a resume, a new `Start` and an OBS connect
+interact, with panels loaded from a temporary file and OBS never ready. None of this has been seen in a real
+OBS yet.
+
+### Splits from LiveSplit
+
+[SplitWatcher.cs](../code/LiveSplit/SplitWatcher.cs) tells the rotation about splits.
+`Program.StartBotAsync` starts it with the other periodic work.
+
+- It watches `<LivesplitGenerated>\CurrentSplit\AllSplits\Index.txt` with a `FileSystemWatcher`. That
+  folder is a `paths.json` directory, and LiveSplit's text output writes this file.
+- The file holds the current split's 0-based index, and `-1` when no run is going. `AllSplits` is the list
+  the previous-split texts read (`PreviousSplit\AllSplits\…`).
+- On every change it reads the index, retrying for about 100 ms while LiveSplit holds the file. A read that
+  fails or isn't a number is ignored, so a half-written file doesn't count.
+- It compares the index with the last one read. A rise of exactly one, to 1 or more, is a split, and it
+  calls `LeftPanel.OnSplit()`. Starting a run (-1 → 0), a reset, an undo or a repeat aren't splits. A skip
+  can't be told from a split by the index, so it counts too.
+- `OnSplit` completes a `TaskCompletionSource` that the rotation's wait is watching, then swaps in a fresh
+  one. It runs continuations asynchronously, so the watcher's thread never runs a rotation step.
+- Logs:
+  - `Watching LiveSplit's split index` on start.
+  - `LivesplitGenerated not set in paths.json, previous-split panel off`, or `No <folder>, previous-split
+    panel off`, when it can't start.
+  - Nothing per split.
+  - `Error LSW1` when handling a change throws, `Error LSW2: <message>` when the watcher itself fails, and
+    `Error LSW3` when starting it throws.
+
+`IsSplit` and `ParseIndex` are tested. The watcher itself isn't, since its file events don't arrive on a
+fixed schedule.
+
+### Where the data came from
+
+The file was converted on 2026-10-11 from the Streamer.Bot-era `Bot Input\!OLD_Streamerbot\scenes.json`,
+which is still there but no longer read. That file has a `GenericSceneList` of steps per game, run in
+order and looped. A step does one of three things, then waits `Duration` ms:
+
+- shows or hides a group (`Name`, `Enabled`)
+- sets a text source's text (`ChangeTextOf`, `ChangeTextTo`)
+- sets a text source's file (`ChangeFileOf`, `ChangeFileTo`, with doubled backslashes)
+
+`Comment` objects are separators. The conversion played each list through once. Every step with a
+`Duration` closed a panel: the groups enabled at that point, plus the changes made since the previous
+panel. Groups enabled from the start and never hidden became `Always`.
+
+What was converted, and what was left out:
+
+- Converted: GTA3, GTA4, GTA5, GTASA, GTAVC, L4D2, Portal2, HITMAN, SWAT4 and RoN, with `Other` as `default`.
+  GTA4 and GTA5 came out identical to GTA3, so they are now `"GTA3"`. RoN came out identical to `default`,
+  so it was dropped and falls back to it.
+- Left out: `None`, a blank panel.
+- Left out: `GTASA1`, `GTASA2` and `GTAVC2`, alternate lists that match no game.
+- Converted: SWAT4's `JustSplitSceneList`, its previous-split panel, into SWAT4's `Previous`, by the same
+  rule: `Nothing` for 2 s, then `Nothing`, `Splits Previous` and `Splits Previous Values` for 30 s, then
+  `Nothing` for 2 s. `Nothing` is an empty group, so those are pauses. Only SWAT4 had a list, and only
+  SWAT4 has one now; other games can be given one by hand.
+- Left out: the `"Colored": true` marks, which said a group is in `!Scene: Left Panel Colored`.
+
+The two known gaps were carried over as they were:
+
+- **SWAT4's list is the oldest and was converted as is.** Three of its groups aren't in OBS:
+  `Splits Main List Big Delta`, `Splits Main List Little Delta` and `Splits Main List Highlights Gold`
+  (OBS has `Splits List Highlights Gold`). It also keeps `Splits Main List Labels` and that highlight up
+  through its sellout and key-count panels, as its steps did.
+- **Portal2's per-map gold panel reads files LiveSplit doesn't write.** It reads
+  `SansSubsplits_Level1\RealTime\Delta_Gold.txt` and `Time_Gold_Upcoming.txt`, but LiveSplit writes gold
+  files only under `AllSplits`.
+
+Both were found by checking the file against the scene collection file and the disk.
+
+The panel rotated once before. In 2022, `SceneManager.cs` (deleted;
+`git show 5f105ef^:StreamAssistant2/SceneManager.cs`) cycled a list of panels per game, and after each
+LiveSplit split it showed a previous-split panel for a while. It switched panels by writing the next
+panel's name to a `TargetSource.txt` for OBS to pick up. Under Streamer.Bot, a rewrite in a root
+`LeftPanel.cs` never got past commented-out scaffolding.
+
+### In OBS
+
+This was read from the scene collection file (`%APPDATA%\obs-studio\basic\scenes\2022.json`), not a
+running OBS:
+
+- `!Scene: Left Panel` holds the groups:
+  - the split lists, double-buffered as `Splits List Labels` / `Values` `1`–`3`
+  - `Splits Main List …`
+  - `Splits Current` (and `2`, `3`)
+  - `Splits Information`
+  - `Splits Previous`
+  - the key-count, sellout and SSSA panels
+  - `Nothing`
+- `!Scene: Left Panel Colored` holds `Splits List Highlights Gold` (a text source) and `Splits Previous Values`.
+- The `Livesplit: …` text sources read files that LiveSplit writes under
+  `Stream-Resources\Text\Livesplit Generated\` (last written 2026-07-30).

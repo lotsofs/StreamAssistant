@@ -53,17 +53,20 @@ service registry.
    1. Logs `STARTED!`, so it is the first line of each run in the log.
    2. `Coloring.Load()`: colour tables and schemes from disk ([color.md](color.md)).
    3. `Games.Load()`: `<BotInput>\games.json`, the game behind each Twitch category. Never throws.
-   4. `Database.InitAsync()`: opens `streamAssistant.db`, creates the `flushes` table if missing.
-   5. Logs `Data loaded`.
-   6. `DiskSpace.Start()`, `TwitchUptime.Start()`, `Clock.Start()` and `ConnectionHealth.Start()`: the
-      periodic loops. `Clock` doesn't need OBS yet: it skips its OBS write until OBS is ready.
-   7. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
+   4. `LeftPanel.Load()`: `<BotInput>\leftpanel.json`, each game's left-panel panels
+      ([obs.md](obs.md#left-panel)). Never throws.
+   5. `Database.InitAsync()`: opens `streamAssistant.db`, creates the `flushes` table if missing.
+   6. Logs `Data loaded`.
+   7. `DiskSpace.Start()`, `TwitchUptime.Start()`, `Clock.Start()` and `ConnectionHealth.Start()`: the
+      periodic loops. `Clock` doesn't need OBS yet: it skips its OBS write until OBS is ready. Then
+      `SplitWatcher.Start()`, the watcher on LiveSplit's split index. Never throws.
+   8. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
       `OnMessage += ChatHandler.ProcessMessage`, `TwitchHelixApi.Init()`, `TwitchEventSub.Connect()`,
       `StreamElementsSocket.Connect()` (only logs "tips are off" without credentials),
       `LayoutColoring.StartWorker()`.
-   8. `Games.OnBootAsync`, fire-and-forget (`Error GMS_boot`): stores the current category from Helix and
+   9. `Games.OnBootAsync`, fire-and-forget (`Error GMS_boot`): stores the current category from Helix and
       applies the game once, when OBS is first connected ([events.md](events.md#category-change-and-going-live)).
-   9. `TextToSpeech.ReportStart()`, which is the first touch of `TextToSpeech`, so its static
+   10. `TextToSpeech.ReportStart()`, which is the first touch of `TextToSpeech`, so its static
       constructor (and the `Microsoft Catherine` voice lookup) runs only now, after everything else
       is already live.
    Any exception logs `Error PRG1` and the bot stays half-started.
@@ -118,7 +121,6 @@ transport classes and the colour code (the test project reaches internals throug
 | [LayoutColoring.cs](../LayoutColoring.cs) | Serialised colour-change queue and the OBS animation | [obs.md](obs.md#layout-recolouring) |
 | [Util.cs](../Util.cs) | `TrueModulo` overloads; used only by `ColorUtil.HsvToRgb` | |
 | [Money.cs](../Money.cs), [ISaveable.cs](../ISaveable.cs) | Unused leftovers | [legacy.md](legacy.md) |
-| [LeftPanel.cs](../LeftPanel.cs) | Entirely commented out | [legacy.md](legacy.md) |
 
 ### `code/Twitch/`
 
@@ -164,7 +166,7 @@ wrappers; the rest of the file is commented out ([obs.md](obs.md#the-wrapper)).
 [Games.cs](../code/Obs/Games.cs): loads `<BotInput>\games.json` (Twitch category id → game name and
 game, window and audio capture executables) and resolves a category to its game, falling back to id `0`. `HandleUpdate` takes
 `channel.update` and calls `Apply`, the per-game setup, when the category changes;
-`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, colour and capture sources; the capture sources only for a category in `games.json`.
+`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, colour, left panel and capture sources; the capture sources only for a category in `games.json`.
 
 [GameBackground.cs](../code/Obs/GameBackground.cs): `Set(gameName)` points `Image: Background` at the
 game's PNG in `Directories.Backgrounds`, else `Template.png` there, or logs and leaves it when neither exists.
@@ -173,6 +175,19 @@ through `LayoutColoring`, or logs and leaves the colour when there is none.
 [GameCapture.cs](../code/Obs/GameCapture.cs): `Set(game)` points the three numbered game, window and
 audio capture sources at the game's executables, `none` for unused slots. All three in
 [obs.md](obs.md#per-game-setup).
+
+[LeftPanel.cs](../code/Obs/LeftPanel.cs): loads `<BotInput>\leftpanel.json` (game name → the groups always
+shown and the panels to take turns) and finds a game's entry, falling back to `default`. `Start(game)`,
+called from `Games.Apply`, rotates those panels in OBS until the next `Start`; `OnObsConnected`, from
+`ObsConnection`'s `Connected` handler, restarts it after an OBS restart; `Stop` and `Resume` back the
+`!stoppaneltimer` / `!startpaneltimer` admin commands; `OnSplit`, from `SplitWatcher`, plays a game's
+previous-split panels. See [obs.md](obs.md#left-panel).
+
+### `code/LiveSplit/`
+
+[SplitWatcher.cs](../code/LiveSplit/SplitWatcher.cs): watches LiveSplit's split index
+(`<LivesplitGenerated>\CurrentSplit\AllSplits\Index.txt`) and calls `LeftPanel.OnSplit` when it rises by one
+split. See [obs.md](obs.md#splits-from-livesplit).
 
 ### `code/Timing/`
 

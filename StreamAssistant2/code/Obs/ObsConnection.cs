@@ -54,6 +54,7 @@ namespace StreamAssistant2 {
 		static void OnConnected(object? sender, EventArgs e) {
 			_ready = true;
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "Connected to OBS");
+			LeftPanel.OnObsConnected();
 		}
 
 		static void OnDisconnected(object? sender, ObsDisconnectionInfo e) {

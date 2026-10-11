@@ -117,7 +117,8 @@ Command is the first word (case-sensitive); the rest, trimmed, is the argument.
 | `!test <script> …` | `TestEventRunner.Run`: simulated events, see [the test harness](#the-test-harness) |
 | `!train` | `ChannelPoints.TryStartTrain`, the train reward without a redemption (ignored while one is showing; `Error TRN1` if it throws) |
 | `!changegame <id or name>`, `!changecategory <id or name>` | `Games.TryChangeCategory`: switches the bot's category locally (Twitch's stays as is), posting `Stream category change …` and running the game setup. Takes a `games.json` key, a game `Name` (any case) or any numeric id; anything else logs `No game or category id "…"`, and the current category logs `Category is already <id>` |
-| `!stoppaneltimer` | stub (its `MsgQueue` call is commented out) |
+| `!stoppaneltimer` | `LeftPanel.Stop`: stops the left-panel rotation and leaves the current panel up, logging `Left panel rotation stopped`. An OBS reconnect doesn't restart it; `!startpaneltimer`, a category change or going live does. With no rotation it logs `No left panel rotation to stop` ([obs.md](obs.md#the-rotation)) |
+| `!startpaneltimer` | `LeftPanel.Resume`: starts the last game's rotation again from its first panel, logging `Left panel: <game>, …`; with none it logs `No left panel to start` |
 
 ### Public commands
 

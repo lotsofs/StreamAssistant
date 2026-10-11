@@ -152,7 +152,10 @@ namespace StreamAssistant2 {
 
 			switch (command) {
 				case "!stoppaneltimer":
-					// MsgQueue.Enqueue(MsgTypes.Termint, "");
+					LeftPanel.Stop();
+					break;
+				case "!startpaneltimer":
+					LeftPanel.Resume();
 					break;
 				// The colour commands mirror the three channel-point colour rewards.
 				case "!changecolor":

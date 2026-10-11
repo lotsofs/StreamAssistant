@@ -12,8 +12,10 @@ text format, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
 [Config.cs](../Config.cs). `Config.Load()` runs before anything else, from `Program.Main`.
 
 1. Reads **`paths.json`** from the working directory (so the app must run from the project folder). It
-   holds only `directories`: `BotInput`, `BotOutput`, `Trains`, `Colors`, `ColorSchemes`, `Backgrounds`.
-   `Backgrounds` holds the per-game OBS backgrounds (`GameBackground`). It is
+   holds only `directories`: `BotInput`, `BotOutput`, `Trains`, `Colors`, `ColorSchemes`, `Backgrounds`,
+   `LivesplitGenerated`. `Backgrounds` holds the per-game OBS backgrounds (`GameBackground`);
+   `LivesplitGenerated` is LiveSplit's text output, whose split index `SplitWatcher` watches
+   ([obs.md](obs.md#splits-from-livesplit)). Without it the previous-split panel is off. It is
    machine-specific, so it is gitignored; a `BeforeBuild` target in the csproj copies it from the tracked
    `paths.json.example` when missing.
 2. Reads **`secrets.json`** from `Directories.BotInput`, which is outside this repository. If the file
@@ -24,8 +26,9 @@ text format, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
    ([streamelements.md](streamelements.md#credentials)). A file without that block still loads; the
    values are then empty and tips are off.
 
-`BotInput` also holds **`games.json`**, which isn't config: `Games.Load()` reads it later in startup
-([architecture.md](architecture.md#codeobs)). A missing file only logs and turns per-game setup off.
+`BotInput` also holds **`games.json`** and **`leftpanel.json`**, which aren't config: `Games.Load()` and
+`LeftPanel.Load()` read them later in startup ([architecture.md](architecture.md#codeobs),
+[obs.md](obs.md#left-panel)). A missing file only logs, and turns off per-game setup or the left panel.
 
 JSON is read with `System.Text.Json` and `PropertyNameCaseInsensitive`, so `socketPassword` and
 `SocketPassword` are the same. Unknown properties are ignored; the example's `twitchTestNames` block

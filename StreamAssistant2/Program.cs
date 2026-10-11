@@ -39,6 +39,7 @@ namespace StreamAssistant2
 
 				Coloring.Load();
 				Games.Load();
+				LeftPanel.Load();
 
 				await Database.InitAsync();
 
@@ -48,6 +49,7 @@ namespace StreamAssistant2
 				TwitchUptime.Start();
 				Clock.Start();
 				ConnectionHealth.Start();
+				SplitWatcher.Start();
 
 				EnableBot();
 				FireForget.Run("GMS_boot", "boot game setup", Games.OnBootAsync);

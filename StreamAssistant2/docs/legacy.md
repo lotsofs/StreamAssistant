@@ -28,32 +28,20 @@ git history.
 | `MsgQueue.TimedEnqueue(ms, type, payload)` | `await Task.Delay(ms)` in an async handler |
 | `MsgTypes.ShowSrc` / `HideSrc` with `"scene\|source"` | `Obs.SetSourceEnabled(scene, source, true/false)` |
 | `MsgTypes.ObsRawI` with `SetInputSettings` / `SetSourceFilterSettings` JSON | `Obs.SetImageSource` / `Obs.SetFilterProperty` |
-| `MsgTypes.HideAll` | no wrapper yet; needs a scene-items listing call |
-| `MsgTypes.Termint` | meaning not recoverable from the code (only `!stoppaneltimer` used it) |
+| `MsgTypes.HideAll` | `Obs.GetSceneItemNames(scene)`, then `Obs.SetSourceEnabled` on each item to hide (as `LeftPanel` does) |
+| `MsgTypes.Termint` | meaning not recoverable from the code (only `!stoppaneltimer` used it); that command now stops the left-panel rotation (`LeftPanel.Stop`) |
 | `Sound.PlaySoundDelayed(sound, ms)` | removed; `await Task.Delay(ms)` then `Sound.PlaySound(sound)` |
 
 The old handlers took the Streamer.Bot variables dictionary. The new ones take the EventSub `event`
 element; the field names differ (`tipAmount` → tips now come from StreamElements as `donation.amount`,
 see [streamelements.md](streamelements.md)).
 
-## Entirely commented out
-
-### [LeftPanel.cs](../LeftPanel.cs): rotating left panel
-
-Unfinished scaffolding for cycling OBS sources in the `!Scene: Left Panel` scene (split times lists and
-labels, double-buffered with `…1`/`…2` source pairs). Mostly stubs; no behaviour to preserve.
-
-Its data survives, kept on purpose for later: `Bot Input\!OLD_Streamerbot\scenes.json` maps a game key
-(`GTASA1`, `GTA3`, …) to a `GenericSceneList` of panels, each with a `Name`, a `Duration`, `Enabled`, and
-optionally a LiveSplit text source to change (`ChangeTextOf`, `ChangeTextTo`). See LFP in
-[TODO.md](TODO.md).
-
 ## Partly commented out
 
 ### ChatHandler
 
-`CheckForCommands` matches the FAQ commands but the send is commented out;
-`CheckForAdminCommands`'s `!stoppaneltimer` is a stub. See [twitch.md](twitch.md#public-commands).
+`CheckForCommands` matches the FAQ commands but the send is commented out. See
+[twitch.md](twitch.md#public-commands).
 
 ### [Subscriptions.cs](../code/Twitch/Subscriptions.cs): the old generators
 

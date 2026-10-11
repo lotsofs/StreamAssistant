@@ -22,7 +22,9 @@ For orientation, so nothing below is mistaken for missing: subs, resubs, gift su
 after each ad break instead of from Streamer.Bot's upcoming-ad event), the disk-space alerts
 (`DiskSpace`), the uptime fetch and OBS uptime text (`TwitchUptime`), the OBS clock text (`Clock`), the colour admin
 commands, sounds, TTS and the language filter. Tips (`Tips`, minus money) now come straight from
-StreamElements instead of through Streamer.Bot ([streamelements.md](streamelements.md)).
+StreamElements instead of through Streamer.Bot ([streamelements.md](streamelements.md)). The rotating left
+panel, with its previous-split panel and `!stoppaneltimer`, is rebuilt from a new `leftpanel.json`
+([obs.md](obs.md#left-panel)).
 
 ## Root folder: old and new files
 
@@ -54,7 +56,6 @@ The root still holds files from both eras; new files go under `code/<Area>/` (se
 
 | File | Since | Notes |
 |---|---|---|
-| `LeftPanel.cs` | 2024 | entirely commented scaffolding; see [LFP](#lfp--left-panel-and-stoppaneltimer) |
 | `Money.cs` | 2024 | compiled, no live reader or writer; see [MNY](#mny--money-tracking) |
 | `ISaveable.cs` | 2018 | compiled, nothing implements it; the WinForms settings save that used it is gone. Nothing to port |
 
@@ -108,19 +109,3 @@ from `Cheers`, `Subscriptions` and `Tips`, and a display (a new OBS text source
 through `Obs.SetInputSetting`, or a dashboard panel). Plan the details then.
 
 **Verify (drop):** the build stays clean, 0 warnings.
-
-### LFP — Left panel and `!stoppaneltimer`
-
-**Was:** `LeftPanel.cs` and the deleted `SceneManager.cs` were scaffolding for cycling splits panels in
-`!Scene: Left Panel`; `!stoppaneltimer` sent `Termint`, whose meaning is lost. Never finished.
-**Now:** all commented out; `!stoppaneltimer` is an empty `case`. Its per-game panel data,
-`Bot Input\!OLD_Streamerbot\scenes.json`, is kept for later ([legacy.md](legacy.md#leftpanelcs-rotating-left-panel)).
-
-**Decide:** drop or redesign. **Recommend drop**: there's no working behaviour to keep, and git has the
-sketch.
-
-**Plan if dropped:**
-1. [ ] Delete `LeftPanel.cs` and the `!stoppaneltimer` case in `ChatHandler.CheckForAdminCommands`
-2. [ ] Remove LeftPanel from legacy.md, and `Termint`/`HideAll` from its `MsgQueue` table; update [twitch.md](twitch.md)'s admin command table and CLAUDE.md's mention of the stub
-
-**If redesigned:** a new item with its own plan.
