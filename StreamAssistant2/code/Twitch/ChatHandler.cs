@@ -177,6 +177,12 @@ namespace StreamAssistant2 {
 				case "!changecategory":
 					Games.TryChangeCategory(argument);
 					break;
+				case "!changepanel":
+					Games.TryChangePanel(argument);
+					break;
+				case "!changecapture":
+					Games.TryChangeCapture(argument);
+					break;
 			}
 		}
 

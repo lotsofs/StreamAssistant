@@ -151,3 +151,15 @@ account. The shape is in `secrets.json.example`.
 77. [ ] `!changegame SWAT4`: a `Previous split` section at the bottom. On a split, the playing previous-split panel turns orange with `> ` and its own timer, the loop panel it interrupted keeps a white `> `, and afterwards that loop panel is orange again with its timer from 0
 78. [ ] `!stoppaneltimer` adds `, stopped` to the title, the marker stays put and the timer goes; `!changegame KTANE` shows `(default)`
 79. [ ] The column doesn't flicker (it redraws once a second for the timer), and long panel lines wrap without a horizontal scrollbar
+
+## Partial game setup commands
+
+80. [ ] `!changepanel GTA3`: only the left panel changes (`Left panel: GTA3, …`, the column follows); no chat line, and the background, colour and capture sources stay as they were
+81. [ ] `!changepanel default` shows the default panels; `!changepanel nonsense` logs `No game or left panel "nonsense"` and changes nothing
+82. [ ] `!changecapture KTANE`: `Capture setup: KTANE (461492)` and the capture lines; no chat line, and the background, colour and left panel stay
+83. [ ] `!changecapture 999`: `999 not in games.json, capture sources left as is`, and nothing changes
+
+## Dashboard column: names and missing groups
+
+84. [ ] `!changepanel GTA3`: the split-list panels read `Splits: Finished at`, `Splits: Run Delta`, … and the single-group ones their group (`Splits Key Count`)
+85. [ ] `!changepanel SWAT4`: once OBS is connected, every line with `Splits Main List Highlights Gold`, `Big Delta` or `Little Delta` is red (the panel up keeps its `>` and timer), while `Splits Basics`, `Splits Current` and the previous-split panels are not

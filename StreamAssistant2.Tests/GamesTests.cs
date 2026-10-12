@@ -134,6 +134,28 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void CaptureCommand_UnknownInputOrNotInGamesJson_OnlyLogs() {
+			string id = NewId();
+			Games.CategoryId = id;
+			Games.TryChangeCapture("nonsense");
+			Games.TryChangeCapture("123456789");
+			Assert.Equal(id, Games.CategoryId);
+			Assert.Single(Lines("No game or category id \"nonsense\""));
+			Assert.Single(Lines("123456789 not in games.json, capture sources left as is"));
+			Assert.Empty(Lines("Capture setup:"));
+		}
+
+		[Fact]
+		public void PanelCommand_WithNoPanelsLoaded_OnlyLogs() {
+			string id = NewId();
+			Games.CategoryId = id;
+			Games.TryChangePanel("GTA3");
+			Assert.Equal(id, Games.CategoryId);
+			Assert.Single(Lines("No left panels loaded"));
+			Assert.Empty(Lines("Left panel:"));
+		}
+
+		[Fact]
 		public async Task Boot_ObsAlreadyUp_StoresAndAppliesAtOnce() {
 			string id = NewId();
 			Games.CategoryId = null;
@@ -498,6 +520,17 @@ namespace StreamAssistant2.Tests {
 		[InlineData("12a", null)]
 		public void ResolveCategory_KeyNameOrDigits(string input, string? expected) {
 			Assert.Equal(expected, Games.ResolveCategory(Known, input));
+		}
+
+		[Theory]
+		[InlineData("461492", "KTANE")]
+		[InlineData("ktane", "KTANE")]
+		[InlineData("999", "None")]
+		[InlineData("default", "default")]
+		[InlineData("nonsense", null)]
+		[InlineData("", null)]
+		public void ResolvePanel_GameNameElsePanelEntry(string input, string? expected) {
+			Assert.Equal(expected, Games.ResolvePanel(Known, input, name => name.Equals("default", StringComparison.OrdinalIgnoreCase)));
 		}
 
 		[Fact]

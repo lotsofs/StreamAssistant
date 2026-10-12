@@ -66,12 +66,16 @@ The right-hand column shows what the left-panel rotation ([obs.md](obs.md#the-ro
   - the `Always` groups
   - the `Loop` panels
   - `Previous split`, only for a game with previous-split panels
-- **Each panel's line:** its groups (`(blank)` for a pause), the texts it sets in quotes (what tells the
-  split-list panels apart), and its seconds. For example:
-  `Splits List Labels 1, Splits List Values 1 · "Splits", "Finished at" · 50 s`.
+- **Each panel's line:** its `Name` from `leftpanel.json` if it has one (`> Per map: Run Delta · 12 / 50 s`).
+  Otherwise its groups (`(blank)` for a pause) and the texts it sets in quotes. Then its seconds, for
+  example `Splits Key Count · 50 s`.
 - **Marking:** the panel up is orange with a `> `. During a previous split, the playing `Previous` panel is
   the orange one, and the loop panel the rotation will return to keeps a white `> `. The `Always` groups
   are orange too once the rotation has shown its first panel, since they stay up throughout.
+- **Missing groups:** once the rotation has listed OBS's groups, any line that uses a group OBS doesn't
+  have is red: an `Always` group, a loop panel or a previous-split panel. The panel that's up keeps its
+  `> ` and timer but is red too. The log names the groups once (`Left panel: <game> has groups OBS
+  doesn't: …`).
 - **Timer:** the orange panel's seconds read `<elapsed> / <seconds> s`, whole seconds since it was shown,
   stopping at its length. There's no timer when a panel stays up for good: a stopped rotation, or a loop
   with only one panel.
@@ -84,6 +88,7 @@ The right-hand column shows what the left-panel rotation ([obs.md](obs.md#the-ro
 | Section heading | `#888888` |
 | Panel, group, and the marked loop panel during a split | `#EEEEEE` |
 | The panel up, and the `Always` groups once shown | `#EE8844` (the `SceneChanges` orange) |
+| Any line with a group OBS doesn't have | `#EE4444` (the `Error` red), whatever its kind |
 
 ## The log
 

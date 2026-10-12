@@ -43,7 +43,8 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `CP1` | `ChannelPoints.CloseRedemption` | Helix refused to fulfil or cancel a train or colour redemption (often a 403; see [color.md](color.md)) | redemption left open |
 | `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | An OBS call threw during a colour change; the message is logged next | worker moves to the next request |
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
-| `GMS2` | `Games.RunStep` (from `Games.Apply`) | One game setup step (background, colour, left panel or capture sources) threw; the message names the step | that step skipped, the later ones still run |
+| `GMS_cap` | `FireForget.Run` (from `Games.TryChangeCapture`) | `!changecapture` threw outside `RunStep`'s own catch | the capture sources aren't changed |
+| `GMS2` | `Games.RunStep` (from `Games.Apply`, and `!changecapture`) | One game setup step (background, colour, left panel or capture sources) threw; the message names the step | that step skipped, the later ones still run |
 | `GMS1` | `Games.Load` | `games.json` couldn't be read or parsed | no games loaded; every category resolves to `None` and leaves the capture sources alone |
 | `LPN1` | `LeftPanel.Load` | `leftpanel.json` couldn't be read or parsed | no left panels loaded |
 | `LPN2` | `LeftPanel.RunAsync` | One OBS call of the left-panel rotation threw (listing a scene, setting a text or file, showing or hiding a group); the message says which | the rest of that step still runs |
@@ -81,6 +82,8 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `Watching LiveSplit's split index` | the split watcher started; `… previous-split panel off` instead when `LivesplitGenerated` isn't set or its folder is missing |
 | `Left panel: <game> has groups OBS doesn't: …` | the game's entry names groups missing from both left-panel scenes; they're skipped |
 | `No left panels for <game>, left as is` | the game has no entry and there's no `default`; the panel isn't touched |
+| `Capture setup: <name> (<id>)` | `!changecapture`: the capture sources alone are being set for that game |
+| `No game or left panel "…"`, `No left panels loaded` | `!changepanel` with an input that is neither a game nor a `leftpanel.json` entry, or with no panels loaded |
 | `Left panel rotation stopped` | `!stoppaneltimer`; the current panel stays up, and OBS reconnects don't restart it |
 | `No left panel rotation to stop`, `No left panel to start` | `!stoppaneltimer` or `!startpaneltimer` with no game's rotation to act on |
 | `leftpanel.json: skipped <name>, …` | an entry naming another that leads to no panels (missing, or a loop), or a value that is neither panels nor a name |

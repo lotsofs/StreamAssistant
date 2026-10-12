@@ -188,6 +188,56 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
+		/// "!changepanel": rotates the left panel of a game given by games.json key, game name or numeric id, or of a
+		/// leftpanel.json entry; nothing else changes. Logs when nothing is loaded or the input matches neither.
+		/// </summary>
+		internal static void TryChangePanel(string input) {
+			if (!LeftPanel.IsLoaded) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "No left panels loaded");
+				return;
+			}
+			string? name = ResolvePanel(_games, input, LeftPanel.HasPanels);
+			if (name == null) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No game or left panel \"{input}\"");
+				return;
+			}
+			LeftPanel.Start(name);
+		}
+
+		/// <summary>
+		/// The left panel to start for a games.json key, game name or numeric id (its game's name), else for a
+		/// leftpanel.json entry (the input itself); null for anything else.
+		/// </summary>
+		internal static string? ResolvePanel(IReadOnlyDictionary<string, Game> games, string input, Func<string, bool> hasPanels) {
+			string? id = ResolveCategory(games, input);
+			if (id != null) {
+				return Lookup(games, id).Name;
+			}
+			return hasPanels(input) ? input : null;
+		}
+
+		/// <summary>
+		/// "!changecapture": points the capture sources at a game given by games.json key, game name or numeric id, off
+		/// the caller's thread; nothing else changes. Logs when the input doesn't resolve or isn't in games.json.
+		/// </summary>
+		internal static void TryChangeCapture(string input) {
+			string? id = ResolveCategory(_games, input);
+			if (id == null) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No game or category id \"{input}\"");
+				return;
+			}
+			if (!_games.TryGetValue(id, out Game? game)) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"{id} not in {GAMES_FILE}, capture sources left as is");
+				return;
+			}
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChangesImportant, $"Capture setup: {game.Name} ({id})");
+			FireForget.Run("GMS_cap", "capture change", async () => {
+				await Task.Yield();
+				RunStep("capture sources", () => GameCapture.Set(game));
+			});
+		}
+
+		/// <summary>
 		/// Stores a new category, posts the change and applies its game off the caller's thread; false if it's the current one.
 		/// </summary>
 		internal static bool ChangeCategory(string newId) {

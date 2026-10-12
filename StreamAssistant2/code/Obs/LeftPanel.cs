@@ -6,7 +6,12 @@ namespace StreamAssistant2 {
 		/// <summary>
 		/// One panel: the groups it shows, the source texts and files it sets first, and how long it stays, in seconds.
 		/// </summary>
-		internal sealed record Panel(List<string> Show, Dictionary<string, string> Text, Dictionary<string, string> File, double Seconds);
+		internal sealed record Panel(List<string> Show, Dictionary<string, string> Text, Dictionary<string, string> File, double Seconds) {
+			/// <summary>
+			/// What the dashboard calls the panel instead of listing its groups; null for none.
+			/// </summary>
+			internal string? Name { get; init; }
+		}
 
 		/// <summary>
 		/// A game's panels, and the groups shown for the whole game.
@@ -25,6 +30,7 @@ namespace StreamAssistant2 {
 		}
 
 		sealed class PanelDto {
+			public string? Name { get; set; }
 			public List<string?>? Show { get; set; }
 			public Dictionary<string, string?>? Text { get; set; }
 			public Dictionary<string, string?>? File { get; set; }
@@ -47,14 +53,19 @@ namespace StreamAssistant2 {
 		/// after a split; null before the first), the Previous panel playing (null outside a split), when the panel now
 		/// up was shown (UTC; null before the first), whether it was stopped, and the rotation it belongs to.
 		/// </summary>
-		internal sealed record RotationStatus(string Game, bool IsDefault, PanelSet Set, int? Panel, int? Previous, DateTime? Since, bool Stopped, CancellationToken Rotation);
+		internal sealed record RotationStatus(string Game, bool IsDefault, PanelSet Set, int? Panel, int? Previous, DateTime? Since, bool Stopped, CancellationToken Rotation) {
+			/// <summary>
+			/// The set's groups OBS doesn't have, once the rotation has looked; none before.
+			/// </summary>
+			internal IReadOnlyCollection<string> Missing { get; init; } = [];
+		}
 
 		internal enum LineKind { Title, Heading, Item, On, Current, Marked }
 
 		/// <summary>
-		/// One line of the dashboard's left-panel column.
+		/// One line of the dashboard's left-panel column, and whether it names a group OBS doesn't have.
 		/// </summary>
-		internal sealed record StatusLine(string Text, LineKind Kind);
+		internal sealed record StatusLine(string Text, LineKind Kind, bool Missing = false);
 
 		const string PANELS_FILE = "leftpanel.json";
 		const string DEFAULT_KEY = "default";
@@ -75,6 +86,16 @@ namespace StreamAssistant2 {
 		static volatile bool _stopped;
 		static TaskCompletionSource _split = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		static RotationStatus? _status;
+
+		/// <summary>
+		/// Whether any panels are loaded.
+		/// </summary>
+		internal static bool IsLoaded => _sets.Count > 0;
+
+		/// <summary>
+		/// Whether leftpanel.json has an entry of this name (any case).
+		/// </summary>
+		internal static bool HasPanels(string name) => _sets.ContainsKey(name);
 
 		/// <summary>
 		/// What the rotation is showing now; null when there is none.
@@ -166,7 +187,9 @@ namespace StreamAssistant2 {
 				if (panel == null || panel.Seconds <= 0) {
 					continue;
 				}
-				panels.Add(new Panel(Groups(panel.Show), Values(panel.Text), Values(panel.File), panel.Seconds));
+				panels.Add(new Panel(Groups(panel.Show), Values(panel.Text), Values(panel.File), panel.Seconds) {
+					Name = string.IsNullOrWhiteSpace(panel.Name) ? null : panel.Name.Trim(),
+				});
 			}
 			return panels;
 		}
@@ -240,16 +263,18 @@ namespace StreamAssistant2 {
 			int count = set.Panels.Count;
 			string onSplit = set.Previous.Count > 0 ? $", {set.Previous.Count} on a split" : "";
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"Left panel: {which}, {count} panel{(count == 1 ? "" : "s")}{onSplit}");
-			FireForget.Run("LPN3", "left panel rotation", () => RunAsync(gameName, set, _obsCalls, next.Token, (panel, previous) => Report(next.Token, panel, previous)));
+			FireForget.Run("LPN3", "left panel rotation", () => RunAsync(gameName, set, _obsCalls, next.Token,
+				(panel, previous) => Report(next.Token, status => status with { Panel = panel, Previous = previous, Since = DateTime.UtcNow }),
+				gone => Report(next.Token, status => status with { Missing = gone })));
 		}
 
 		/// <summary>
-		/// Records the panels a rotation shows, if it is still the current one.
+		/// Applies a change to the status, if the rotation reporting it is still the current one.
 		/// </summary>
-		static void Report(CancellationToken rotation, int? panel, int? previous) {
+		static void Report(CancellationToken rotation, Func<RotationStatus, RotationStatus> change) {
 			lock (_statusLock) {
 				if (_status != null && _status.Rotation == rotation && !rotation.IsCancellationRequested) {
-					_status = _status with { Panel = panel, Previous = previous, Since = DateTime.UtcNow };
+					_status = change(_status);
 				}
 			}
 		}
@@ -313,9 +338,10 @@ namespace StreamAssistant2 {
 		/// each step sets the panel's texts and files, shows its groups and hides the rest, then waits its Seconds. When
 		/// the set has Previous panels, a split cuts the wait short; they play, then the interrupted panel again. While
 		/// OBS isn't ready it waits and tries again; with one panel or none, and no Previous, it stops once that is up.
-		/// Each panel shown is passed to shown: the loop panel's index, and the Previous panel's during a split.
+		/// Each panel shown is passed to shown: the loop panel's index, and the Previous panel's during a split; the set's
+		/// groups OBS doesn't have are passed to missing once, when the groups are found.
 		/// </summary>
-		internal static async Task RunAsync(string gameName, PanelSet set, ObsCalls calls, CancellationToken token, Action<int?, int?>? shown = null) {
+		internal static async Task RunAsync(string gameName, PanelSet set, ObsCalls calls, CancellationToken token, Action<int?, int?>? shown = null, Action<List<string>>? missing = null) {
 			await Task.Yield();
 			Dictionary<string, List<string>>? scenes = null;
 			HashSet<string>? up = null;
@@ -328,7 +354,10 @@ namespace StreamAssistant2 {
 					if (!calls.IsReady()) {
 						return false;
 					}
-					scenes ??= FindGroups(gameName, set, calls);
+					if (scenes == null) {
+						scenes = FindGroups(gameName, set, calls);
+						missing?.Invoke(Missing(set, scenes.Keys));
+					}
 					HashSet<string> wanted = new(set.Always.Concat(panel?.Show ?? []));
 					var (show, hide) = Transition(up, wanted, scenes.Keys);
 					if (panel != null) {
@@ -417,7 +446,8 @@ namespace StreamAssistant2 {
 		/// <summary>
 		/// The dashboard's lines for a rotation: a title, then Always (on once something is shown), the loop and the
 		/// Previous panels, with the panel up marked and timed against its Seconds; during a split the loop panel to
-		/// return to keeps its marker. A panel that stays up for good (stopped, or the only one) gets no timer.
+		/// return to keeps its marker. A panel that stays up for good (stopped, or the only one) gets no timer. A line
+		/// with a group OBS doesn't have is flagged Missing.
 		/// </summary>
 		internal static List<StatusLine> StatusLines(RotationStatus? status, DateTime now) {
 			if (status == null) {
@@ -429,7 +459,7 @@ namespace StreamAssistant2 {
 				lines.Add(new StatusLine("  (none)", LineKind.Item));
 			}
 			foreach (string group in status.Set.Always) {
-				lines.Add(new StatusLine($"  {group}", status.Since == null ? LineKind.Item : LineKind.On));
+				lines.Add(new StatusLine($"  {group}", status.Since == null ? LineKind.Item : LineKind.On, status.Missing.Contains(group)));
 			}
 			lines.Add(new StatusLine("Loop", LineKind.Heading));
 			if (status.Set.Panels.Count == 0) {
@@ -439,29 +469,31 @@ namespace StreamAssistant2 {
 			for (int i = 0; i < status.Set.Panels.Count; i++) {
 				LineKind kind = i != status.Panel ? LineKind.Item : status.Previous == null ? LineKind.Current : LineKind.Marked;
 				DateTime? since = kind == LineKind.Current && timed && status.Set.Panels.Count > 1 ? status.Since : null;
-				lines.Add(PanelLine(status.Set.Panels[i], kind, since, now));
+				lines.Add(PanelLine(status.Set.Panels[i], kind, since, now, status.Missing));
 			}
 			if (status.Set.Previous.Count > 0) {
 				lines.Add(new StatusLine("Previous split", LineKind.Heading));
 				for (int i = 0; i < status.Set.Previous.Count; i++) {
 					bool current = i == status.Previous;
-					lines.Add(PanelLine(status.Set.Previous[i], current ? LineKind.Current : LineKind.Item, current && timed ? status.Since : null, now));
+					lines.Add(PanelLine(status.Set.Previous[i], current ? LineKind.Current : LineKind.Item, current && timed ? status.Since : null, now, status.Missing));
 				}
 			}
 			return lines;
 		}
 
 		/// <summary>
-		/// One panel's line: "> " unless a plain item, its groups or "(blank)", its texts in quotes, and its seconds,
-		/// as whole seconds elapsed since it was shown out of them when it is timed.
+		/// One panel's line: "> " unless a plain item, its Name or else its groups ("(blank)" for none) and texts in
+		/// quotes, and its seconds, as whole seconds elapsed since it was shown out of them when it is timed; Missing when
+		/// one of its groups is.
 		/// </summary>
-		static StatusLine PanelLine(Panel panel, LineKind kind, DateTime? since, DateTime now) {
+		static StatusLine PanelLine(Panel panel, LineKind kind, DateTime? since, DateTime now, IReadOnlyCollection<string> missing) {
 			string marker = kind == LineKind.Item ? "  " : "> ";
 			string groups = panel.Show.Count == 0 ? "(blank)" : string.Join(", ", panel.Show);
 			string texts = panel.Text.Count == 0 ? "" : " · " + string.Join(", ", panel.Text.Values.Select(text => $"\"{text}\""));
+			string label = panel.Name ?? groups + texts;
 			string seconds = panel.Seconds.ToString(CultureInfo.InvariantCulture);
 			string elapsed = since is DateTime shown ? $"{(int)Math.Clamp((now - shown).TotalSeconds, 0, panel.Seconds)} / " : "";
-			return new StatusLine($"{marker}{groups}{texts} · {elapsed}{seconds} s", kind);
+			return new StatusLine($"{marker}{label} · {elapsed}{seconds} s", kind, panel.Show.Any(missing.Contains));
 		}
 
 		/// <summary>

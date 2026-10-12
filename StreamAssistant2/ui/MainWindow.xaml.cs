@@ -49,6 +49,7 @@ namespace StreamAssistant2 {
 			[LeftPanel.LineKind.On] = MakeBrush("#EE8844"),
 			[LeftPanel.LineKind.Current] = MakeBrush("#EE8844"),
 		};
+		static readonly Brush _leftPanelMissing = MakeBrush("#EE4444");
 
 		readonly ObservableCollection<LogLine> _lines = new();
 		readonly DispatcherTimer _statusTimer;
@@ -101,7 +102,7 @@ namespace StreamAssistant2 {
 				return;
 			}
 			_leftPanelLines = lines;
-			LeftPanelList.ItemsSource = lines.Select(line => new LogLine(line.Text, _leftPanelColors[line.Kind])).ToList();
+			LeftPanelList.ItemsSource = lines.Select(line => new LogLine(line.Text, line.Missing ? _leftPanelMissing : _leftPanelColors[line.Kind])).ToList();
 		}
 
 		/// <summary>

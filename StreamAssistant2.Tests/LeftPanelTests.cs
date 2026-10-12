@@ -109,6 +109,12 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void Parse_Name_IsTrimmed_AndBlankOrMissingIsNone() {
+			var sets = LeftPanel.Parse("""{ "GTA3": { "Panels": [ { "Name": " Splits: Run Delta ", "Show": [ "A" ], "Seconds": 5 }, { "Name": " ", "Show": [ "B" ], "Seconds": 5 }, { "Show": [ "C" ], "Seconds": 5 } ] } }""");
+			Assert.Equal(["Splits: Run Delta", null, null], sets["GTA3"].Panels.Select(p => p.Name));
+		}
+
+		[Fact]
 		public void Parse_Previous_IsReadLikePanels_AndMissingIsEmpty() {
 			var sets = LeftPanel.Parse("""
 				{
@@ -342,10 +348,12 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
-		public async Task GroupsOBSDoesntHave_AreLoggedOnce_AndSkipped() {
+		public async Task GroupsOBSDoesntHave_AreLoggedAndReportedOnce_AndSkipped() {
 			_stopAfterWaits = 3;
-			await Run(new PanelSet(["Basics"], [P(50, "Key Count", "Big Delta"), P(50, "Little Delta")]));
+			List<List<string>> reported = new();
+			await LeftPanel.RunAsync("GTA3", new PanelSet(["Basics"], [P(50, "Key Count", "Big Delta"), P(50, "Little Delta")]), Calls(), _cts.Token, missing: reported.Add);
 			Assert.Single(Lines("Left panel: GTA3 has groups OBS doesn't: Big Delta, Little Delta"));
+			Assert.Equal(["Big Delta", "Little Delta"], Assert.Single(reported));
 			Assert.DoesNotContain(_calls, c => c.Contains("Delta"));
 		}
 
@@ -509,6 +517,25 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal(L("Left panel: GTA3 (default)", LeftPanel.LineKind.Title), lines[0]);
 			Assert.Equal(L("  Splits Basics", LeftPanel.LineKind.Item), lines[2]);
 			Assert.DoesNotContain(lines, l => l.Text.StartsWith('>'));
+		}
+
+		[Fact]
+		public void NamedPanel_ShowsItsName_InsteadOfItsGroupsAndTexts() {
+			PanelSet named = new(["Splits Basics"], [
+				new Panel(["Splits List Labels 1", "Splits List Values 2"], new() { ["Header Right 2"] = "Run Delta" }, new(), 50) { Name = "Splits: Run Delta" },
+				new Panel([], new(), new(), 1),
+			]);
+			Assert.Equal(L("> Splits: Run Delta · 12 / 50 s", LeftPanel.LineKind.Current), LeftPanel.StatusLines(Status(0, set: named), Now)[4]);
+		}
+
+		[Fact]
+		public void LinesWithAGroupOBSDoesntHave_AreMissing_MarkerAndTimerKept() {
+			LeftPanel.RotationStatus status = Status(0) with { Missing = ["Splits Basics", "Splits List Values 1", "Splits Previous"] };
+			List<LeftPanel.StatusLine> lines = LeftPanel.StatusLines(status, Now);
+			Assert.Equal(new LeftPanel.StatusLine("  Splits Basics", LeftPanel.LineKind.On, true), lines[2]);
+			Assert.Equal(new LeftPanel.StatusLine($"> {LIST} · 12 / 50 s", LeftPanel.LineKind.Current, true), lines[4]);
+			Assert.False(lines[5].Missing);
+			Assert.Equal(new LeftPanel.StatusLine("  Splits Previous · 30 s", LeftPanel.LineKind.Item, true), lines[7]);
 		}
 
 		[Fact]

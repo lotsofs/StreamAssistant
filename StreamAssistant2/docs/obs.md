@@ -194,6 +194,11 @@ with a clearer `Couldn't set <source>: …` warning.
   The `default` entry isn't a game: it only holds the fallback volume, and `!changegame default` doesn't
   resolve to it. Loading logs `Loaded <n> games, default volume <dB> dB` (or that there is none).
 
+`!changecapture <game>` runs the capture-sources step alone, for a game in `games.json`. It logs
+`Capture setup: <name> (<id>)` and runs off the IRC thread (`Error GMS_cap` if it throws outside
+`RunStep`). The stored category, background, colour and left panel don't change, and nothing is posted to
+chat. `!changepanel` is its left-panel counterpart ([The rotation](#the-rotation)).
+
 On bot start, `Games.OnBootAsync` hands its apply to `ObsConnection.WhenConnected`, which runs it at
 once if OBS is ready (`IsReady`, see [Connection](#connection)), otherwise on OBS's next `Connected` event,
 however late, and returns which it did. So the capture sources and background aren't skipped because OBS
@@ -247,6 +252,11 @@ The file is keyed by `games.json` `Name` (any case), plus a `default` entry for 
   it, is cleaned up. The file doesn't say which of the two scenes (below) a group is in.
 - A panel without a positive `Seconds` is skipped. A panel with an empty `Show` is a pause: only the
   `Always` groups stay up.
+- `Name` is optional and only for the dashboard: what the left-panel column calls the panel instead of listing
+  its groups and texts ([dashboard.md](dashboard.md#the-left-panel)). Blank counts as none. On 2026-10-12 the
+  panels showing more than one group were named after their on-stream headers, `<list>: <column>` (for example
+  `Per map: Run Delta`); SWAT4's after the group that changes (`Big Delta`, `Sellout Goals`). Single-group
+  panels have no name.
 - `Previous` is optional: the panels to play once after each LiveSplit split, same shape as `Panels`
   ([Splits from LiveSplit](#splits-from-livesplit)). Only SWAT4 has it.
 - An entry can be another entry's name instead of its own panels: `"GTA4": "GTA3"` gives GTA4 GTA3's
@@ -327,8 +337,15 @@ More detail on the edges:
 - **On the dashboard:** `RunAsync` reports each panel it shows: the loop index, plus the `Previous` index
   during a split. `Start` turns those reports into `LeftPanel.Status`, a `RotationStatus` record holding
   the game, its set, the panel up, when it was shown, and whether it's stopped. It's replaced under a small lock of its own, and
-  only by the rotation it belongs to. The window's right-hand column draws it
+  only by the rotation it belongs to. Once the groups have been listed, `RunAsync` also reports the ones OBS
+  doesn't have, into the status's `Missing`. The window's right-hand column draws it
   ([dashboard.md](dashboard.md#the-left-panel)).
+- **Changing by command:** `!changepanel <game>` (`Games.TryChangePanel`) starts a rotation without the rest
+  of the game setup. The category, background, colour and captures stay, and nothing is posted to chat.
+  - The input is resolved by `Games.ResolvePanel` (tested): a `games.json` key, game name or numeric id gives
+    that game's name; otherwise the input itself, if it names a `leftpanel.json` entry, such as `default`.
+  - Anything else logs `No game or left panel "…"`. With no panels loaded it logs `No left panels loaded`.
+  - The panel it starts is the one an OBS reconnect restarts, until the next category change.
 - **Stopping by command:** `!stoppaneltimer` (`LeftPanel.Stop`) cancels the rotation, leaves the current
   panel up and logs `Left panel rotation stopped`. It stays stopped through OBS reconnects. Any `Start`
   clears the stop: `!startpaneltimer` (`LeftPanel.Resume`, the last game's rotation from its first panel),
