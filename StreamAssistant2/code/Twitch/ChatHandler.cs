@@ -157,6 +157,9 @@ namespace StreamAssistant2 {
 				case "!startpaneltimer":
 					LeftPanel.Resume();
 					break;
+				case "!nextpanelitem":
+					LeftPanel.Next();
+					break;
 				// The colour commands mirror the three channel-point colour rewards.
 				case "!changecolor":
 					LayoutColoring.TryChangeToSingle(argument);

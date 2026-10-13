@@ -86,6 +86,29 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void Schemes_SplitColoursAreLowercased_AndABadOneDroppedAndLogged() {
+			var set = JObject.Parse("""
+				{ "Categories": { "SWAT4": { "SplitColors": { "None": "FFFBFF", "ListGold": "#FFC800", "LabelGold": "gold" } } } }
+				""").ToObject<ColorSchemeRegistry.ThemeSet>()!;
+			List<string> log = new();
+			void OnLine(ConsoleLogger.ColorType _, string line) { lock (log) log.Add(line); }
+			ConsoleLogger.LineLogged += OnLine;
+			try {
+				ColorSchemeRegistry.NormalizeHex("gameschemes", set);
+			}
+			finally {
+				ConsoleLogger.LineLogged -= OnLine;
+			}
+			var colors = set.Categories["swat4"].SplitColors;
+			Assert.Equal("#fffbff", colors["None"]);
+			Assert.Equal("#ffc800", colors["listgold"]);
+			Assert.False(colors.ContainsKey("LabelGold"));
+			lock (log) {
+				Assert.Contains(log, l => l.Contains("Colour scheme gameschemes SWAT4: skipped split colour \"LabelGold\", \"gold\" is not a hex colour"));
+			}
+		}
+
+		[Fact]
 		public void Schemes_NoDuplicatesDropsNothing() {
 			JObject root = JObject.Parse(File.ReadAllText(Path.Combine(ColorData.Fixture("ColorSchemes"), "gameschemes.json")));
 			Assert.Empty(ColorSchemeRegistry.DropDuplicateNames(root));

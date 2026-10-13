@@ -166,10 +166,13 @@ wrappers; the rest of the file is commented out ([obs.md](obs.md#the-wrapper)).
 [Games.cs](../code/Obs/Games.cs): loads `<BotInput>\games.json` (Twitch category id → game name and
 game, window and audio capture executables) and resolves a category to its game, falling back to id `0`. `HandleUpdate` takes
 `channel.update` and calls `Apply`, the per-game setup, when the category changes;
-`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, colour, left panel and capture sources; the capture sources only for a category in `games.json`.
+`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, borders, colour, left panel and capture sources; the capture sources only for a category in `games.json`.
 
 [GameBackground.cs](../code/Obs/GameBackground.cs): `Set(gameName)` points `Image: Background` at the
 game's PNG in `Directories.Backgrounds`, else `Template.png` there, or logs and leaves it when neither exists.
+[GameBorder.cs](../code/Obs/GameBorder.cs): `Set(game)` points the inner and outer `Border: Colorable` sources,
+and their fade twins, at the 16x9 border images in `Directories.Layout`, or the plain ones for a game whose
+`Aspect` is something else.
 [GameColor.cs](../code/Obs/GameColor.cs): `Set(gameName)` queues the game's `gameschemes` colour scheme
 through `LayoutColoring`, or logs and leaves the colour when there is none.
 [GameCapture.cs](../code/Obs/GameCapture.cs): `Set(game)` points the three numbered game, window and
@@ -181,14 +184,18 @@ shown and the panels to take turns) and finds a game's entry, falling back to `d
 called from `Games.Apply`, rotates those panels in OBS until the next `Start`; `OnObsConnected`, from
 `ObsConnection`'s `Connected` handler, restarts it after an OBS restart; `Stop` and `Resume` back the
 `!stoppaneltimer` / `!startpaneltimer` admin commands; `OnSplit`, from `SplitWatcher`, plays a game's
-previous-split panels; `Status` and `StatusLines` feed the dashboard's left-panel column. See
-[obs.md](obs.md#left-panel).
+previous-split panels; `Status` and `StatusLines` feed the dashboard's left-panel column. Each rotation
+colours LiveSplit's split sources through `SplitColors`. See [obs.md](obs.md#left-panel).
 
 ### `code/LiveSplit/`
 
 [SplitWatcher.cs](../code/LiveSplit/SplitWatcher.cs): watches LiveSplit's split index
 (`<LivesplitGenerated>\CurrentSplit\AllSplits\Index.txt`) and calls `LeftPanel.OnSplit` when it rises by one
 split. See [obs.md](obs.md#splits-from-livesplit).
+
+[SplitColors.cs](../code/LiveSplit/SplitColors.cs): a game's split colours from `gameschemes.json` (over
+`none`'s), the sign → colour table, and the filter colours for the split list highlights and the previous
+split's differences, which the left-panel rotation sets. See [obs.md](obs.md#split-colours).
 
 ### `code/Timing/`
 

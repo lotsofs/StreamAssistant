@@ -7,11 +7,17 @@ namespace StreamAssistant2 {
 		/// </summary>
 		internal sealed record Capture(string Executable, double? Volume = null);
 
-		internal sealed record Game(string Name, List<Capture> GameCapture, List<Capture> WindowCapture, List<Capture> AudioCapture);
+		internal sealed record Game(string Name, List<Capture> GameCapture, List<Capture> WindowCapture, List<Capture> AudioCapture) {
+			/// <summary>
+			/// The game's aspect ratio ("5x4"); null for 16x9, the default.
+			/// </summary>
+			internal string? Aspect { get; init; }
+		}
 
 		sealed class GameDto {
 			public string? Name { get; set; }
 			public double? Volume { get; set; }
+			public string? Aspect { get; set; }
 			public List<JsonElement>? GameCaptureExecutable { get; set; }
 			public List<JsonElement>? WindowCaptureExecutable { get; set; }
 			public List<JsonElement>? AudioCaptureExecutable { get; set; }
@@ -82,7 +88,9 @@ namespace StreamAssistant2 {
 				if (id.Equals(DEFAULT_ID, StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(dto?.Name)) {
 					continue;
 				}
-				games[id] = new Game(dto.Name, Captures(dto.GameCaptureExecutable), Captures(dto.WindowCaptureExecutable), Captures(dto.AudioCaptureExecutable));
+				games[id] = new Game(dto.Name, Captures(dto.GameCaptureExecutable), Captures(dto.WindowCaptureExecutable), Captures(dto.AudioCaptureExecutable)) {
+					Aspect = string.IsNullOrWhiteSpace(dto.Aspect) ? null : dto.Aspect.Trim(),
+				};
 			}
 			return games;
 		}
@@ -339,6 +347,7 @@ namespace StreamAssistant2 {
 			Game game = Lookup(_games, categoryId);
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChangesImportant, $"Game setup: {game.Name} ({categoryId})");
 			RunStep("background", () => GameBackground.Set(game.Name));
+			RunStep("border", () => GameBorder.Set(game));
 			RunStep("colour", () => GameColor.Set(game.Name));
 			RunStep("left panel", () => LeftPanel.Start(game.Name));
 			if (!_games.ContainsKey(categoryId)) {

@@ -11,6 +11,16 @@ namespace StreamAssistant2 {
 			/// What the dashboard calls the panel instead of listing its groups; null for none.
 			/// </summary>
 			internal string? Name { get; init; }
+
+			/// <summary>
+			/// Groups shown as they are: a family stays on the copy that's up instead of moving to a fresh one.
+			/// </summary>
+			internal List<string> Keep { get; init; } = [];
+
+			/// <summary>
+			/// Every group the panel shows: Show, then Keep, each once.
+			/// </summary>
+			internal IEnumerable<string> Shown => Show.Concat(Keep).Distinct();
 		}
 
 		/// <summary>
@@ -21,12 +31,19 @@ namespace StreamAssistant2 {
 			/// The panels shown in turn after a LiveSplit split, before the rotation carries on; none for most games.
 			/// </summary>
 			internal List<Panel> Previous { get; init; } = [];
+
+			/// <summary>
+			/// LiveSplit's sign file for the previous split, which colours its differences during the Previous panels; null
+			/// for none.
+			/// </summary>
+			internal string? Sign { get; init; }
 		}
 
 		sealed class PanelSetDto {
 			public List<string?>? Always { get; set; }
 			public List<PanelDto?>? Panels { get; set; }
 			public List<PanelDto?>? Previous { get; set; }
+			public string? Sign { get; set; }
 		}
 
 		sealed class PanelDto {
@@ -35,6 +52,7 @@ namespace StreamAssistant2 {
 			public Dictionary<string, string?>? Text { get; set; }
 			public Dictionary<string, string?>? File { get; set; }
 			public double Seconds { get; set; }
+			public List<string?>? Keep { get; set; }
 		}
 
 		/// <summary>
@@ -46,7 +64,27 @@ namespace StreamAssistant2 {
 			Func<string, List<string>> SceneItems,
 			Action<string, string, bool> SetEnabled,
 			Action<string, string, string> SetSetting,
-			Func<TimeSpan, CancellationToken, Task> Delay);
+			Func<TimeSpan, CancellationToken, Task> Delay) {
+			/// <summary>
+			/// Setting a colour on a source's filter: the source, the filter, the filter's setting and the OBS colour.
+			/// </summary>
+			internal Action<string, string, string, long> SetFilter { get; init; } = (_, _, _, _) => { };
+		}
+
+		/// <summary>
+		/// What OBS has for the left panel: each group's places (scene and item name), the numbered groups as copies of a
+		/// family ("Splits Current" → 1: "Splits Current 1", …), and whether the colored scene holds the reference item.
+		/// </summary>
+		internal sealed record Layout(
+			Dictionary<string, List<(string Scene, string Item)>> Groups,
+			Dictionary<string, SortedDictionary<int, string>> Families,
+			bool HasReference);
+
+		/// <summary>
+		/// A value the rotation set on a copy source, by the source's name without a number and the setting: the value,
+		/// and the families shown with it.
+		/// </summary>
+		internal sealed record CopyValue(string Value, HashSet<string> Families);
 
 		/// <summary>
 		/// What the rotation is showing, for the dashboard: the game, its panels, the loop panel up (or to return to
@@ -69,14 +107,17 @@ namespace StreamAssistant2 {
 
 		const string PANELS_FILE = "leftpanel.json";
 		const string DEFAULT_KEY = "default";
-		const string GROUP_PREFIX = "_Left Panel: ";
+		const string PREFIX = "_LP: ";
+		const string PREFIX_COLORED = "_LPC: ";
 		const string SCENE = "!Scene: Left Panel";
 		const string SCENE_COLORED = "!Scene: Left Panel Colored";
 
 		internal static readonly TimeSpan OBS_WAIT = TimeSpan.FromSeconds(5);
 
 		static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
-		static readonly ObsCalls _obsCalls = new(() => ObsConnection.IsReady, Obs.GetSceneItemNames, Obs.SetSourceEnabled, Obs.SetInputSetting, Task.Delay);
+		static readonly ObsCalls _obsCalls = new(() => ObsConnection.IsReady, Obs.GetSceneItemNames, Obs.SetSourceEnabled, Obs.SetInputSetting, Task.Delay) {
+			SetFilter = (source, filter, property, color) => Obs.SetFilterProperty(source, filter, property, color),
+		};
 		static readonly object _stepLock = new();
 		static readonly object _statusLock = new();
 
@@ -85,6 +126,7 @@ namespace StreamAssistant2 {
 		static volatile string? _game;
 		static volatile bool _stopped;
 		static TaskCompletionSource _split = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		static TaskCompletionSource _skip = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		static RotationStatus? _status;
 
 		/// <summary>
@@ -175,7 +217,10 @@ namespace StreamAssistant2 {
 		/// One entry's panel set.
 		/// </summary>
 		static PanelSet ToSet(PanelSetDto dto) {
-			return new PanelSet(Groups(dto.Always), ToPanels(dto.Panels)) { Previous = ToPanels(dto.Previous) };
+			return new PanelSet(Groups(dto.Always), ToPanels(dto.Panels)) {
+				Previous = ToPanels(dto.Previous),
+				Sign = string.IsNullOrWhiteSpace(dto.Sign) ? null : dto.Sign.Trim(),
+			};
 		}
 
 		/// <summary>
@@ -189,21 +234,20 @@ namespace StreamAssistant2 {
 				}
 				panels.Add(new Panel(Groups(panel.Show), Values(panel.Text), Values(panel.File), panel.Seconds) {
 					Name = string.IsNullOrWhiteSpace(panel.Name) ? null : panel.Name.Trim(),
+					Keep = Groups(panel.Keep),
 				});
 			}
 			return panels;
 		}
 
 		/// <summary>
-		/// Group names, trimmed and without the "_Left Panel: " prefix; blank ones are dropped.
+		/// Group names, trimmed and without an "_LP: " or "_LPC: " prefix; blank ones are dropped.
 		/// </summary>
 		static List<string> Groups(List<string?>? names) {
 			List<string> groups = new();
 			foreach (string? name in names ?? []) {
-				string group = name?.Trim() ?? "";
-				if (group.StartsWith(GROUP_PREFIX, StringComparison.Ordinal)) {
-					group = group[GROUP_PREFIX.Length..].Trim();
-				}
+				string trimmed = name?.Trim() ?? "";
+				string group = (GroupName(trimmed, SCENE) ?? GroupName(trimmed, SCENE_COLORED) ?? trimmed).Trim();
 				if (group.Length > 0) {
 					groups.Add(group);
 				}
@@ -238,8 +282,8 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Starts rotating the game's panels, else the default ones, in place of any running rotation; with neither, stops
-		/// and leaves the panel as is. Does nothing when no panels are loaded.
+		/// Starts rotating the game's panels, else the default ones, in place of any running rotation, with the game's split
+		/// colours; with neither, stops and leaves the panel as is. Does nothing when no panels are loaded.
 		/// </summary>
 		internal static void Start(string gameName) {
 			if (_sets.Count == 0) {
@@ -262,10 +306,13 @@ namespace StreamAssistant2 {
 			string which = isDefault ? $"{gameName} (default)" : gameName;
 			int count = set.Panels.Count;
 			string onSplit = set.Previous.Count > 0 ? $", {set.Previous.Count} on a split" : "";
-			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"Left panel: {which}, {count} panel{(count == 1 ? "" : "s")}{onSplit}");
+			var colors = SplitColors.For(gameName);
+			string colored = colors is (string from, _) ? $", split colours from {from}" : ", no split colours";
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"Left panel: {which}, {count} panel{(count == 1 ? "" : "s")}{onSplit}{colored}");
 			FireForget.Run("LPN3", "left panel rotation", () => RunAsync(gameName, set, _obsCalls, next.Token,
 				(panel, previous) => Report(next.Token, status => status with { Panel = panel, Previous = previous, Since = DateTime.UtcNow }),
-				gone => Report(next.Token, status => status with { Missing = gone })));
+				gone => Report(next.Token, status => status with { Missing = gone }),
+				colors?.Colors));
 		}
 
 		/// <summary>
@@ -318,6 +365,30 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
+		/// "!nextpanelitem": cuts the panel up short, so the rotation moves on to the next one now; logs when there is no
+		/// rotation to move on.
+		/// </summary>
+		internal static void Next() {
+			RotationStatus? status = Status;
+			if (status == null || status.Stopped) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "No left panel rotation to move on");
+				return;
+			}
+			if (status.Set.Panels.Count <= 1 && status.Set.Previous.Count == 0) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "Only one left panel, nothing to move on to");
+				return;
+			}
+			SkipPanel();
+		}
+
+		/// <summary>
+		/// Wakes the running rotation's wait, which then moves on as though the panel's time were up.
+		/// </summary>
+		internal static void SkipPanel() {
+			Interlocked.Exchange(ref _skip, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).TrySetResult();
+		}
+
+		/// <summary>
 		/// Restarts the last game's rotation, unless it was stopped, so a reconnected OBS gets its groups set again.
 		/// </summary>
 		internal static void OnObsConnected() {
@@ -336,15 +407,19 @@ namespace StreamAssistant2 {
 		/// <summary>
 		/// Shows the set's panels in turn until cancelled. The first step with OBS ready finds the groups in both scenes;
 		/// each step sets the panel's texts and files, shows its groups and hides the rest, then waits its Seconds. When
-		/// the set has Previous panels, a split cuts the wait short; they play, then the interrupted panel again. While
+		/// the set has Previous panels, a split cuts the wait short; they play, then the interrupted panel again. A skip
+		/// cuts any wait short as though its time were up. While
 		/// OBS isn't ready it waits and tries again; with one panel or none, and no Previous, it stops once that is up.
 		/// Each panel shown is passed to shown: the loop panel's index, and the Previous panel's during a split; the set's
-		/// groups OBS doesn't have are passed to missing once, when the groups are found.
+		/// groups OBS doesn't have are passed to missing once, when the groups are found. With split colours, the first
+		/// step colours the split list highlights, and each Previous step colours the previous split's differences by the
+		/// set's sign file, read through readText.
 		/// </summary>
-		internal static async Task RunAsync(string gameName, PanelSet set, ObsCalls calls, CancellationToken token, Action<int?, int?>? shown = null, Action<List<string>>? missing = null) {
+		internal static async Task RunAsync(string gameName, PanelSet set, ObsCalls calls, CancellationToken token, Action<int?, int?>? shown = null, Action<List<string>>? missing = null, IReadOnlyDictionary<string, string>? colors = null, Func<string, string?>? readText = null) {
 			await Task.Yield();
-			Dictionary<string, List<string>>? scenes = null;
+			Layout? layout = null;
 			HashSet<string>? up = null;
+			Dictionary<(string Base, string Key), CopyValue> remembered = new();
 			int index = 0;
 
 			// Shows one panel, or only Always for null, and reports it; false while OBS isn't ready.
@@ -354,36 +429,44 @@ namespace StreamAssistant2 {
 					if (!calls.IsReady()) {
 						return false;
 					}
-					if (scenes == null) {
-						scenes = FindGroups(gameName, set, calls);
-						missing?.Invoke(Missing(set, scenes.Keys));
+					if (layout == null) {
+						layout = FindLayout(gameName, set, calls);
+						if (layout.HasReference) {
+							Attempt($"hiding {SCENE} in {SCENE_COLORED}", () => calls.SetEnabled(SCENE_COLORED, SCENE, false));
+						}
+						if (colors != null) {
+							SetFilters(SplitColors.HighlightFilters(colors), calls);
+						}
+						Layout found = layout;
+						missing?.Invoke(Missing(set, name => Exists(found, name)));
 					}
-					HashSet<string> wanted = new(set.Always.Concat(panel?.Show ?? []));
-					var (show, hide) = Transition(up, wanted, scenes.Keys);
-					if (panel != null) {
-						SetValues(panel, calls);
+					if (previous != null && colors != null && set.Sign != null) {
+						ColorPrevious(set.Sign, colors, calls, readText ?? SplitWatcher.ReadText);
 					}
-					Toggle(show, true, scenes, calls);
-					Toggle(hide, false, scenes, calls);
+					var (wanted, settings) = Plan(layout, set.Always, panel, up, remembered);
+					var (show, hide) = Transition(up, wanted, layout.Groups.Keys);
+					foreach (var (source, key, value) in settings) {
+						Attempt($"setting the {key} of {source}", () => calls.SetSetting(source, key, value));
+					}
+					Toggle(show, true, layout.Groups, calls);
+					Toggle(hide, false, layout.Groups, calls);
 					up = wanted;
 					shown?.Invoke(set.Panels.Count > 0 ? index : null, previous);
 					return true;
 				}
 			}
 
-			// Waits the time, or until the split when the set has Previous panels; true for a split.
-			async Task<bool> WaitOrSplit(TimeSpan time, Task split) {
-				if (set.Previous.Count == 0) {
-					await calls.Delay(time, token);
-					return false;
-				}
+			// Waits the time, or until the skip, or until the split when the set has Previous panels; true for a split.
+			async Task<bool> WaitOrSplit(TimeSpan time, Task split, Task skip) {
+				bool splits = set.Previous.Count > 0;
 				using CancellationTokenSource wait = CancellationTokenSource.CreateLinkedTokenSource(token);
 				Task delay = calls.Delay(time, wait.Token);
-				await Task.WhenAny(delay, split);
-				if (split.IsCompleted) {
+				await Task.WhenAny(splits ? [delay, skip, split] : [delay, skip]);
+				bool isSplit = splits && split.IsCompleted;
+				if (isSplit || skip.IsCompleted) {
 					wait.Cancel();
 					token.ThrowIfCancellationRequested();
-					return true;
+					return isSplit;
 				}
 				await delay;
 				return false;
@@ -393,8 +476,9 @@ namespace StreamAssistant2 {
 			async Task PlayPrevious() {
 				for (int i = 0; i < set.Previous.Count; i++) {
 					Task split = Volatile.Read(ref _split).Task;
+					Task skip = Volatile.Read(ref _skip).Task;
 					Step(set.Previous[i], i);
-					if (await WaitOrSplit(TimeSpan.FromSeconds(set.Previous[i].Seconds), split)) {
+					if (await WaitOrSplit(TimeSpan.FromSeconds(set.Previous[i].Seconds), split, skip)) {
 						i = -1;
 					}
 				}
@@ -403,6 +487,7 @@ namespace StreamAssistant2 {
 			try {
 				while (true) {
 					Task split = Volatile.Read(ref _split).Task;
+					Task skip = Volatile.Read(ref _skip).Task;
 					Panel? panel = set.Panels.Count > 0 ? set.Panels[index] : null;
 					if (!Step(panel, null)) {
 						await calls.Delay(OBS_WAIT, token);
@@ -413,7 +498,7 @@ namespace StreamAssistant2 {
 						return;
 					}
 					TimeSpan time = rotates ? TimeSpan.FromSeconds(panel!.Seconds) : Timeout.InfiniteTimeSpan;
-					if (await WaitOrSplit(time, split)) {
+					if (await WaitOrSplit(time, split, skip)) {
 						await PlayPrevious();
 						continue;
 					}
@@ -437,10 +522,131 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// The set's groups, Always and every panel's (Previous too), that aren't among the known ones; each once, in order.
+		/// The set's groups, Always and every panel's (Previous too), that don't exist; each once, in order.
 		/// </summary>
-		internal static List<string> Missing(PanelSet set, IReadOnlyCollection<string> known) {
-			return set.Always.Concat(set.Panels.Concat(set.Previous).SelectMany(p => p.Show)).Where(g => !known.Contains(g)).Distinct().ToList();
+		internal static List<string> Missing(PanelSet set, Func<string, bool> exists) {
+			return set.Always.Concat(set.Panels.Concat(set.Previous).SelectMany(p => p.Shown)).Where(g => !exists(g)).Distinct().ToList();
+		}
+
+		/// <summary>
+		/// Whether a name from the file is a group OBS has: a family of copies, a copy's numbered name, or a single group.
+		/// </summary>
+		internal static bool Exists(Layout layout, string name) {
+			return FamilyOf(layout, name) != null || layout.Groups.ContainsKey(name);
+		}
+
+		/// <summary>
+		/// The family a name from the file stands for: the name itself when it's a family, the name without its number
+		/// when that is one ("Splits Current 2" → "Splits Current"); null otherwise.
+		/// </summary>
+		static string? FamilyOf(Layout layout, string name) {
+			if (layout.Families.ContainsKey(name)) {
+				return name;
+			}
+			return Numbered(name) is (string base_, int _) && layout.Families.ContainsKey(base_) ? base_ : null;
+		}
+
+		/// <summary>
+		/// A name ending in a space and a whole number, split into the rest and the number; null for any other name.
+		/// </summary>
+		internal static (string Base, int Number)? Numbered(string name) {
+			int space = name.LastIndexOf(' ');
+			if (space <= 0 || space == name.Length - 1 || !name[(space + 1)..].All(char.IsAsciiDigit)) {
+				return null;
+			}
+			return int.TryParse(name[(space + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out int number) ? (name[..space], number) : null;
+		}
+
+		/// <summary>
+		/// What to put up for a panel (null: only Always) with these groups up: the groups wanted, by OBS name, and the
+		/// texts and files to set. A family the panel keeps stays on the copy up; the panel's other families all move to
+		/// the lowest copy number hidden in each of them, avoiding the kept copies' numbers when they can (each to its own
+		/// lowest hidden copy when there's no such number); an Always family keeps the copy up. In a panel with families,
+		/// every source is a copy source: it gets the number of the first family that moves, else of the first kept one
+		/// (in place of any it ends in), and is remembered. Remembered values come along to the new copy when every family
+		/// shown with them is shown again and the panel doesn't set them itself. In a panel without, sources are set as
+		/// written; group names OBS doesn't have are left out.
+		/// </summary>
+		internal static (HashSet<string> Wanted, List<(string Source, string Key, string Value)> Settings) Plan(Layout layout, IEnumerable<string> always, Panel? panel, IReadOnlyCollection<string>? up, Dictionary<(string Base, string Key), CopyValue> remembered) {
+			bool IsUp(string group) => up?.Contains(group) == true;
+			HashSet<string> wanted = new();
+			foreach (string name in always) {
+				if (FamilyOf(layout, name) is string family) {
+					SortedDictionary<int, string> copies = layout.Families[family];
+					wanted.Add(copies.Values.FirstOrDefault(IsUp) ?? copies.Values.First());
+				}
+				else if (layout.Groups.ContainsKey(name)) {
+					wanted.Add(name);
+				}
+			}
+
+			List<string> families = new();
+			foreach (string name in panel?.Shown ?? []) {
+				if (FamilyOf(layout, name) is string family) {
+					if (!families.Contains(family)) {
+						families.Add(family);
+					}
+				}
+				else if (layout.Groups.ContainsKey(name)) {
+					wanted.Add(name);
+				}
+			}
+			HashSet<string> keep = (panel?.Keep ?? []).Select(name => FamilyOf(layout, name)).OfType<string>().ToHashSet();
+			List<string> moving = new();
+			List<int> kept = new();
+			foreach (string family in families) {
+				SortedDictionary<int, string> copies = layout.Families[family];
+				if (keep.Contains(family) && copies.FirstOrDefault(copy => IsUp(copy.Value)) is { Value: not null } upCopy) {
+					wanted.Add(upCopy.Value);
+					kept.Add(upCopy.Key);
+				}
+				else {
+					moving.Add(family);
+				}
+			}
+			int? number = null;
+			if (moving.Count > 0) {
+				List<int> free = moving.Select(f => layout.Families[f].Where(copy => !IsUp(copy.Value)).Select(copy => copy.Key))
+					.Aggregate((a, b) => a.Intersect(b)).Order().ToList();
+				int? common = free.Where(n => !kept.Contains(n)).Cast<int?>().FirstOrDefault() ?? free.Cast<int?>().FirstOrDefault();
+				foreach (string family in moving) {
+					SortedDictionary<int, string> copies = layout.Families[family];
+					int pick = common is int shared ? shared : copies.Keys.Where(n => !IsUp(copies[n])).DefaultIfEmpty(copies.Keys.First()).First();
+					number ??= pick;
+					wanted.Add(copies[pick]);
+				}
+			}
+			number ??= kept.Cast<int?>().FirstOrDefault();
+
+			List<(string Source, string Key, string Value)> settings = new();
+			Dictionary<(string Base, string Key), string> copyValues = new();
+			void Sort(string source, string key, string value) {
+				if (number != null) {
+					copyValues[(Numbered(source) is (string base_, int _) ? base_ : source, key)] = value;
+				}
+				else {
+					settings.Add((source, key, value));
+				}
+			}
+			foreach (var (source, text) in panel?.Text ?? []) {
+				Sort(source, "text", text);
+			}
+			foreach (var (source, file) in panel?.File ?? []) {
+				Sort(source, "file", file);
+			}
+			if (number is int chosen) {
+				HashSet<string> shown = new(families);
+				foreach (var ((base_, key), value) in copyValues) {
+					settings.Add(($"{base_} {chosen}", key, value));
+					remembered[(base_, key)] = new CopyValue(value, shown);
+				}
+				foreach (var ((base_, key), copy) in remembered) {
+					if (!copyValues.ContainsKey((base_, key)) && copy.Families.IsSubsetOf(shown)) {
+						settings.Add(($"{base_} {chosen}", key, copy.Value));
+					}
+				}
+			}
+			return (wanted, settings);
 		}
 
 		/// <summary>
@@ -488,61 +694,102 @@ namespace StreamAssistant2 {
 		/// </summary>
 		static StatusLine PanelLine(Panel panel, LineKind kind, DateTime? since, DateTime now, IReadOnlyCollection<string> missing) {
 			string marker = kind == LineKind.Item ? "  " : "> ";
-			string groups = panel.Show.Count == 0 ? "(blank)" : string.Join(", ", panel.Show);
+			List<string> panelGroups = panel.Shown.ToList();
+			string groups = panelGroups.Count == 0 ? "(blank)" : string.Join(", ", panelGroups);
 			string texts = panel.Text.Count == 0 ? "" : " · " + string.Join(", ", panel.Text.Values.Select(text => $"\"{text}\""));
 			string label = panel.Name ?? groups + texts;
 			string seconds = panel.Seconds.ToString(CultureInfo.InvariantCulture);
 			string elapsed = since is DateTime shown ? $"{(int)Math.Clamp((now - shown).TotalSeconds, 0, panel.Seconds)} / " : "";
-			return new StatusLine($"{marker}{label} · {elapsed}{seconds} s", kind, panel.Show.Any(missing.Contains));
+			return new StatusLine($"{marker}{label} · {elapsed}{seconds} s", kind, panelGroups.Any(missing.Contains));
 		}
 
 		/// <summary>
-		/// Group name → the left-panel scenes it's a top-level item of; logs the set's groups that are in neither.
+		/// The group name in a scene item: "_LP: name" in the left-panel scene, "_LPC: name" in the colored one; null for
+		/// any other item, including the other scene's prefix.
 		/// </summary>
-		static Dictionary<string, List<string>> FindGroups(string gameName, PanelSet set, ObsCalls calls) {
-			Dictionary<string, List<string>> scenes = new();
+		internal static string? GroupName(string item, string scene) {
+			string? prefix = scene == SCENE ? PREFIX : scene == SCENE_COLORED ? PREFIX_COLORED : null;
+			if (prefix != null && item.StartsWith(prefix, StringComparison.Ordinal)) {
+				return item[prefix.Length..];
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// What OBS has for the left panel, read once per rotation: the groups in both scenes and the copies among them.
+		/// Logs the set's groups that aren't there.
+		/// </summary>
+		static Layout FindLayout(string gameName, PanelSet set, ObsCalls calls) {
+			Dictionary<string, List<(string Scene, string Item)>> groups = new();
+			bool hasReference = false;
 			foreach (string scene in new[] { SCENE, SCENE_COLORED }) {
 				List<string> items = [];
 				Attempt($"listing {scene}", () => items = calls.SceneItems(scene));
 				foreach (string item in items) {
-					if (!item.StartsWith(GROUP_PREFIX, StringComparison.Ordinal)) {
+					hasReference |= scene == SCENE_COLORED && item == SCENE;
+					if (GroupName(item, scene) is not string group) {
 						continue;
 					}
-					string group = item[GROUP_PREFIX.Length..];
-					if (!scenes.TryGetValue(group, out List<string>? inScenes)) {
-						scenes[group] = inScenes = new();
+					if (!groups.TryGetValue(group, out List<(string Scene, string Item)>? places)) {
+						groups[group] = places = new();
 					}
-					inScenes.Add(scene);
+					places.Add((scene, item));
 				}
 			}
-			List<string> missing = Missing(set, scenes.Keys);
+			Dictionary<string, SortedDictionary<int, string>> families = new();
+			foreach (string group in groups.Keys) {
+				if (Numbered(group) is (string family, int number)) {
+					if (!families.TryGetValue(family, out SortedDictionary<int, string>? copies)) {
+						families[family] = copies = new();
+					}
+					copies[number] = group;
+				}
+			}
+			Layout layout = new(groups, families, hasReference);
+			List<string> missing = Missing(set, name => Exists(layout, name));
 			if (missing.Count > 0) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Left panel: {gameName} has groups OBS doesn't: {string.Join(", ", missing)}");
 			}
-			return scenes;
+			return layout;
 		}
 
 		/// <summary>
-		/// Sets the panel's source texts and files.
+		/// Shows or hides each group in every scene it's in, by its item name there.
 		/// </summary>
-		static void SetValues(Panel panel, ObsCalls calls) {
-			foreach (var (source, text) in panel.Text) {
-				Attempt($"setting the text of {source}", () => calls.SetSetting(source, "text", text));
-			}
-			foreach (var (source, file) in panel.File) {
-				Attempt($"setting the file of {source}", () => calls.SetSetting(source, "file", file));
-			}
-		}
-
-		/// <summary>
-		/// Shows or hides each group in every scene it's in.
-		/// </summary>
-		static void Toggle(List<string> groups, bool enabled, Dictionary<string, List<string>> scenes, ObsCalls calls) {
+		static void Toggle(List<string> groups, bool enabled, Dictionary<string, List<(string Scene, string Item)>> scenes, ObsCalls calls) {
 			string what = enabled ? "showing" : "hiding";
 			foreach (string group in groups) {
-				foreach (string scene in scenes[group]) {
-					Attempt($"{what} {group} in {scene}", () => calls.SetEnabled(scene, GROUP_PREFIX + group, enabled));
+				foreach (var (scene, item) in scenes[group]) {
+					Attempt($"{what} {group} in {scene}", () => calls.SetEnabled(scene, item, enabled));
 				}
+			}
+		}
+
+		/// <summary>
+		/// Colours the previous split's differences by the sign in the file; logs and leaves them when it can't be read.
+		/// </summary>
+		static void ColorPrevious(string signFile, IReadOnlyDictionary<string, string> colors, ObsCalls calls, Func<string, string?> readText) {
+			string? sign;
+			try {
+				sign = readText(signFile);
+			}
+			catch (Exception ex) {
+				ConsoleLogger.LogToFile(ex);
+				sign = null;
+			}
+			if (sign == null) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Left panel: can't read {signFile}, previous-split colours left as is");
+				return;
+			}
+			SetFilters(SplitColors.PreviousFilters(colors, sign), calls);
+		}
+
+		/// <summary>
+		/// Sets each filter colour, logging any that fails.
+		/// </summary>
+		static void SetFilters(List<SplitColors.FilterColor> filters, ObsCalls calls) {
+			foreach (SplitColors.FilterColor filter in filters) {
+				Attempt($"colouring {filter.Source}", () => calls.SetFilter(filter.Source, filter.Filter, filter.Property, filter.Color));
 			}
 		}
 

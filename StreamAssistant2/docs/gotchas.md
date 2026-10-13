@@ -82,6 +82,11 @@ full explanation is. Skim this before making a change you think is small.
 - **One path is hardcoded outside `paths.json`**: the alert-sounds folder. ([reference.md](reference.md))
 - **Scene, source and filter names in OBS are strings in code**; renaming one in OBS silently breaks that
   call. ([reference.md](reference.md#obs-names))
+- **In a `leftpanel.json` panel that shows a copy family, every `Text` and `File` source gets the copy's
+  number**, so a source shared by all copies, or in another group, can't be set there.
+  ([obs.md](obs.md#copies))
+- **A panel's `Keep` isn't checked.** A kept copy family stays on screen, so if the panel changes it after
+  all, the change shows in place. ([obs.md](obs.md#copies))
 - **Windows only**: SAPI, WPF, drive letters, `System.Drawing` colour names.
 
 ## Building and tooling

@@ -212,7 +212,8 @@ touch it. Tested in `GamesGoLiveTests`, with the Helix fetch replaced.
 `<Directories.Backgrounds>\<name>.png`. If that file doesn't exist (the `None` fallback has none) it logs
 `No background for <name>, using Template.png` and shows `Template.png` from the same folder; with
 that missing too, it logs `No background for <name> and no Template.png, left as is` and leaves the
-background alone. Then `GameColor.Set` queues the
+background alone. Then `GameBorder.Set` points the layout's borders at the 16:9 images, or at the plain
+ones for a game with another `Aspect` in `games.json` (SWAT4's `5x4`) ([obs.md](obs.md#per-game-setup)). Then `GameColor.Set` queues the
 game's `gameschemes` colour scheme, which replaces any colour showing and posts the usual
 `Changing to color …` chat line; a game without a scheme (RoN) only logs. Then `LeftPanel.Start` starts
 rotating the game's left-panel panels, or the default ones ([obs.md](obs.md#left-panel)). Last, `GameCapture.Set` points

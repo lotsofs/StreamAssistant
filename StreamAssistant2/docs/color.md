@@ -92,12 +92,19 @@ name.
 ```
 
 A scheme is reachable as `set category scheme`, as `category scheme`, or as `category` alone, which
-falls back to the category's `Default`. Each category also carries a `SplitColors` map, which is
-loaded but not used.
+falls back to the category's `Default`.
+
+A category can also carry a `SplitColors` map: `None`, `ListGainedAhead`, `ListLostAhead`,
+`ListGainedBehind`, `ListLostBehind`, `ListGold`, `LabelPositive`, `LabelNegative` and `LabelGold`, each a
+hex colour. Only the `gameschemes` set's are used, by the left panel, to colour LiveSplit's split list
+highlights and previous-split differences for the game's category, or `none`'s
+([obs.md](obs.md#split-colours)). The colour commands don't use them. In `gameschemes`, SWAT4, SS2, `none`
+and `disabled` have them.
 
 Rules for the data:
 - **Hex** can be in any case, with or without `#`; it is stored as lowercase `#rrggbb`. A value that
-  isn't six hex digits is skipped, and a scheme with any bad channel is dropped whole.
+  isn't six hex digits is skipped, a scheme with any bad channel is dropped whole, and a bad split colour
+  is dropped alone.
 - **Table, set, category and scheme names** are matched strictly (see below), so keep them ASCII.
 - **Category names must be one word.** The scheme lookup splits the input on spaces and takes one
   word as the category, so a category named `Dup Cat` can never be reached. This is why the data
@@ -118,6 +125,7 @@ Colour table <source>: skipped "<name>", same name as "<first>"
 Colour scheme <set>: skipped "<category>", same name as "<first>"
 Colour scheme <set> <category>: skipped "<scheme>", same name as "<first>"
 Colour scheme <set> <category>: skipped "<scheme>", not all of "<inner>" "<outer>" "<text>" are hex colours
+Colour scheme <set> <category>: skipped split colour "<key>", "<value>" is not a hex colour
 ```
 
 Scheme files are deduplicated as raw JSON (`ColorSchemeRegistry.DropDuplicateNames`) before they

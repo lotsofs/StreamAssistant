@@ -89,9 +89,32 @@ namespace StreamAssistant2.Tests {
 
 		[Fact]
 		public void Parse_GroupNames_LosePrefixPaddingAndBlanks() {
-			var sets = LeftPanel.Parse("""{ "GTA3": { "Always": [ "_Left Panel: Splits Basics" ], "Panels": [ { "Show": [ " Splits Key Count ", "", "  ", null ], "Seconds": 5 } ] } }""");
-			Assert.Equal(["Splits Basics"], sets["GTA3"].Always);
+			var sets = LeftPanel.Parse("""{ "GTA3": { "Always": [ "_LP: Splits Basics", "_LPC: Splits Previous Values" ], "Panels": [ { "Show": [ " Splits Key Count ", "", "  ", null ], "Seconds": 5 } ] } }""");
+			Assert.Equal(["Splits Basics", "Splits Previous Values"], sets["GTA3"].Always);
 			Assert.Equal(["Splits Key Count"], sets["GTA3"].Panels[0].Show);
+		}
+
+		[Theory]
+		[InlineData("_LP: Splits Basics", "!Scene: Left Panel", "Splits Basics")]
+		[InlineData("_LPC: Splits Previous Values", "!Scene: Left Panel Colored", "Splits Previous Values")]
+		[InlineData("_LP: Splits Main List Labels", "!Scene: Left Panel Colored", null)]
+		[InlineData("_LPC: Splits Previous Values", "!Scene: Left Panel", null)]
+		[InlineData("_Left Panel: Splits Basics", "!Scene: Left Panel", null)]
+		[InlineData("_LP:Splits Basics", "!Scene: Left Panel", null)]
+		[InlineData("Full: Blue", "!Scene: Left Panel", null)]
+		public void GroupName_EachSceneItsOwnPrefix(string item, string scene, string? group) {
+			Assert.Equal(group, LeftPanel.GroupName(item, scene));
+		}
+
+		[Theory]
+		[InlineData("Splits Current 2", "Splits Current", 2)]
+		[InlineData("Splits List Values 12", "Splits List Values", 12)]
+		[InlineData("Splits Basics", null, 0)]
+		[InlineData("Values 2b", null, 0)]
+		[InlineData("Values ", null, 0)]
+		[InlineData("12", null, 0)]
+		public void Numbered_SplitsOffATrailingNumber(string name, string? base_, int number) {
+			Assert.Equal(base_ == null ? null : (base_, number), LeftPanel.Numbered(name));
 		}
 
 		[Fact]
@@ -115,12 +138,19 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void Parse_Keep_IsCleanedLikeShow_AndMissingIsEmpty() {
+			var sets = LeftPanel.Parse("""{ "GTA3": { "Panels": [ { "Show": [ "A" ], "Keep": [ " _LP: Splits List Labels ", "", null ], "Seconds": 5 }, { "Show": [ "B" ], "Seconds": 5 } ] } }""");
+			Assert.Equal(["Splits List Labels"], sets["GTA3"].Panels[0].Keep);
+			Assert.Empty(sets["GTA3"].Panels[1].Keep);
+		}
+
+		[Fact]
 		public void Parse_Previous_IsReadLikePanels_AndMissingIsEmpty() {
 			var sets = LeftPanel.Parse("""
 				{
 					"SWAT4": {
 						"Panels": [ { "Show": [ "Splits Current" ], "Seconds": 30 } ],
-						"Previous": [ { "Show": [ "_Left Panel: Nothing" ], "Seconds": 2 }, { "Show": [ "Splits Previous" ], "Seconds": 0 } ]
+						"Previous": [ { "Show": [ "_LP: Nothing" ], "Seconds": 2 }, { "Show": [ "Splits Previous" ], "Seconds": 0 } ]
 					},
 					"GTA3": { "Panels": [] }
 				}
@@ -129,6 +159,22 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal(["Nothing"], previous.Show);
 			Assert.Equal(2, previous.Seconds);
 			Assert.Empty(sets["GTA3"].Previous);
+		}
+
+		[Fact]
+		public void Parse_Sign_IsTrimmed_SharedByAName_AndBlankOrMissingIsNone() {
+			var sets = LeftPanel.Parse("""
+				{
+					"SWAT4": { "Sign": "  D:\\Sign.txt ", "Panels": [] },
+					"SS2": "SWAT4",
+					"GTA3": { "Sign": " ", "Panels": [] },
+					"HITMAN": { "Panels": [] }
+				}
+				""");
+			Assert.Equal(@"D:\Sign.txt", sets["SWAT4"].Sign);
+			Assert.Equal(@"D:\Sign.txt", sets["SS2"].Sign);
+			Assert.Null(sets["GTA3"].Sign);
+			Assert.Null(sets["HITMAN"].Sign);
 		}
 
 		const string GTA3 = """ "GTA3": { "Always": [ "Splits Basics" ], "Panels": [ { "Show": [ "Splits Key Count" ], "Seconds": 50 } ] } """;
@@ -194,16 +240,17 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[RealLeftPanelFact]
-		public void RealFile_KeysAreGamesOrDefault_AndNothingIsSkipped() {
+		public void RealFile_KeysAreGamesDefaultOrNamedByAnotherEntry_AndNothingIsSkipped() {
 			string botInput = ColorData.RealBotInput!;
 			string json = File.ReadAllText(Path.Combine(botInput, "leftpanel.json"));
 			var sets = LeftPanel.Parse(json);
 			HashSet<string> names = Games.Parse(File.ReadAllText(Path.Combine(botInput, "games.json"))).Values.Select(g => g.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-			Assert.True(sets.ContainsKey("default"));
-			Assert.All(sets.Keys.Where(k => !k.Equals("default", StringComparison.OrdinalIgnoreCase)), k => Assert.Contains(k, names));
-
 			using JsonDocument raw = JsonDocument.Parse(json);
+			HashSet<string> named = raw.RootElement.EnumerateObject().Where(e => e.Value.ValueKind == JsonValueKind.String).Select(e => e.Value.GetString()!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+			Assert.True(sets.ContainsKey("default"));
+			Assert.All(sets.Keys.Where(k => !k.Equals("default", StringComparison.OrdinalIgnoreCase)), k => Assert.True(names.Contains(k) || named.Contains(k), $"{k} is neither a games.json game nor named by another entry"));
+
 			foreach (JsonProperty entry in raw.RootElement.EnumerateObject()) {
 				Assert.True(sets.ContainsKey(entry.Name), $"{entry.Name} has no panels");
 				if (entry.Value.ValueKind == JsonValueKind.Object) {
@@ -224,10 +271,11 @@ namespace StreamAssistant2.Tests {
 		readonly List<string> _log = new();
 		readonly CancellationTokenSource _cts = new();
 		readonly Dictionary<string, List<string>> _items = new() {
-			[SCENE] = ["Full: Blue", "_Left Panel: Basics", "_Left Panel: Labels 1", "_Left Panel: Values 1", "_Left Panel: Values 2", "_Left Panel: Key Count"],
-			[COLORED] = ["_Left Panel: Labels 1", "_Left Panel: Gold"],
+			[SCENE] = ["Full: Blue", "_LP: Basics", "_LP: Labels 1", "_LP: Labels 2", "_LP: Values 1", "_LP: Values 2", "_LP: Key Count", "_LPC: Wrong Scene"],
+			[COLORED] = [SCENE, "_LP: Labels 1", "_LPC: Gold"],
 		};
 		readonly HashSet<int> _splitAtWaits = new();
+		readonly HashSet<int> _skipAtWaits = new();
 		int _stopAfterWaits = 1;
 		int _waits;
 		Func<bool> _ready = () => true;
@@ -262,12 +310,18 @@ namespace StreamAssistant2.Tests {
 				if (_splitAtWaits.Contains(++_waits)) {
 					LeftPanel.OnSplit();
 				}
+				if (_skipAtWaits.Contains(_waits)) {
+					LeftPanel.SkipPanel();
+					return Task.Delay(Timeout.Infinite, token);
+				}
 				if (_waits >= _stopAfterWaits) {
 					_cts.Cancel();
 				}
 				token.ThrowIfCancellationRequested();
 				return Task.CompletedTask;
-			});
+			}) {
+			SetFilter = (source, filter, property, color) => _calls.Add($"filter {source} | {filter} | {property} = {color}"),
+		};
 
 		readonly List<(int?, int?)> _shown = new();
 
@@ -277,9 +331,9 @@ namespace StreamAssistant2.Tests {
 
 		static Panel P(double seconds, params string[] show) => new(show.ToList(), new(), new(), seconds);
 
-		static string Show(string group, string scene = SCENE) => $"show _Left Panel: {group} | {scene}";
+		static string Show(string group, string scene = SCENE, string prefix = "_LP: ") => $"show {prefix}{group} | {scene}";
 
-		static string Hide(string group, string scene = SCENE) => $"hide _Left Panel: {group} | {scene}";
+		static string Hide(string group, string scene = SCENE, string prefix = "_LP: ") => $"hide {prefix}{group} | {scene}";
 
 		List<string> Between(string from, string to) {
 			int start = _calls.IndexOf(from) + 1;
@@ -288,27 +342,39 @@ namespace StreamAssistant2.Tests {
 
 		[Fact]
 		public async Task FirstStep_SetsValues_ThenShows_ThenHidesEveryOtherGroup() {
-			Panel first = new(["Labels 1", "Values 1"], new() { ["Header"] = "Finished at" }, new() { ["Current 1"] = @"D:\a.txt" }, 50);
+			Panel first = new(["Labels", "Values"], new() { ["Header"] = "Finished at" }, new() { ["Current 2"] = @"D:\a.txt" }, 50);
 			await Run(new PanelSet(["Basics"], [first, P(50, "Key Count")]));
 			Assert.Equal([
 				$"list {SCENE}", $"list {COLORED}",
-				"text Header = Finished at", @"file Current 1 = D:\a.txt",
-				Show("Basics"), Show("Labels 1"), Show("Labels 1", COLORED), Show("Values 1"),
-				Hide("Values 2"), Hide("Key Count"), Hide("Gold", COLORED),
+				$"hide {SCENE} | {COLORED}",
+				"text Header 1 = Finished at", @"file Current 1 = D:\a.txt",
+				Show("Basics"), Show("Labels 1"), Show("Values 1"),
+				Hide("Labels 2"), Hide("Values 2"), Hide("Key Count"), Hide("Gold", COLORED, "_LPC: "),
 				"wait 50",
 			], _calls);
 		}
 
 		[Fact]
-		public async Task Steps_SwapOnlyWhatChanges_WaitEachPanelsSeconds_AndWrap() {
+		public async Task Steps_MoveToTheOtherCopies_WithRememberedValues_WaitEachPanelsSeconds_AndWrap() {
 			_stopAfterWaits = 4;
-			await Run(new PanelSet(["Basics"], [P(50, "Labels 1", "Values 1"), P(30, "Labels 1", "Values 2"), P(1)]));
+			Panel finishedAt = new(["Labels", "Values"], new() { ["Names"] = "n" }, new() { ["Current"] = "a" }, 50);
+			Panel runDelta = new(["Labels", "Values"], new(), new() { ["Current"] = "b" }, 30);
+			await Run(new PanelSet(["Basics"], [finishedAt, runDelta, P(1)]));
 			Assert.Equal(["wait 50", "wait 30", "wait 1", "wait 50"], _calls.Where(c => c.StartsWith("wait")));
-			Assert.Equal([Show("Values 2"), Hide("Values 1")], Between("wait 50", "wait 30"));
-			Assert.Equal([Hide("Labels 1"), Hide("Labels 1", COLORED), Hide("Values 2")], Between("wait 30", "wait 1"));
-			Assert.Equal([Show("Labels 1"), Show("Labels 1", COLORED), Show("Values 1")], Between("wait 1", "wait 50"));
+			Assert.Equal(["file Current 2 = b", "text Names 2 = n", Show("Labels 2"), Show("Values 2"), Hide("Labels 1"), Hide("Values 1")], Between("wait 50", "wait 30"));
+			Assert.Equal([Hide("Labels 2"), Hide("Values 2")], Between("wait 30", "wait 1"));
+			Assert.Equal(["text Names 1 = n", "file Current 1 = a", Show("Labels 1"), Show("Values 1")], Between("wait 1", "wait 50"));
 			Assert.Equal(2, _calls.Count(c => c.StartsWith("list")));
 			Assert.Equal([S(0), S(1), S(2), S(0)], _shown);
+		}
+
+		[Fact]
+		public async Task AKeptFamily_StaysUp_WhileTheOthersMove() {
+			_stopAfterWaits = 2;
+			Panel finishedAt = new(["Labels", "Values"], new() { ["Names"] = "n" }, new() { ["Current"] = "a" }, 50);
+			Panel runDelta = new(["Labels", "Values"], new(), new() { ["Current"] = "b" }, 30) { Keep = ["Labels"] };
+			await Run(new PanelSet(["Basics"], [finishedAt, runDelta]));
+			Assert.Equal(["file Current 2 = b", "text Names 2 = n", Show("Values 2"), Hide("Values 1")], Between("wait 50", "wait 30"));
 		}
 
 		[Fact]
@@ -377,9 +443,9 @@ namespace StreamAssistant2.Tests {
 			_stopAfterWaits = 5;
 			await Run(WithPrevious([P(50, "Labels 1", "Values 1"), P(30, "Key Count")]));
 			Assert.Equal(["wait 50", "wait 2", "wait 25", "wait 2", "wait 50"], Waits());
-			Assert.Equal([Hide("Labels 1"), Hide("Labels 1", COLORED), Hide("Values 1")], Between("wait 50", "wait 2"));
-			Assert.Equal([Show("Gold", COLORED)], Between("wait 2", "wait 25"));
-			Assert.Equal([Show("Labels 1"), Show("Labels 1", COLORED), Show("Values 1")], _calls.Skip(_calls.LastIndexOf("wait 2") + 1).SkipLast(1));
+			Assert.Equal([Hide("Labels 1"), Hide("Values 1")], Between("wait 50", "wait 2"));
+			Assert.Equal([Show("Gold", COLORED, "_LPC: ")], Between("wait 2", "wait 25"));
+			Assert.Equal([Show("Labels 1"), Show("Values 1")], _calls.Skip(_calls.LastIndexOf("wait 2") + 1).SkipLast(1));
 			Assert.Equal([S(0), S(0, 0), S(0, 1), S(0, 2), S(0)], _shown);
 		}
 
@@ -398,7 +464,7 @@ namespace StreamAssistant2.Tests {
 			_stopAfterWaits = 3;
 			await Run(new PanelSet(["Basics"], [P(50, "Key Count"), P(30, "Labels 1")]));
 			Assert.Equal(["wait 50", "wait 30", "wait 50"], Waits());
-			Assert.DoesNotContain(Show("Gold", COLORED), _calls);
+			Assert.DoesNotContain(Show("Gold", COLORED, "_LPC: "), _calls);
 		}
 
 		[Fact]
@@ -411,7 +477,109 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal([S(0), S(0, 0), S(0, 1), S(0, 2), S(0)], _shown);
 		}
 
+		// A skipped wait never ends by itself, so only the skip can move the rotation on; the timeout catches a hang.
+		[Fact]
+		public async Task Skip_DuringALoopPanel_MovesOnAtOnce() {
+			_skipAtWaits.Add(1);
+			_stopAfterWaits = 3;
+			await Run(new PanelSet(["Basics"], [P(50, "Key Count"), P(30, "Labels 1")])).WaitAsync(TimeSpan.FromSeconds(5));
+			Assert.Equal(["wait 50", "wait 30", "wait 50"], Waits());
+			Assert.Equal([S(0), S(1), S(0)], _shown);
+		}
+
+		[Fact]
+		public async Task Skip_DuringPrevious_MovesToTheNextPreviousPanel() {
+			_splitAtWaits.Add(1);
+			_skipAtWaits.Add(2);
+			_stopAfterWaits = 5;
+			await Run(WithPrevious([P(50, "Labels 1", "Values 1"), P(30, "Key Count")])).WaitAsync(TimeSpan.FromSeconds(5));
+			Assert.Equal(["wait 50", "wait 2", "wait 25", "wait 2", "wait 50"], Waits());
+			Assert.Equal([S(0), S(0, 0), S(0, 1), S(0, 2), S(0)], _shown);
+		}
+
+		[Fact]
+		public async Task Skip_OnASinglePanelWithPrevious_ShowsItAgain() {
+			_skipAtWaits.Add(1);
+			_stopAfterWaits = 2;
+			await Run(WithPrevious([P(50, "Key Count")])).WaitAsync(TimeSpan.FromSeconds(5));
+			Assert.Equal(["wait forever", "wait forever"], Waits());
+			Assert.Equal([S(0), S(0)], _shown);
+		}
+
 		static readonly string[] Known = ["Basics", "Labels 1", "Values 1", "Values 2", "Key Count"];
+
+		static readonly Dictionary<string, string> SplitColorMap = new() {
+			["None"] = "#ffffff", ["LabelPositive"] = "#0000ff", ["LabelNegative"] = "#ff0000", ["LabelGold"] = "#ffc800",
+			["ListGold"] = "#ffc800", ["ListGainedAhead"] = "#000086",
+		};
+
+		static string Filter(string source, string filter, string hex) => $"filter {source} | {filter} | color_multiply = {ColorUtil.ToOBS(hex)}";
+
+		List<string> Filters() => _calls.Where(c => c.StartsWith("filter")).ToList();
+
+		static PanelSet WithSign(List<Panel> panels) => WithPrevious(panels) with { Sign = "sign.txt" };
+
+		[Fact]
+		public async Task SplitColours_TheFirstStep_ColoursTheHighlights_BeforeShowing_AndLaterStepsDont() {
+			_stopAfterWaits = 2;
+			await LeftPanel.RunAsync("SWAT4", new PanelSet(["Basics"], [P(50, "Key Count"), P(30)]), Calls(), _cts.Token, colors: SplitColorMap);
+			Assert.Equal([
+				$"list {SCENE}", $"list {COLORED}", $"hide {SCENE} | {COLORED}",
+				Filter("Livesplit: Splits List Highlights Gold", "Color Correction 2", "#ffc800"),
+				Filter("Livesplit: Splits List Highlights AheadGained", "Color Correction 2", "#000086"),
+				Show("Basics"),
+			], _calls.Take(6));
+			Assert.Equal(2, Filters().Count);
+		}
+
+		[Fact]
+		public async Task SplitColours_EachPreviousStep_ColoursTheDifferencesByTheSign_BeforeShowing() {
+			_splitAtWaits.Add(1);
+			_stopAfterWaits = 3;
+			Queue<string> signs = new(["GoldAhead", "Behind"]);
+			List<string> read = new();
+			await LeftPanel.RunAsync("SWAT4", WithSign([P(50, "Key Count"), P(30)]), Calls(), _cts.Token, colors: SplitColorMap,
+				readText: file => { read.Add(file); return signs.Dequeue(); });
+			Assert.Equal(["sign.txt", "sign.txt"], read);
+			Assert.Equal([
+				Filter("Livesplit: Previous Run", "Color Correction", "#0000ff"),
+				Filter("Livesplit: Previous Segment", "Color Correction", "#ffc800"),
+				Filter("Livesplit: Previous Gold", "Color Correction", "#ffc800"),
+				Hide("Key Count"),
+			], Between("wait 50", "wait 2"));
+			Assert.Equal([
+				Filter("Livesplit: Previous Run", "Color Correction", "#ff0000"),
+				Filter("Livesplit: Previous Segment", "Color Correction", "#ffffff"),
+				Filter("Livesplit: Previous Gold", "Color Correction", "#ffffff"),
+				Show("Gold", COLORED, "_LPC: "),
+			], Between("wait 2", "wait 25"));
+		}
+
+		[Fact]
+		public async Task SplitColours_WithoutASign_ThePreviousSplitIsLeftAlone() {
+			_splitAtWaits.Add(1);
+			_stopAfterWaits = 3;
+			await LeftPanel.RunAsync("SWAT4", WithPrevious([P(50, "Key Count"), P(30)]), Calls(), _cts.Token, colors: SplitColorMap,
+				readText: _ => throw new InvalidOperationException("read"));
+			Assert.DoesNotContain(Filters(), f => f.Contains("Previous"));
+		}
+
+		[Fact]
+		public async Task SplitColours_None_MeanNoFilterCalls() {
+			_splitAtWaits.Add(1);
+			_stopAfterWaits = 3;
+			await LeftPanel.RunAsync("SWAT4", WithSign([P(50, "Key Count"), P(30)]), Calls(), _cts.Token, readText: _ => "GoldAhead");
+			Assert.Empty(Filters());
+		}
+
+		[Fact]
+		public async Task SplitColours_AnUnreadableSign_IsLogged_AndLeavesThemAsTheyAre() {
+			_splitAtWaits.Add(1);
+			_stopAfterWaits = 2;
+			await LeftPanel.RunAsync("SWAT4", WithSign([P(50, "Key Count"), P(30)]), Calls(), _cts.Token, colors: SplitColorMap, readText: _ => null);
+			Assert.DoesNotContain(Filters(), f => f.Contains("Previous"));
+			Assert.Single(Lines("Left panel: can't read sign.txt, previous-split colours left as is"));
+		}
 
 		[Fact]
 		public void Transition_UnknownState_ShowsWanted_AndHidesEveryOtherKnownGroup() {
@@ -446,7 +614,151 @@ namespace StreamAssistant2.Tests {
 			PanelSet set = new(["Basics", "Gone"], [P(50, "Big Delta", "Key Count"), P(50, "Big Delta", "Little Delta")]) {
 				Previous = [P(2, "Previous", "Key Count")],
 			};
-			Assert.Equal(["Gone", "Big Delta", "Little Delta", "Previous"], LeftPanel.Missing(set, Known));
+			Assert.Equal(["Gone", "Big Delta", "Little Delta", "Previous"], LeftPanel.Missing(set, Known.Contains));
+		}
+
+		[Fact]
+		public void Missing_CountsKeptGroups() {
+			PanelSet set = new(["Basics"], [P(50, "Key Count") with { Keep = ["Gone"] }]);
+			Assert.Equal(["Gone"], LeftPanel.Missing(set, Known.Contains));
+		}
+	}
+
+	public class LeftPanelPlanTests {
+		static readonly LeftPanel.Layout Layout = MakeLayout();
+
+		static LeftPanel.Layout MakeLayout() {
+			string[] names = ["Splits Basics", "Splits Key Count", "Splits Current 1", "Splits Current 2", "Splits Current 3",
+				"Splits List Labels 1", "Splits List Labels 2", "Splits List Values 1", "Splits List Values 2"];
+			Dictionary<string, List<(string Scene, string Item)>> groups = names.ToDictionary(n => n, n => new List<(string Scene, string Item)> { ("!Scene: Left Panel", "_LP: " + n) });
+			Dictionary<string, SortedDictionary<int, string>> families = new() {
+				["Splits Current"] = new() { [1] = "Splits Current 1", [2] = "Splits Current 2", [3] = "Splits Current 3" },
+				["Splits List Labels"] = new() { [1] = "Splits List Labels 1", [2] = "Splits List Labels 2" },
+				["Splits List Values"] = new() { [1] = "Splits List Values 1", [2] = "Splits List Values 2" },
+			};
+			return new(groups, families, false);
+		}
+
+		readonly Dictionary<(string Base, string Key), LeftPanel.CopyValue> _remembered = new();
+
+		static Panel Make(string[] show, Dictionary<string, string>? text = null, Dictionary<string, string>? file = null) => new(show.ToList(), text ?? new(), file ?? new(), 10);
+
+		(HashSet<string> Wanted, List<(string Source, string Key, string Value)> Settings) Plan(Panel? panel, IReadOnlyCollection<string>? up, params string[] always) {
+			return LeftPanel.Plan(Layout, always, panel, up, _remembered);
+		}
+
+		static readonly string[] Lists = ["Splits List Labels", "Splits List Values"];
+
+		[Fact]
+		public void NothingUp_TheFamiliesTakeCopyOne_AndCopySourcesItsNumber() {
+			var (wanted, settings) = Plan(Make(Lists, text: new() { ["Livesplit: SL - Names 2"] = "n" }, file: new() { ["Livesplit: SL - Current 3"] = "f" }), null, "Splits Basics");
+			Assert.Equal(["Splits Basics", "Splits List Labels 1", "Splits List Values 1"], wanted);
+			Assert.Equal([("Livesplit: SL - Names 1", "text", "n"), ("Livesplit: SL - Current 1", "file", "f")], settings);
+		}
+
+		[Fact]
+		public void TheFamiliesMoveTogether_ToTheLowestCopyHiddenInEach_RememberedValuesComingAlong() {
+			Plan(Make(Lists, text: new() { ["Livesplit: SL - Names"] = "n" }, file: new() { ["Livesplit: SL - Current"] = "a" }), null);
+			var (wanted, settings) = Plan(Make(Lists, file: new() { ["Livesplit: SL - Current"] = "b" }), ["Splits Basics", "Splits List Labels 1", "Splits List Values 1"], "Splits Basics");
+			Assert.Equal(["Splits Basics", "Splits List Labels 2", "Splits List Values 2"], wanted);
+			Assert.Equal([("Livesplit: SL - Current 2", "file", "b"), ("Livesplit: SL - Names 2", "text", "n")], settings);
+		}
+
+		[Fact]
+		public void RememberedValues_StayWithTheFamiliesTheyWereSetWith() {
+			Plan(Make(["Splits Current"], text: new() { ["Livesplit: Current Index 1"] = "5" }), null);
+			var (_, settings) = Plan(Make(Lists, file: new() { ["Livesplit: SL - Current 1"] = "a" }), ["Splits Current 1"]);
+			Assert.Equal([("Livesplit: SL - Current 1", "file", "a")], settings);
+		}
+
+		[Theory]
+		[InlineData(1, 2)]
+		[InlineData(2, 1)]
+		public void ConsecutiveCurrentPanels_Alternate(int up, int next) {
+			var (wanted, settings) = Plan(Make(["Splits Current"], text: new() { ["Livesplit: Current Index"] = "5" }), [$"Splits Current {up}"]);
+			Assert.Equal([$"Splits Current {next}"], wanted);
+			Assert.Equal([($"Livesplit: Current Index {next}", "text", "5")], settings);
+		}
+
+		[Fact]
+		public void NoCopyNumberHiddenInEveryFamily_EachTakesItsOwnLowest_SourcesTheFirstFamilysNumber() {
+			var (wanted, settings) = Plan(Make(Lists, file: new() { ["Livesplit: SL - Current 1"] = "f" }), ["Splits List Labels 1", "Splits List Values 2"]);
+			Assert.Equal(["Splits List Labels 2", "Splits List Values 1"], wanted);
+			Assert.Equal([("Livesplit: SL - Current 2", "file", "f")], settings);
+		}
+
+		[Fact]
+		public void NumberedNames_StandForTheirFamily() {
+			var (wanted, _) = Plan(Make(["Splits List Values 1"]), ["Splits List Values 1"]);
+			Assert.Equal(["Splits List Values 2"], wanted);
+		}
+
+		[Fact]
+		public void AnAlwaysFamily_KeepsItsCopy() {
+			var (wanted, _) = Plan(Make(["Splits Key Count"]), ["Splits Current 3"], "Splits Current");
+			Assert.Equal(["Splits Current 3", "Splits Key Count"], wanted);
+		}
+
+		static readonly string[] KeepLabels = ["Splits List Labels"];
+
+		[Fact]
+		public void AKeptFamilyThatsUp_StaysOnItsCopy_TheOthersMove_AndCopySourcesTakeTheirNumber() {
+			Plan(Make(Lists, text: new() { ["Livesplit: SL - Names"] = "n" }, file: new() { ["Livesplit: SL - Current"] = "a" }), null);
+			var (wanted, settings) = Plan(Make(Lists, file: new() { ["Livesplit: SL - Current"] = "b" }) with { Keep = [.. KeepLabels] }, ["Splits List Labels 1", "Splits List Values 1"]);
+			Assert.Equal(["Splits List Labels 1", "Splits List Values 2"], wanted);
+			Assert.Equal([("Livesplit: SL - Current 2", "file", "b"), ("Livesplit: SL - Names 2", "text", "n")], settings);
+		}
+
+		[Fact]
+		public void AKeptFamilyThatIsntUp_MovesAsUsual() {
+			var (wanted, _) = Plan(Make(Lists) with { Keep = [.. KeepLabels] }, ["Splits List Values 1"]);
+			Assert.Equal(["Splits List Labels 2", "Splits List Values 2"], wanted);
+		}
+
+		[Fact]
+		public void MovingFamilies_AvoidTheKeptCopysNumber_ElseTakeIt() {
+			var (avoided, _) = Plan(Make(Lists) with { Keep = [.. KeepLabels] }, ["Splits List Labels 1"]);
+			Assert.Equal(["Splits List Labels 1", "Splits List Values 2"], avoided);
+			var (taken, _) = Plan(Make(Lists) with { Keep = [.. KeepLabels] }, ["Splits List Labels 1", "Splits List Values 2"]);
+			Assert.Equal(["Splits List Labels 1", "Splits List Values 1"], taken);
+		}
+
+		[Fact]
+		public void KeepAlone_ShowsTheGroup_AFamilyOnItsCopy_AndAPlainGroupAsIs() {
+			var (wanted, _) = Plan(Make(["Splits List Values"]) with { Keep = ["Splits List Labels", "Splits Key Count"] }, ["Splits List Labels 1", "Splits List Values 1", "Splits Key Count"]);
+			Assert.Equal(["Splits Key Count", "Splits List Labels 1", "Splits List Values 2"], wanted);
+		}
+
+		[Fact]
+		public void EveryFamilyKept_CopySourcesGoOnTheKeptCopy() {
+			var (wanted, settings) = Plan(Make(["Splits Current"], text: new() { ["Livesplit: Current Index"] = "5" }) with { Keep = ["Splits Current 1"] }, ["Splits Current 2"]);
+			Assert.Equal(["Splits Current 2"], wanted);
+			Assert.Equal([("Livesplit: Current Index 2", "text", "5")], settings);
+		}
+
+		[Fact]
+		public void WithoutCopies_SourcesAreSetAsWritten_AndUnknownNamesLeftOut() {
+			var (wanted, settings) = Plan(Make(["Nope", "Splits Key Count"], text: new() { ["Livesplit: Other 2"] = "y", ["Livesplit: Plain"] = "z" }), null, "Splits Basics");
+			Assert.Equal(["Splits Basics", "Splits Key Count"], wanted);
+			Assert.Equal([("Livesplit: Other 2", "text", "y"), ("Livesplit: Plain", "text", "z")], settings);
+			Assert.Empty(_remembered);
+		}
+
+		[Fact]
+		public void WithCopies_UnnumberedSourcesGetTheCopysNumber_AndAreRemembered() {
+			var (_, settings) = Plan(Make(["Splits Current"], text: new() { ["Livesplit: Current Name"] = "x" }), ["Splits Current 1"]);
+			Assert.Equal([("Livesplit: Current Name 2", "text", "x")], settings);
+			Assert.Equal("x", _remembered[("Livesplit: Current Name", "text")].Value);
+		}
+
+		[Theory]
+		[InlineData("Splits Current", true)]
+		[InlineData("Splits Current 2", true)]
+		[InlineData("Splits Basics", true)]
+		[InlineData("Split Basics", false)]
+		[InlineData("Splits SSSA", false)]
+		public void Exists_FamiliesTheirNumberedNamesAndSingleGroups(string name, bool exists) {
+			Assert.Equal(exists, LeftPanel.Exists(Layout, name));
 		}
 	}
 
@@ -539,6 +851,13 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void AnUnnamedPanel_ListsItsKeptGroupsAfterShow_AndAMissingOneFlagsIt() {
+			PanelSet set = new(["Splits Basics"], [new Panel(["Splits List Values"], new(), new(), 15) { Keep = ["Splits List Highlights", "Splits List Labels"] }, new Panel([], new(), new(), 1)]);
+			LeftPanel.RotationStatus status = Status(0, set: set) with { Missing = ["Splits List Highlights"] };
+			Assert.Equal(new LeftPanel.StatusLine("> Splits List Values, Splits List Highlights, Splits List Labels · 12 / 15 s", LeftPanel.LineKind.Current, true), LeftPanel.StatusLines(status, Now)[4]);
+		}
+
+		[Fact]
 		public void EmptySections_SayNone_AndNoPreviousMeansNoPreviousSection() {
 			LeftPanel.RotationStatus status = new("KTANE", true, new PanelSet([], []), null, null, Shown, false, CancellationToken.None);
 			Assert.Equal([
@@ -553,6 +872,7 @@ namespace StreamAssistant2.Tests {
 
 	// Start, Stop, Resume and the OBS-connect restart, on panels loaded from a temporary leftpanel.json. OBS is never
 	// ready in tests, so the rotations started here only wait; Dispose stops the last one and unloads the panels.
+	[Collection(ColorDataCollection.Name)]
 	public class LeftPanelStopTests : IDisposable {
 		readonly string _dir = Path.Combine(Path.GetTempPath(), "LeftPanelStopTests-" + Guid.NewGuid().ToString("N"));
 		readonly string _savedBotInput = Config.Data.Directories.BotInput;
@@ -580,6 +900,12 @@ namespace StreamAssistant2.Tests {
 		}
 
 		int Count(string text) { lock (_log) return _log.Count(l => l.Contains(text)); }
+
+		[Fact]
+		public void Start_LineSaysWhereTheSplitColoursCameFrom() {
+			LeftPanel.Start("GTA3");
+			Assert.Equal(1, Count("Left panel: GTA3, 1 panel, no split colours"));
+		}
 
 		[Fact]
 		public void Stopped_IsNotRestartedByObsConnecting_UntilResumed() {
@@ -619,6 +945,18 @@ namespace StreamAssistant2.Tests {
 
 			LeftPanel.Start("KTANE");
 			Assert.Null(LeftPanel.Status);
+		}
+
+		[Fact]
+		public void Next_WithoutARotation_StoppedOrWithOnePanel_OnlyLogs() {
+			LeftPanel.Start("KTANE");
+			LeftPanel.Next();
+			LeftPanel.Start("GTA3");
+			LeftPanel.Next();
+			LeftPanel.Stop();
+			LeftPanel.Next();
+			Assert.Equal(2, Count("No left panel rotation to move on"));
+			Assert.Equal(1, Count("Only one left panel, nothing to move on to"));
 		}
 
 		[Fact]

@@ -162,3 +162,169 @@ an EventSub event and a colour redemption still work.
 (credentials table and "speaks in chat as `lotsofs`"), the admin-login line in
 [gotchas.md](gotchas.md#twitch-and-helix), the secrets list in CLAUDE.md, and the hardcoded values in
 [reference.md](reference.md).
+
+---
+
+## SGN — LiveSplit never writes `GainedAhead` / `GainedBehind` during a run
+
+Your component, `LiveSplit.OutputToFile` (`D:\Repositories\LiveSplit.OutputToFile`), writes the previous
+split's sign to `PreviousSplit\<level>\<method>\Sign.txt`. In `OutputToFileComponent.WriteSplitTimes`, the
+branch for a run in progress goes:
+
+1. no run delta → `NotApplicable`
+2. a gold (or no gold before) → `GoldAhead` / `GoldBehind`
+3. no segment delta → `Ahead` / `Behind`
+4. anything else → `LostAhead` / `LostBehind`
+
+It has no case for a segment that beat its PB without being a gold, so such a split is written as `Lost…`.
+The end-of-run branch does have it (`PBGained` / `NoPBGained`). The bot's split colours
+([obs.md](obs.md#split-colours)) then colour that segment difference `LabelNegative` instead of
+`LabelPositive`, on stream. Read in the component's source; not reproduced.
+
+### Plan
+
+1. In the running branch, before the last `else`, add
+   `else if (segmentDelta < TimeSpan.Zero) { MakeFile(FILE_PREVIOUS_SIGN, (runDelta < TimeSpan.Zero ? Signs.GainedAhead : Signs.GainedBehind).ToString(), method, lvl); }`,
+   the same test the end-of-run branch makes.
+2. Rebuild the component and copy its DLL into LiveSplit's `Components` folder, with LiveSplit closed
+   (owner).
+3. Nothing changes in the bot: `SplitColors.SignKeys` already maps `GainedAhead` and `GainedBehind`.
+
+**Verify:** in a practice run, beat a segment's PB without a gold. `Sign.txt` reads `GainedAhead` or
+`GainedBehind`, and on SWAT4 the bot colours the previous split's segment difference `LabelPositive`.
+
+**Docs when done:** delete this section and the TODO row, and the LiveSplit note at the end of
+[obs.md § Split colours](obs.md#split-colours).
+
+---
+
+## TSS — Tests that share static state run in parallel
+
+xUnit runs test collections in parallel, and some classes in different collections share static state:
+
+- **Left-panel state and log lines.** `GamesGoLiveTests` (`GamesStateCollection`) runs `!changepanel GTA3`
+  with no panels loaded and asserts `No left panels loaded` and no `Left panel:` line.
+  - `LeftPanelStopTests` (`ColorDataCollection`) loads panels into `LeftPanel`'s static set for each test
+    and starts rotations that log `Left panel: GTA3, …`.
+  - `LeftPanelRotationTests` (no collection) log `Left panel: … has groups OBS doesn't` and
+    `Left panel: can't read …`.
+  - The games test captures lines through the global `ConsoleLogger.LineLogged`. So any of those lines
+    logged in its window fails it, and so do panels that happen to be loaded at that moment.
+- **The colour registries.** `GamesGoLiveTests` reach `Games.Apply`, whose colour step (`GameColor.Set`)
+  reads `ColorSchemeRegistry.Sets`. Meanwhile `ColorDataCollection` tests may be reloading it
+  (`Sets.Clear()`, then refill). A read during the refill can throw (caught and logged as `Error GMS2`) or
+  find nothing.
+
+Read only: every run so far has passed.
+
+### Plan
+
+1. Put every class that touches `LeftPanel`, `Games` or the colour registries in one collection. Move
+   `GamesGoLiveTests`, `GamesTests` and the `LeftPanel*Tests` classes into `ColorDataCollection` (or rename
+   it to something broader), and drop `GamesStateCollection`. They then run one at a time. Check the
+   suite's total time stays about the same; the slow tests are the connection loops, which stay outside.
+2. The alternative, filtering the games test's captured lines to the ones it causes, fixes the log lines
+   but not the shared panel set, so it isn't enough on its own.
+
+**Verify:** run the suite 20 times in a loop with no failures.
+
+**Docs when done:** delete this section and the TODO row; update the collections note in
+[development.md](development.md) and [color.md § Tests and verification](color.md#tests-and-verification)
+if they name the collection's members.
+
+---
+
+## PGD — Portal2's per-map gold panel reads files LiveSplit never writes
+
+Portal2's `Per map: Golds Delta` panel in `leftpanel.json` points `Livesplit: SL - Current` and `Upcoming`
+at `SplitList\SansSubsplits_Level1\RealTime\Delta_Gold.txt` and `Time_Gold_Upcoming.txt`. The component
+writes gold files only for its last level, `AllSplits` ("Golds are not supported for subsplits" in
+`OutputToFileComponent.cs`), so neither file exists and the values column is empty for the panel's 50 s.
+The panel came over from Streamer.Bot's `scenes.json` as it was. Found by checking the file against the disk
+(2026-10-12) and the component's source; not seen live.
+
+### Plan
+
+The owner picks one:
+
+- Drop the panel.
+- Make it an all-splits gold panel: `AllSplits` names, highlight and gold files, placed after Portal2's
+  `All splits: Finished at` (which sets the `AllSplits` labels) with `"Keep": ["Splits List Labels"]`.
+- Have the component write per-level golds. A level's "gold" would have to be defined (the sum of its
+  splits' golds isn't one), so this is the most work.
+
+**Verify:** the scratch cross-check of `leftpanel.json` against the disk finds no missing files; live, the
+panel shows values.
+
+**Docs when done:** delete this section and the TODO row, and the known-gap paragraph in
+[obs.md § Where the data came from](obs.md#where-the-data-came-from).
+
+---
+
+## PBL — `PBLost` leaves the segment difference uncoloured
+
+`SplitColors.SignKeys` ports Streamer.Bot's sign table as it was. For `PBLost` (the run's last split, a PB,
+but that segment lost time) the old table gives the segment `None`. `NoPBLost` gives `LabelNegative`, and
+`PBGained` gives `LabelPositive`, so `PBLost` looks like a slip. Read only.
+
+### Plan
+
+If the owner agrees: `"pblost" => (POSITIVE, NEGATIVE, NONE)` in `SignKeys`, the `PBLost` row in
+`SplitColorsTests`, and the table in [obs.md § Split colours](obs.md#split-colours) (which also drops its
+note about it).
+
+**Verify:** the tests.
+
+**Docs when done:** delete this section and the TODO row.
+
+---
+
+## DSB — Unused `disabled` colour category
+
+`gameschemes.json` and `countryschemes.json` (in `Stream-Resources\Colors\Schemes\`, the Stream-Resources
+repo) each have a `disabled` category. Its black-and-white scheme and all-white split colours are the same
+as `none`'s. Under Streamer.Bot, `disabled` was the default of `currentGame` while the bot's game features
+were off ("Disabling bot stuff for %currentGame%").
+
+The bot uses only `gameschemes`' `none`: as the `None` game's colour and as the split-colour fallback.
+`disabled` can only be reached by typing it (`!changecolor disabled`). `countryschemes`' own `none` is
+unused too. A lookup without a set name may find either file's `none`, but the colours are the same. Read
+only.
+
+### Plan
+
+Delete `disabled` from both files, and `none` from `countryschemes.json`, keeping `gameschemes`' `none`.
+
+**Verify:** F5 logs no new colour-scheme lines, `!changecolor none` still works, and the real-data smoke
+tests pass.
+
+**Docs when done:** delete this section and the TODO row; drop `disabled` from the lists of categories with
+split colours in [color.md](color.md#data-files) and [obs.md § Split colours](obs.md#split-colours).
+
+---
+
+## PSL — A previous-split sign per loop panel
+
+Shelved by the owner on 2026-10-13. A game's entry has one `Sign`. The previous split's differences
+(`Livesplit: Previous Run`, `Segment` and `Gold` in `_LPC: Splits Previous Values`) read
+`PreviousSplit\AllSplits\…` files, fixed in OBS. A game whose loop shows lists at different levels (GTASA's
+per-city and per-mission lists) might want the previous split shown, and coloured, at the level of the list
+the split interrupted. Only SWAT4 has `Previous` panels today.
+
+### Decisions
+
+- **Scope:** is a `Sign` on a loop panel sticky (in force until another panel names one) or per panel
+  (the panel's own, else the entry's)?
+- **Files:** do the three differences' files switch level with it? The sign's folder holds
+  `RunDifference.txt`, `SegmentDifference.txt` and, for `AllSplits` only, `GoldDifference.txt`. The previous
+  split's name is one folder up.
+
+### Plan
+
+1. Add `Sign` to `Panel`. `RunAsync` keeps track of the sign in force for the loop panel up, and
+   `PlayPrevious` passes it to `ColorPrevious` instead of the entry's.
+2. If the files follow, set them on the three sources through `SetSetting` before the `Previous` panels
+   show, and reset them when the rotation starts.
+
+**Docs when done:** delete this section and the TODO row; [obs.md](obs.md#the-panel-file) and
+[obs.md § Split colours](obs.md#split-colours).

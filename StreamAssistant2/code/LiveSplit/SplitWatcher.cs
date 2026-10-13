@@ -5,11 +5,13 @@ namespace StreamAssistant2 {
 		const string INDEX_FOLDER = @"CurrentSplit\AllSplits";
 		const string INDEX_FILE = "Index.txt";
 		const string PREVIOUS_RUN_TIME = @"PreviousSplit\AllSplits\RealTime\RunTime.txt";
+		const string PREVIOUS_SIGN = @"PreviousSplit\AllSplits\RealTime\Sign.txt";
 
 		static readonly object _lock = new();
 		static FileSystemWatcher? _watcher;
 		static int? _last;
 		static string _previousRunTime = "";
+		static string _previousSign = "";
 
 		/// <summary>
 		/// Watches LiveSplit's split index under LivesplitGenerated and passes each split on to the left panel; logs and
@@ -32,6 +34,7 @@ namespace StreamAssistant2 {
 				}
 				string path = Path.Combine(folder, INDEX_FILE);
 				_previousRunTime = Path.Combine(directory, PREVIOUS_RUN_TIME);
+				_previousSign = Path.Combine(directory, PREVIOUS_SIGN);
 				lock (_lock) {
 					_last = Read(path);
 				}
@@ -81,11 +84,12 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Tells the left panel about a split once LiveSplit has rewritten the previous split's time, unless that time is
-		/// empty: a skip. Still a split when the time isn't rewritten within 2 s or can't be read.
+		/// Tells the left panel about a split once LiveSplit has rewritten the previous split's sign, written after its
+		/// times, unless the time is empty: a skip. Still a split when the sign isn't rewritten within 2 s or the time
+		/// can't be read.
 		/// </summary>
 		static async Task CheckSplitAsync(DateTime indexWritten) {
-			for (int wait = 0; wait < 40 && File.GetLastWriteTimeUtc(_previousRunTime) < indexWritten; wait++) {
+			for (int wait = 0; wait < 40 && File.GetLastWriteTimeUtc(_previousSign) < indexWritten; wait++) {
 				await Task.Delay(50);
 			}
 			if (!IsSkip(ReadText(_previousRunTime))) {
@@ -103,7 +107,7 @@ namespace StreamAssistant2 {
 		/// <summary>
 		/// The file's text, retrying while LiveSplit has it locked; null if it can't be read.
 		/// </summary>
-		static string? ReadText(string path) {
+		internal static string? ReadText(string path) {
 			for (int attempt = 0; attempt < 5; attempt++) {
 				try {
 					return File.ReadAllText(path);

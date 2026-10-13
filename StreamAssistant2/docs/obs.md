@@ -49,7 +49,7 @@ retried afterwards.
 | `SetSourceEnabled(scene, source, enabled)` | `GetSceneItemId(scene, source, 0)` then `SetSceneItemEnabled` | `LayoutColoring`, the train reward, `LeftPanel` |
 | `GetSceneItemNames(scene)` | `GetSceneItemList(scene)`, the top-level items' `SourceName`s (empty when not connected) | `LeftPanel` |
 | `SetInputSetting(input, key, value)` | `SetInputSettings(input, {key: value}, overlay: true)` | `SetImageSource`, `GameCapture`, `Clock`, `TwitchUptime`, `LeftPanel` |
-| `SetImageSource(source, file)` | `SetInputSetting(source, "file", file)` | the train reward, `GameBackground` |
+| `SetImageSource(source, file)` | `SetInputSetting(source, "file", file)` | the train reward, `GameBackground`, `GameBorder` |
 | `SetInputVolumeDb(input, dB)` | `SetInputVolume(input, dB, inputVolumeDb: true)` | `GameCapture` |
 | `SetFilterProperty(source, filter, property, value)` | `SetSourceFilterSettings(source, filter, {property: value}, overlay: true)` | `LayoutColoring` |
 
@@ -132,11 +132,11 @@ blocking OBS calls run on the thread pool, not on the IRC or EventSub read loop 
 
 `Games.Apply`, on bot start, a category change, or when OBS starts streaming
 ([events.md](events.md#category-change-and-going-live)), runs on the thread pool, not on a read loop,
-and sets up the game's background, colour, left panel ([Left panel](#left-panel)) and capture sources
-from its `games.json` entry. Each step
+and sets up the game's background, borders, colour, left panel ([Left panel](#left-panel)) and capture
+sources from its `games.json` entry. Each step
 runs through `Games.RunStep`, so one that throws logs `Error GMS2: game setup <step> failed: …` and the
-later steps still run (tested). The background and capture steps also catch OBS rejections themselves,
-with a clearer `Couldn't set <source>: …` warning.
+later steps still run (tested). The background, border and capture steps also catch OBS rejections
+themselves, with a clearer `Couldn't set …: …` warning.
 
 - **Background**, [GameBackground.cs](../code/Obs/GameBackground.cs): `Set` points the `Image: Background`
   input at `<Directories.Backgrounds>\<game name>.png` with `Obs.SetImageSource` and logs
@@ -145,6 +145,21 @@ with a clearer `Couldn't set <source>: …` warning.
   (`PathFor`, tested; the fallback itself isn't). If OBS
   rejects the request (the source is missing or renamed), it logs `Couldn't set Image: Background: <message>`
   and the colour and capture steps still run.
+- **Borders**, [GameBorder.cs](../code/Obs/GameBorder.cs): the layout's borders frame the game, so their
+  shape follows the game's aspect ratio. 16:9 is the default.
+  - A game with no `Aspect` in `games.json`, or `"16x9"` (any case), gets
+    `<Directories.Layout>\Borders_Inner_16x9.png` and `Borders_Outer_16x9.png`. So does a category not in
+    `games.json`.
+  - Any other `Aspect` gets the plain `Borders_Inner.png` and `Borders_Outer.png`. SWAT4 has `"5x4"`, and
+    the plain images are its frame.
+  - `Set` points `Border: Colorable Inner` and `Border: Colorable Outer` at them, and their
+    `(Transitionary)` twins too, so the colour animation fades between frames of the same shape. It logs
+    `Borders → <inner file>, <outer file>`.
+  - If either image is missing it logs `No 16x9 border images for <name>, borders left as is` (or
+    `plain`), and with no `Layout` in `paths.json`, `Layout not set in paths.json, borders left as is`.
+  - An OBS rejection logs `Couldn't set the borders: <message>`, and the later steps still run.
+  - It runs before the colour step, which recolours these same four sources (`IsWide` and `Files`,
+    tested).
 - **Colour**, [GameColor.cs](../code/Obs/GameColor.cs): `Set` requests `gameschemes <game name>` through
   `LayoutColoring.TryChangeToSingle`, the reward's path: the game's category in the `gameschemes` scheme
   set, at its `Default` scheme. It is queued like any colour change (the animation runs later on the
@@ -196,8 +211,8 @@ with a clearer `Couldn't set <source>: …` warning.
 
 `!changecapture <game>` runs the capture-sources step alone, for a game in `games.json`. It logs
 `Capture setup: <name> (<id>)` and runs off the IRC thread (`Error GMS_cap` if it throws outside
-`RunStep`). The stored category, background, colour and left panel don't change, and nothing is posted to
-chat. `!changepanel` is its left-panel counterpart ([The rotation](#the-rotation)).
+`RunStep`). The stored category, background, borders, colour and left panel don't change, and nothing is
+posted to chat. `!changepanel` is its left-panel counterpart ([The rotation](#the-rotation)).
 
 On bot start, `Games.OnBootAsync` hands its apply to `ObsConnection.WhenConnected`, which runs it at
 once if OBS is ready (`IsReady`, see [Connection](#connection)), otherwise on OBS's next `Connected` event,
@@ -210,7 +225,8 @@ connects during the call, so the boot apply guards itself with a flag.
 ## Left panel
 
 `!Scene: Left Panel` is the panel beside the game: split lists, the current split, the key count, the
-sellout goals. Each of these is a group named `_Left Panel: <name>`, and a game's panels take turns there.
+sellout goals. Each of these is a group: `_LP: <name>` in `!Scene: Left Panel`, or `_LPC: <name>` in
+`!Scene: Left Panel Colored` for the coloured ones. A game's panels take turns there.
 The bot rotates them, per game, from a file. For games that have one, a LiveSplit split interrupts the
 rotation with a previous-split panel ([Splits from LiveSplit](#splits-from-livesplit)).
 
@@ -224,12 +240,13 @@ The file is keyed by `games.json` `Name` (any case), plus a `default` entry for 
 	"Always": ["Splits Basics"],
 	"Panels": [
 		{
-			"Show": ["Splits List Labels 1", "Splits List Values 2"],
+			"Name": "Splits: Run Delta",
+			"Show": ["Splits List Labels", "Splits List Values"],
 			"Text": {
-				"Livesplit: SL - Header Right 2": "Run Delta"
+				"Livesplit: SL - Header Right": "Run Delta"
 			},
 			"File": {
-				"Livesplit: SL - Current 2": "D:\\Repositories\\Stream-Resources\\Text\\Livesplit Generated\\SplitList\\AllSplits\\RealTime\\Delta_Run.txt"
+				"Livesplit: SL - Current": "D:\\Repositories\\Stream-Resources\\Text\\Livesplit Generated\\SplitList\\AllSplits\\RealTime\\Delta_Run.txt"
 			},
 			"Seconds": 50
 		},
@@ -246,19 +263,34 @@ The file is keyed by `games.json` `Name` (any case), plus a `default` entry for 
 - `Always` lists the groups shown for the whole game.
 - `Panels` take turns in order. Each panel lists the groups it shows (`Show`), the text and file to set on
   text sources before showing them (`Text`, `File`), and how long it stays up (`Seconds`).
-- Setting the values before showing the groups is what makes the double-buffered pairs work
-  (`Values 1` / `Values 2`): the next panel's values go into the hidden copy.
-- Group names leave out the `_Left Panel: ` prefix. A name written with the prefix, or with spaces around
-  it, is cleaned up. The file doesn't say which of the two scenes (below) a group is in.
+- Group names leave out the `_LP: ` / `_LPC: ` prefix. A name written with either prefix, or with spaces
+  around it, is cleaned up. The file doesn't say which of the two scenes (below) a group is in.
+- **Copies.** OBS groups named `<name> <number>` are interchangeable copies of `<name>`: `Splits Current 1`–`3`,
+  `Splits List Labels 1`–`3`, `Splits List Values 1`–`3`. The bot picks the copy ([Copies](#copies)).
+  - In `Show`, the family name (`Splits Current`) and any numbered name (`Splits List Values 2`) both mean
+    the family. The file uses the family name.
+  - In `Text` and `File`, in a panel that shows a family, every source is a copy source, written without a
+    number (`Livesplit: SL - Current`). The bot adds the number of the copy it's about to show. A number
+    written anyway is replaced.
+  - So a panel with a family can't set a source shared by all copies (`Livesplit: Current Labels`), or one
+    in another group it shows. Set those in OBS, or in a panel without a family.
+- `Keep` is optional: more groups to show, as they are. A family listed there stays on the copy that's up,
+  rather than moving to a fresh one ([Copies](#copies)). A plain group is shown just as if it were in `Show`;
+  plain groups never move anyway, since a step only shows and hides what differs from the step before. So a
+  group belongs in one of the two lists, not both. Names are cleaned up like `Show`'s, and missing ones are
+  reported and flagged the same way.
 - A panel without a positive `Seconds` is skipped. A panel with an empty `Show` is a pause: only the
   `Always` groups stay up.
 - `Name` is optional and only for the dashboard: what the left-panel column calls the panel instead of listing
   its groups and texts ([dashboard.md](dashboard.md#the-left-panel)). Blank counts as none. On 2026-10-12 the
   panels showing more than one group were named after their on-stream headers, `<list>: <column>` (for example
-  `Per map: Run Delta`); SWAT4's after the group that changes (`Big Delta`, `Sellout Goals`). Single-group
-  panels have no name.
+  `Per map: Run Delta`); `Run_NoSubsplits`'s after their header or the group that changes (`Run Delta`,
+  `Sellout Goals`, `List On`). Single-group panels have no name.
 - `Previous` is optional: the panels to play once after each LiveSplit split, same shape as `Panels`
   ([Splits from LiveSplit](#splits-from-livesplit)). Only SWAT4 has it.
+- `Sign` is optional: the path of one of LiveSplit's `PreviousSplit\<level>\RealTime\Sign.txt` files, which
+  colours the previous split's differences during the `Previous` panels ([Split colours](#split-colours)).
+  It is trimmed, and blank counts as none. Only SWAT4 has it, for `AllSplits`.
 - An entry can be another entry's name instead of its own panels: `"GTA4": "GTA3"` gives GTA4 GTA3's
   panels (any case, and a name can lead on to another name). One that leads nowhere, or round in a loop, is
   skipped and logged as `leftpanel.json: skipped <name>, "<target>" leads to no panels`. A value that is
@@ -287,23 +319,32 @@ It runs all the time, not only while streaming.
 - It cancels the running rotation, through a `CancellationTokenSource` swapped with `Interlocked.Exchange`,
   as `Ads` does.
 - If `Lookup` finds no entry and there is no `default`, it logs `No left panels for <game>, left as is`.
-- Otherwise it logs `Left panel: <game>, <n> panels`, or `Left panel: <game> (default), <n> panels`, on
-  `SceneChanges`, with `, <n> on a split` added when the entry has `Previous`. Then it starts `RunAsync`
-  through `FireForget` (`Error LPN3` if it throws unexpectedly).
+- Otherwise it looks up the game's split colours ([Split colours](#split-colours)) and logs
+  `Left panel: <game>, <n> panels`, or `Left panel: <game> (default), <n> panels`, on `SceneChanges`. It adds
+  `, <n> on a split` when the entry has `Previous`, then `, split colours from <category>` or
+  `, no split colours`. Then it starts `RunAsync` through `FireForget` (`Error LPN3` if it throws
+  unexpectedly).
 
 `RunAsync` then loops over the panels, step by step:
 
 1. **OBS not ready** (`ObsConnection.IsReady`): it makes no OBS calls at all. It waits 5 s and tries again,
    without moving on to the next panel. So a closed OBS logs nothing.
-2. **First step with OBS ready:** it lists the top-level items of `!Scene: Left Panel` and
-   `!Scene: Left Panel Colored` (`Obs.GetSceneItemNames`). Each `_Left Panel: ` item becomes a known
-   group, together with the scenes it is in. `Splits Main List Labels` is in both, so it is toggled in both.
-   Groups the game's entry names that OBS doesn't have are logged once per rotation, as
-   `Left panel: <game> has groups OBS doesn't: …`, and then skipped. SWAT4 gets this line.
+2. **First step with OBS ready:** it reads what OBS has (`FindLayout`), once per rotation.
+   - It lists the top-level items of both scenes (`Obs.GetSceneItemNames`). An `_LP: <name>` item counts
+     only in `!Scene: Left Panel`, and an `_LPC: <name>` item only in `!Scene: Left Panel Colored`
+     (`GroupName`, tested). Anything else is left alone, including an `_LP:` item in the coloured scene.
+   - Numbered groups become copies of a family.
+   - The coloured scene holds the whole `!Scene: Left Panel` as an item, for reference while editing in
+     OBS; this step hides it.
+   - With split colours, it colours the split list highlights.
+   - Groups the game's entry names that OBS doesn't have are logged once per rotation, as
+     `Left panel: <game> has groups OBS doesn't: …`, and then skipped.
 3. **Each step:**
+   - It plans the panel (`Plan`, tested): which copy of each family to use (see [Copies](#copies)), and the
+     texts and files to set, including remembered ones.
    - It sets the panel's `Text` and `File` (`Obs.SetInputSetting` with `text` / `file`).
    - It shows the groups that are wanted but not up, then hides the ones that are up but not wanted
-     (`Transition`). Wanted means `Always` plus the panel's `Show`.
+     (`Transition`). Wanted means `Always` plus the panel's groups, with each family as its chosen copy.
    - On the first step nothing is known to be up, so it shows all of the wanted groups and hides every
      other known group.
    - Showing before hiding means the panel never goes blank between two panels, and the values land while
@@ -311,8 +352,9 @@ It runs all the time, not only while streaming.
    - It then waits the panel's `Seconds` and moves to the next panel, wrapping round at the end.
 4. **A split**, when the entry has `Previous`, cuts that wait short. The `Previous` panels play once, each
    for its `Seconds`, and a split during them starts them over. Then the rotation returns to the panel that
-   was cut short and shows it again for its full time. Without `Previous`, splits are ignored. While OBS
-   isn't ready, the 5 s retry ignores them too.
+   was cut short and shows it again for its full time. Each `Previous` step first colours the previous
+   split's differences by the entry's `Sign`, when it has one and there are split colours. Without
+   `Previous`, splits are ignored. While OBS isn't ready, the 5 s retry ignores them too.
 5. **One panel, or none:** with a single panel, or none (only `Always`), the rotation ends once it is up,
    unless the entry has `Previous`. Then it waits for splits instead, and shows that panel again after each
    one.
@@ -346,6 +388,13 @@ More detail on the edges:
     that game's name; otherwise the input itself, if it names a `leftpanel.json` entry, such as `default`.
   - Anything else logs `No game or left panel "…"`. With no panels loaded it logs `No left panels loaded`.
   - The panel it starts is the one an OBS reconnect restarts, until the next category change.
+- **Moving on by command:** `!nextpanelitem` (`LeftPanel.Next`) cuts the wait short, as though the panel's
+  time were up. In the loop it moves to the next panel; during a previous split, to the next previous-split
+  panel, and after the last of those back to the interrupted loop panel. It works like the split signal: a
+  `TaskCompletionSource` that every wait also watches, captured before each step so a skip during a step
+  isn't lost (`SkipPanel`, tested). Splits still win over a skip. It does nothing while OBS isn't ready.
+  With no rotation, a stopped one, or one panel and no `Previous`, it logs `No left panel rotation to move
+  on` or `Only one left panel, nothing to move on to`.
 - **Stopping by command:** `!stoppaneltimer` (`LeftPanel.Stop`) cancels the rotation, leaves the current
   panel up and logs `Left panel rotation stopped`. It stays stopped through OBS reconnects. Any `Start`
   clears the stop: `!startpaneltimer` (`LeftPanel.Resume`, the last game's rotation from its first panel),
@@ -353,11 +402,54 @@ More detail on the edges:
   `No left panel to start`.
 
 `Transition` and `Missing` are tested. The real `RunAsync` is also tested against fake OBS calls, covering:
-the order of a step, a group in both scenes, the timings and the wrap, waiting for OBS, one panel and none,
-cancelling, missing groups, a throwing call, and splits (with and without `Previous`, during `Previous`, and
-for a single panel). `LeftPanelStopTests` cover how a stop, a resume, a new `Start` and an OBS connect
-interact, with panels loaded from a temporary file and OBS never ready. None of this has been seen in a real
-OBS yet.
+the order of a step (with the copies listed and the reference item hidden), the timings and the wrap, waiting for OBS, one panel and none,
+cancelling, missing groups, a throwing call, a kept family staying up while the others move, splits (with
+and without `Previous`, during `Previous`, and for a single panel), and split colours (the highlights on the first step, each `Previous` step's colours
+by its sign, and none without a sign, without colours or with an unreadable sign). `LeftPanelStopTests`
+cover how a stop, a resume, a new `Start` and an OBS connect interact, with panels loaded from a temporary
+file and OBS never ready, and the start line's split-colours part. None of this has been seen in a real OBS
+yet.
+
+### Copies
+
+Some panels come in interchangeable copies in OBS, so a panel's contents can change while it's hidden. A
+copy is an `_LP:` (or `_LPC:`) group named `<family> <number>`: `Splits Current 1`–`3`,
+`Splits List Labels 1`–`3`, `Splits List Values 1`–`3`. A copy's own text sources carry its number
+(`Livesplit: Current Index 2`). Sources without a number (`Livesplit: Current Labels`) are shared by every
+copy.
+
+The bot doesn't ask OBS what's inside a copy; it decides from the names alone and remembers what it set.
+
+**Choosing a copy.** `Plan` moves every family a panel shows to a fresh copy, together:
+
+- All of them take the lowest copy number that is hidden in every one of them: 1 when nothing is up, 2 when
+  1 is up, and so on. The panel's values go into those copies while they're hidden, then they're shown and
+  the old copies hidden. So two panels of the same family in a row (two `Splits Current` panels, or
+  `Run Delta` after `Finished at`) always alternate copies, and the viewer never sees values change.
+- If no number is hidden in every family (they're out of step), each family takes its own lowest hidden
+  copy, and copy sources get the first family's number.
+- **A family in the panel's `Keep` stays on the copy that's up.** The others move as above, avoiding the kept
+  copies' numbers when they can, and copy sources get the first moving family's number (the first kept
+  one's when every family is kept). Remembered values for the kept family go onto its hidden copy with that
+  number, out of sight. A kept family that isn't up moves like any other.
+  - This is for a panel whose family looks the same as on the panel before. The split lists' Run, Seg. and
+    Golds Delta panels show `Splits List Values` and keep `Splits List Labels`, so only the values column
+    swaps.
+  - It isn't checked: a kept family that the panel does change shows the change in place, on screen.
+- An `Always` family keeps the copy that's up, or takes copy 1.
+- Two copies per family are enough; a third is spare.
+
+**Copy sources.** In a panel that shows families, every `Text` and `File` source is a copy source and
+gets the chosen number: `Livesplit: SL - Current` → `Livesplit: SL - Current 2`. A name that already ends in
+a number has it replaced instead (`Livesplit: SL - Current 1` → `Livesplit: SL - Current 2`). In a panel
+without families, sources are set as written.
+
+**Remembering.** The bot remembers each copy-source value it sets for the rest of the rotation, by the name
+without a number, with the families that were shown with it. On a later panel, a remembered value the panel
+doesn't set itself is set again on the new copy, but only when every family it was set with is shown again.
+That's how the split list's labels (`Livesplit: SL - Names`, `Header Left`) follow the move to the next copy
+when only the values change, while `Splits Current`'s values are never written into a list's copies. A new
+rotation starts with nothing remembered.
 
 ### Splits from LiveSplit
 
@@ -375,13 +467,15 @@ OBS yet.
 - **A skip is told apart by the previous split's time.** Your component (`LiveSplit.OutputToFile`) writes
   `PreviousSplit\AllSplits\RealTime\RunTime.txt` after `Index.txt`, as the previous split's live real-time
   time. A split always has one. A skipped split has none, and the component writes that as `-`.
-  - So after a rise, `CheckSplitAsync` waits, off the watcher's thread, until that file has been written
-    since `Index.txt`. It checks every 50 ms, for up to 2 s.
-  - Then it reads the file. `-` means a skip, which does nothing.
-  - Anything else calls `LeftPanel.OnSplit()`. That includes a file that isn't rewritten in time or can't
-    be read, so the panel still shows for those.
-- `OnSplit` completes a `TaskCompletionSource` that the rotation's wait is watching, then swaps in a fresh
-  one. It runs continuations asynchronously, so the watcher's thread never runs a rotation step.
+  - So after a rise, `CheckSplitAsync` waits, off the watcher's thread, until
+    `PreviousSplit\AllSplits\RealTime\Sign.txt` has been written since `Index.txt`. It checks every 50 ms,
+    for up to 2 s.
+  - The component writes each level's sign after its times, real time before game time, and `AllSplits` is
+    its last level. So once that sign is fresh, the run time is too, and so is every real-time sign the
+    `Previous` panels colour by.
+  - Then it reads `RunTime.txt`. `-` means a skip, which does nothing.
+  - Anything else calls `LeftPanel.OnSplit()`. That includes a sign that isn't rewritten in time or a time
+    that can't be read, so the panel still shows for those.
 - `OnSplit` completes a `TaskCompletionSource` that the rotation's wait is watching, then swaps in a fresh
   one. It runs continuations asynchronously, so the watcher's thread never runs a rotation step.
 - Logs:
@@ -394,6 +488,64 @@ OBS yet.
 
 `IsSplit`, `IsSkip` and `ParseIndex` are tested. The watcher itself isn't, since its file events don't arrive on a
 fixed schedule.
+
+### Split colours
+
+[SplitColors.cs](../code/LiveSplit/SplitColors.cs) colours LiveSplit's sources in `!Scene: Left Panel Colored`
+from `SplitColors` in the `gameschemes` colour scheme file ([color.md](color.md#data-files)). This ports
+Streamer.Bot's "Change Split Colors" action.
+
+**Which colours.** `Start` takes the game's category's `SplitColors` (the name `Start` was given, so
+`!changepanel SWAT4` gets SWAT4's although its panels are `Run_NoSubsplits`'s). These are laid over the
+`none` category's, so a key the game leaves out comes from `none`. A game with no category, or one without
+`SplitColors`, gets `none`'s alone. Only SWAT4, SS2, `none` and `disabled` have any. With neither, nothing
+is coloured. `Resolve` is tested.
+
+**The split list highlights**, on the first step with OBS ready. That is every rotation start: game setup,
+`!changepanel`, `!startpaneltimer` and an OBS reconnect. Each source's `Color Correction 2` filter gets its
+`color_multiply`:
+
+| Source | Key |
+|---|---|
+| `Livesplit: Splits List Highlights Gold` | `ListGold` |
+| `Livesplit: Splits List Highlights AheadGained` | `ListGainedAhead` |
+| `Livesplit: Splits List Highlights AheadLost` | `ListLostAhead` |
+| `Livesplit: Splits List Highlights BehindGained` | `ListGainedBehind` |
+| `Livesplit: Splits List Highlights BehindLost` | `ListLostBehind` |
+
+**The previous split's differences**, at the start of each `Previous` step, when the entry has a `Sign`. The
+step reads the sign file (retrying about 100 ms while LiveSplit holds it). Then it sets the `color_multiply`
+of the `Color Correction` filter on `Livesplit: Previous Run`, `Segment` and `Gold`, by `SignKeys` (tested),
+Streamer.Bot's table as it was:
+
+| Sign | Run | Segment | Gold |
+|---|---|---|---|
+| `Ahead`, `PB`, `PBLost` | `LabelPositive` | `None` | `None` |
+| `Behind`, `NoPB` | `LabelNegative` | `None` | `None` |
+| `Gained` | `None` | `LabelPositive` | `None` |
+| `Lost` | `None` | `LabelNegative` | `None` |
+| `GainedAhead`, `PBGained` | `LabelPositive` | `LabelPositive` | `None` |
+| `LostAhead` | `LabelPositive` | `LabelNegative` | `None` |
+| `GainedBehind`, `NoPBGained` | `LabelNegative` | `LabelPositive` | `None` |
+| `LostBehind`, `NoPBLost` | `LabelNegative` | `LabelNegative` | `None` |
+| `Gold` | `None` | `LabelGold` | `LabelGold` |
+| `GoldAhead`, `PBGold` | `LabelPositive` | `LabelGold` | `LabelGold` |
+| `GoldBehind`, `NoPBGold` | `LabelNegative` | `LabelGold` | `LabelGold` |
+| anything else (`NotApplicable`, `Undetermined`, blank) | `None` | `None` | `None` |
+
+The sign is matched in any case, trimmed. `PBLost` leaves the segment `None`, unlike `NoPBLost`; that is how
+the old table had it ([PBL](robustness-fixes.md#pbl--pblost-leaves-the-segment-difference-uncoloured)).
+
+**Notes.**
+- A key with no colour leaves that source as it is.
+- A sign file that can't be read logs `Left panel: can't read <path>, previous-split colours left as is`.
+- A filter call that throws logs `Error LPN2: left panel colouring <source> failed: …`, like the rotation's
+  other OBS calls.
+- **LiveSplit never writes `GainedAhead` or `GainedBehind` during a run.** The component's running branch
+  (`OutputToFileComponent.cs`, the sign after `runDelta == null`) has no case for a segment that beat its PB
+  without being a gold. It writes `LostAhead` / `LostBehind` instead, so that segment's difference gets
+  `LabelNegative`. The end-of-run branch has the case (`PBGained` / `NoPBGained`)
+  ([SGN](robustness-fixes.md#sgn--livesplit-never-writes-gainedahead--gainedbehind-during-a-run)).
 
 ### Where the data came from
 
@@ -418,21 +570,34 @@ What was converted, and what was left out:
 - Left out: `GTASA1`, `GTASA2` and `GTAVC2`, alternate lists that match no game.
 - Converted: SWAT4's `JustSplitSceneList`, its previous-split panel, into SWAT4's `Previous`, by the same
   rule: `Nothing` for 2 s, then `Nothing`, `Splits Previous` and `Splits Previous Values` for 30 s, then
-  `Nothing` for 2 s. `Nothing` is an empty group, so those are pauses. Only SWAT4 had a list, and only
-  SWAT4 has one now; other games can be given one by hand.
+  `Nothing` for 2 s. `Nothing` is an empty group, so those are pauses. Only SWAT4 had a list; any entry
+  can be given one by hand.
 - Left out: the `"Colored": true` marks, which said a group is in `!Scene: Left Panel Colored`.
 
-The two known gaps were carried over as they were:
+The file has been edited by hand since: entries reworked and shared under new names (SWAT4's now points at
+`Run_NoSubsplits`), and the OBS groups renamed. Then on 2026-10-12 it was brought in line with OBS:
 
-- **SWAT4's list is the oldest and was converted as is.** Three of its groups aren't in OBS:
-  `Splits Main List Big Delta`, `Splits Main List Little Delta` and `Splits Main List Highlights Gold`
-  (OBS has `Splits List Highlights Gold`). It also keeps `Splits Main List Labels` and that highlight up
-  through its sellout and key-count panels, as its steps did.
-- **Portal2's per-map gold panel reads files LiveSplit doesn't write.** It reads
-  `SansSubsplits_Level1\RealTime\Delta_Gold.txt` and `Time_Gold_Upcoming.txt`, but LiveSplit writes gold
-  files only under `AllSplits`.
+- `Show` lists and copy sources use names without a copy number ([Copies](#copies)).
+- `default`'s `Sellout Goals` became `Sellout List`, the group's name in OBS.
+- GTAVC's `Splits SSSA` panel was dropped; OBS has no such group.
+- `Run_NoSubsplits` was rebuilt on the split-list copies. SWAT4's list had been converted as is, with
+  groups OBS no longer has (`Splits Main List Big Delta` and the like) and no texts or files. Each panel now
+  sets its own, all from `AllSplits`: `Splits Current` with `Current Split`, `List On` with the names
+  and highlight, then `Finished at`, `Run Delta`, `Seg. Delta` and `Golds Delta`. Its `Previous` is as it was.
 
-Both were found by checking the file against the scene collection file and the disk.
+On 2026-10-13, the highlight group became `Splits List Highlights`, with all five highlights in it, in OBS
+and the file. `Run_NoSubsplits`'s panels were renamed by hand, and its sellout and key-count panels no longer
+show the split list. It also got a `Sign`, for `AllSplits`. Every panel that shows the split list's labels
+right after another that does, without setting any label source itself, now keeps them: `Splits List Labels`
+moved from `Show` to `Keep`, with `Splits List Highlights` where the panel shows it. That's SWAT4's
+`Finished at` through `List Off`, and the other games' Run, Seg. and Golds Delta panels.
+
+Which groups are missing is what the rotation logs and the dashboard column shows in red. One gap is
+known: **Portal2's per-map gold panel reads files LiveSplit doesn't write.** It reads
+`SansSubsplits_Level1\RealTime\Delta_Gold.txt` and `Time_Gold_Upcoming.txt`, but LiveSplit writes gold
+files only for its last split level, `AllSplits`
+([PGD](robustness-fixes.md#pgd--portal2s-per-map-gold-panel-reads-files-livesplit-never-writes)). Checking the
+file against the scene collection file and the disk finds nothing else.
 
 The panel rotated once before. In 2022, `SceneManager.cs` (deleted;
 `git show 5f105ef^:StreamAssistant2/SceneManager.cs`) cycled a list of panels per game, and after each
@@ -442,17 +607,33 @@ panel's name to a `TargetSource.txt` for OBS to pick up. Under Streamer.Bot, a r
 
 ### In OBS
 
-This was read from the scene collection file (`%APPDATA%\obs-studio\basic\scenes\2022.json`), not a
-running OBS:
+This was read from the scene collection file (`%APPDATA%\obs-studio\basic\scenes\2022.json`) on
+2026-10-12, after the groups were renamed from `_Left Panel: <name>` to `_LP: <name>` (and `_LPC: <name>`
+for coloured ones), and the coloured scene again on 2026-10-13. It wasn't checked in a running OBS.
 
-- `!Scene: Left Panel` holds the groups:
+- `!Scene: Left Panel` holds `_LP:` groups:
   - the split lists, double-buffered as `Splits List Labels` / `Values` `1`–`3`
-  - `Splits Main List …`
-  - `Splits Current` (and `2`, `3`)
+  - `Splits Current 1`–`3`
   - `Splits Information`
   - `Splits Previous`
-  - the key-count, sellout and SSSA panels
+  - `Splits Key Count`, `Splits Sellout Goals` and `Splits Sellout List`
+  - `Splits Basics`
+  - `Sellout Basics`, `Sellout Key Count` and `Sellout List`
   - `Nothing`
-- `!Scene: Left Panel Colored` holds `Splits List Highlights Gold` (a text source) and `Splits Previous Values`.
+- `!Scene: Left Panel Colored` holds `_LPC: Splits List Highlights` and `_LPC: Splits Previous Values`,
+  plus the whole `!Scene: Left Panel` as an item, for reference while editing. The bot hides that item when a
+  rotation starts.
+  - `Splits List Highlights` holds the five `Livesplit: Splits List Highlights <kind>` sources (`Gold`,
+    `AheadGained`, `AheadLost`, `BehindGained`, `BehindLost`). Each reads its
+    `SplitList\AllSplits\RealTime\Highlight_<kind>.txt` and has a `Color Correction 2` filter, which the bot
+    colours, and a `Crop/Pad`.
+  - `Splits Previous Values` holds `Livesplit: Previous Run`, `Segment` and `Gold`, each with a
+    `Color Correction` filter, which the bot colours. On 2026-10-13 their `color_multiply` still held
+    Streamer.Bot's `%splitColRun%`-style placeholders. It also holds the previous split's name, index and
+    labels.
+- The copies' own sources: `Livesplit: Current …` / `Header Current Split` / `Total Splits` `<n>` in
+  `Splits Current <n>`; `Livesplit: SL - Names` / `Highlight` / `Header Left` `<n>` in
+  `Splits List Labels <n>`; and `Livesplit: SL - Current` / `Upcoming` / `Header Right` `<n>` in
+  `Splits List Values <n>`.
 - The `Livesplit: …` text sources read files that LiveSplit writes under
   `Stream-Resources\Text\Livesplit Generated\` (last written 2026-07-30).

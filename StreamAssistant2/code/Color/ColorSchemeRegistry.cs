@@ -71,10 +71,10 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Lowercases every scheme's Inner/Outer/Text to #rrggbb, and drops (with a log line) any
-		/// scheme where one of them isn't a hex colour.
+		/// Lowercases every scheme's Inner/Outer/Text and every split colour to #rrggbb, and drops (with a
+		/// log line) any scheme where one of them isn't a hex colour, and any split colour that isn't.
 		/// </summary>
-		static void NormalizeHex(string setName, ThemeSet set) {
+		internal static void NormalizeHex(string setName, ThemeSet set) {
 			foreach (var (categoryName, category) in set.Categories) {
 				List<string> invalid = [];
 				foreach (var (schemeName, scheme) in category.ColorSchemes) {
@@ -93,6 +93,15 @@ namespace StreamAssistant2 {
 					var scheme = category.ColorSchemes[schemeName];
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Colour scheme {setName} {categoryName}: skipped \"{schemeName}\", not all of \"{scheme.Inner}\" \"{scheme.Outer}\" \"{scheme.Text}\" are hex colours");
 					category.ColorSchemes.Remove(schemeName);
+				}
+				foreach (var (key, value) in category.SplitColors.ToList()) {
+					if (ColorUtil.TryNormalizeHex(value, out string hex)) {
+						category.SplitColors[key] = hex;
+					}
+					else {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Colour scheme {setName} {categoryName}: skipped split colour \"{key}\", \"{value}\" is not a hex colour");
+						category.SplitColors.Remove(key);
+					}
 				}
 			}
 		}

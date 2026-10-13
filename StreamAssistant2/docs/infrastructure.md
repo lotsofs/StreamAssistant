@@ -13,7 +13,9 @@ text format, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
 
 1. Reads **`paths.json`** from the working directory (so the app must run from the project folder). It
    holds only `directories`: `BotInput`, `BotOutput`, `Trains`, `Colors`, `ColorSchemes`, `Backgrounds`,
-   `LivesplitGenerated`. `Backgrounds` holds the per-game OBS backgrounds (`GameBackground`);
+   `LivesplitGenerated`, `Layout`. `Backgrounds` holds the per-game OBS backgrounds (`GameBackground`);
+   `Layout` the layout's border images, 16x9 and plain (`GameBorder`,
+   [obs.md](obs.md#per-game-setup)), and without it the borders are left as they are;
    `LivesplitGenerated` is LiveSplit's text output, whose split index `SplitWatcher` watches
    ([obs.md](obs.md#splits-from-livesplit)). Without it the previous-split panel is off. It is
    machine-specific, so it is gitignored; a `BeforeBuild` target in the csproj copies it from the tracked
@@ -88,7 +90,7 @@ WPF window ([dashboard.md](dashboard.md)).
 | `AdNotification` | ad start and end |
 | `Important` | warnings and drops the user should notice: colour data skipped, OBS unreachable, colour request failed, unexpected status codes |
 | `SceneChangesImportant` | the start of a scene change worth spotting: `Game setup: <name> (<id>)` |
-| `SceneChanges` | changes the bot makes to the stream's look and sound: the layout colour animation starting (`Changing layout color to …`), the background (`Image: Background → <file>`), each capture slot shown, and a train starting (`Choo choo!`). Warnings about these (no scheme, missing source) stay on `Important` |
+| `SceneChanges` | changes the bot makes to the stream's look and sound: the layout colour animation starting (`Changing layout color to …`), the background (`Image: Background → <file>`), the borders (`Borders → <inner>, <outer>`), each capture slot shown, and a train starting (`Choo choo!`). Warnings about these (no scheme, missing source) stay on `Important` |
 | `SceneChangesUnimportant` | routine detail of a scene change: the grouped `→ none, hidden: …` line |
 
 ## Periodic work

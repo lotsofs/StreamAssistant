@@ -60,6 +60,7 @@ namespace StreamAssistant2 {
 		public string ColorSchemes { get; set; } = "";
 		public string Backgrounds { get; set; } = "";
 		public string LivesplitGenerated { get; set; } = "";
+		public string Layout { get; set; } = "";
 	}
 
 	public class ObsSocketConfig {

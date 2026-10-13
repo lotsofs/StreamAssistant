@@ -129,8 +129,8 @@ account. The shape is in `secrets.json.example`.
 61. [ ] With OBS open, F5: after `Game setup: …` the log shows `Left panel: <game>, <n> panels` (or `(default)`), and in OBS only that game's `Always` groups and first panel are visible in `!Scene: Left Panel` and `!Scene: Left Panel Colored`
 62. [ ] `!changegame GTA3`: Splits Basics stays up, the split lists change every 50 s (Finished at, Run Delta, Seg. Delta, Golds Delta), then Key Count, a 1 s blank, Sellout Goals, and back to the start
 63. [ ] On those swaps the new values appear at once, with no flash of the old column (the double-buffered `Values 1` / `Values 2`)
-64. [ ] `!changegame KTANE` (no entry of its own): `Left panel: KTANE (default), 2 panels`; Sellout Basics with Key Count for 220 s, then Sellout Goals for 30 s
-65. [ ] `!changegame SWAT4`: one `Left panel: SWAT4 has groups OBS doesn't: Splits Main List Highlights Gold, Splits Main List Big Delta, Splits Main List Little Delta` line, then the rest rotates, with no `Error LPN2`
+64. [ ] `!changegame KTANE` (no entry of its own): `Left panel: KTANE (default), 2 panels`; Sellout Basics with Key Count for 220 s, then Sellout List for 30 s
+65. [ ] `!changegame SWAT4`: no `Left panel: SWAT4 has groups OBS doesn't: …` line and no `Error LPN2`, and every panel rotates
 66. [ ] Close OBS mid-rotation: no `Trying to do an OBS action…` lines while it's closed. Reopen it: right after `Connected to OBS` the log shows `Left panel: <game>, …` again, the rotation starts over from its first panel, and only `Always` and that panel are up, with nothing left over from before the restart
 67. [ ] `!stoppaneltimer` mid-rotation: the log shows `Left panel rotation stopped` and the current panel stays up past its time. Close and reopen OBS: no `Left panel: …` line after `Connected to OBS`
 68. [ ] Then `!startpaneltimer`: `Left panel: <game>, …`, and the rotation starts over from its first panel
@@ -139,7 +139,7 @@ account. The shape is in `secrets.json.example`.
 ## Previous-split panel
 
 70. [ ] On F5, the log shows `Watching LiveSplit's split index`, with no `previous-split panel off` line
-71. [ ] `!changegame SWAT4`: `Left panel: SWAT4, 10 panels, 3 on a split`
+71. [ ] `!changegame SWAT4`: `Left panel: SWAT4, 10 panels, 3 on a split, split colours from SWAT4`
 72. [ ] With LiveSplit running SWAT4 splits during the rotation, a split: the panel goes blank (Splits Basics only) for 2 s, shows the previous split (`Splits Previous` with its run, segment and gold differences) for 30 s, goes blank for 2 s, then shows the panel that was cut short again, for its full time
 73. [ ] Starting a run, undoing a split, skipping a split and resetting don't show it; a split during the previous-split panel starts it over
 74. [ ] In another game (say `!changegame GTA3` while LiveSplit runs), a split changes nothing in the rotation
@@ -162,4 +162,40 @@ account. The shape is in `secrets.json.example`.
 ## Dashboard column: names and missing groups
 
 84. [ ] `!changepanel GTA3`: the split-list panels read `Splits: Finished at`, `Splits: Run Delta`, … and the single-group ones their group (`Splits Key Count`)
-85. [ ] `!changepanel SWAT4`: once OBS is connected, every line with `Splits Main List Highlights Gold`, `Big Delta` or `Little Delta` is red (the panel up keeps its `>` and timer), while `Splits Basics`, `Splits Current` and the previous-split panels are not
+85. [ ] With a game whose entry names a group OBS lacks: once OBS is connected, exactly the lines with such a group are red (the panel up keeps its `>` and timer), matching the `has groups OBS doesn't` log line; the `_LP:` and `_LPC:` groups that do exist show and hide in OBS
+
+## Moving the left panel on
+
+86. [ ] `!nextpanelitem` during `!changepanel GTA3`: the next panel comes up at once in OBS and in the column (timer from 0); during a SWAT4 previous split it moves to the next previous-split panel, and after the last one back to the interrupted panel
+87. [ ] `!nextpanelitem` after `!stoppaneltimer` logs `No left panel rotation to move on`, and changes nothing
+
+## Copies and prefixes
+
+88. [ ] With OBS open, `!changepanel GTASA`: no `Error LPN2` lines, and the `!Scene: Left Panel` item in `!Scene: Left Panel Colored` gets hidden
+89. [ ] The two `Splits Current` panels in a row (Current Mission, then Current Split) use different copies in OBS: the second appears with its own values, with no flash of the first's
+90. [ ] In the split lists, each panel moves labels and values together to the other copy number, and the labels (names, `Splits` header) come along unchanged while the values column changes; no flash of old content
+91. [ ] An `_LP:` group placed in the coloured scene, or an `_LPC:` group in the plain one, is never shown or hidden by the bot
+
+## SWAT4's panels
+
+92. [ ] `!changepanel SWAT4` with LiveSplit open: `Splits Current` shows the `Current Split` header and the full list's current split (number out of total, name, run, segment and gold times)
+93. [ ] Then the split list's labels come up alone for a second (`Splits` header, names, the current split highlighted), then the values column four times for 15 s each, headed `Finished at`, `Run Delta`, `Seg. Delta` and `Golds Delta`, each with its own column of values; then the labels alone for a second, then Sellout Goals and Sellout List with the highlights, then Key Count
+94. [ ] `!changepanel GTAVC`: `Left panel: GTAVC, 4 panels, split colours from none`, with no missing-groups line
+
+## Split colours
+
+95. [ ] `!changepanel SWAT4` with OBS open: the five `Livesplit: Splits List Highlights …` sources' `Color Correction 2` filters take SWAT4's colours (Gold `#ffc800`, AheadGained `#000086`, AheadLost `#4e5fa5`, BehindGained `#bd4142`, BehindLost `#af0000`)
+96. [ ] `!changepanel GTA3`: the line ends `, split colours from none`, and the highlights turn white
+97. [ ] A SWAT4 split during the rotation: when the previous split comes up, `Livesplit: Previous Run`, `Segment` and `Gold` are coloured by its sign (a gold while ahead: run `#4e5fa5`, segment and gold `#ceac35`), there's no `can't read` line, and their filters no longer hold `%splitCol…%`
+98. [ ] Close and reopen OBS while SWAT4's panels run: after `Connected to OBS` the highlights are coloured again
+
+## Kept copies
+
+99. [ ] `!changepanel SWAT4`: from `List On` through `List Off` the labels stay on one `_LP: Splits List Labels <n>` the whole time (no hide and show in OBS, no flicker); only the values column swaps copies
+100. [ ] `!changepanel GTA3`: from `Splits: Run Delta` to `Splits: Golds Delta` the labels stay put and only the values swap; `Splits: Finished at` still swaps both
+
+## Borders
+
+101. [ ] `!changegame SWAT4`: the log shows `Borders → Borders_Inner.png, Borders_Outer.png`, and OBS shows the 5:4 frame
+102. [ ] `!changegame GTA3` (no `Aspect`): `Borders → Borders_Inner_16x9.png, Borders_Outer_16x9.png`, and the 16:9 frame is back; the same for a category not in `games.json`
+103. [ ] During the colour animation that follows each of those changes, the frame doesn't flash the other shape (the `(Transitionary)` borders changed too)

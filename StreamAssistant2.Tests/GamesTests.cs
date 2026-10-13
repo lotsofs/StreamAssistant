@@ -269,6 +269,40 @@ namespace StreamAssistant2.Tests {
 			Assert.False(checkedFile);
 		}
 
+		const string LAYOUT = @"D:\Layout";
+		static readonly string Inner = Path.Combine(LAYOUT, "Borders_Inner.png"), Outer = Path.Combine(LAYOUT, "Borders_Outer.png");
+		static readonly string Inner169 = Path.Combine(LAYOUT, "Borders_Inner_16x9.png"), Outer169 = Path.Combine(LAYOUT, "Borders_Outer_16x9.png");
+
+		[Theory]
+		[InlineData(null)]
+		[InlineData("16x9")]
+		[InlineData("16X9")]
+		public void BorderFiles_NoAspectOr16x9_The16x9Pair(string? aspect) {
+			Assert.Equal((Inner169, Outer169), GameBorder.Files(LAYOUT, aspect, _ => true));
+		}
+
+		[Theory]
+		[InlineData("5x4")]
+		[InlineData("4x3")]
+		public void BorderFiles_AnyOtherAspect_ThePlainPair(string aspect) {
+			Assert.Equal((Inner, Outer), GameBorder.Files(LAYOUT, aspect, _ => true));
+		}
+
+		[Fact]
+		public void BorderFiles_AMissingImage_OrNoDirectory_IsNull() {
+			Assert.Null(GameBorder.Files(LAYOUT, null, p => p != Outer169));
+			Assert.Null(GameBorder.Files(LAYOUT, "5x4", p => p != Inner));
+			bool checkedFile = false;
+			Assert.Null(GameBorder.Files("", null, _ => checkedFile = true));
+			Assert.False(checkedFile);
+		}
+
+		[Fact]
+		public void Parse_Aspect_IsTrimmed_AndBlankOrMissingIsNone() {
+			var games = Games.Parse("""{ "1": { "Name": "A", "Aspect": " 5x4 " }, "2": { "Name": "B", "Aspect": " " }, "3": { "Name": "C" } }""");
+			Assert.Equal(["5x4", null, null], new[] { "1", "2", "3" }.Select(id => games[id].Aspect));
+		}
+
 		[Fact]
 		public void GameColorSchemeInput_Known_IsSetAndCategory() {
 			string? asked = null;

@@ -54,5 +54,19 @@ namespace StreamAssistant2.Tests {
 				ColorData.LoadFixtures();
 			}
 		}
+
+		[RealDataFact]
+		public void RealGameSchemes_NoneHasEverySplitColour() {
+			ColorData.Load(ColorData.RealColors!, ColorData.RealColorSchemes!);
+			try {
+				var resolved = SplitColors.For("KTANE");
+				Assert.Equal("none", resolved!.Value.From);
+				string[] keys = ["None", "ListGainedAhead", "ListLostAhead", "ListGainedBehind", "ListLostBehind", "ListGold", "LabelPositive", "LabelNegative", "LabelGold"];
+				Assert.All(keys, key => Assert.True(resolved.Value.Colors.ContainsKey(key), $"none has no {key}"));
+			}
+			finally {
+				ColorData.LoadFixtures();
+			}
+		}
 	}
 }

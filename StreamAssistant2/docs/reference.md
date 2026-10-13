@@ -44,10 +44,10 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | An OBS call threw during a colour change; the message is logged next | worker moves to the next request |
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
 | `GMS_cap` | `FireForget.Run` (from `Games.TryChangeCapture`) | `!changecapture` threw outside `RunStep`'s own catch | the capture sources aren't changed |
-| `GMS2` | `Games.RunStep` (from `Games.Apply`, and `!changecapture`) | One game setup step (background, colour, left panel or capture sources) threw; the message names the step | that step skipped, the later ones still run |
+| `GMS2` | `Games.RunStep` (from `Games.Apply`, and `!changecapture`) | One game setup step (background, border, colour, left panel or capture sources) threw; the message names the step | that step skipped, the later ones still run |
 | `GMS1` | `Games.Load` | `games.json` couldn't be read or parsed | no games loaded; every category resolves to `None` and leaves the capture sources alone |
 | `LPN1` | `LeftPanel.Load` | `leftpanel.json` couldn't be read or parsed | no left panels loaded |
-| `LPN2` | `LeftPanel.RunAsync` | One OBS call of the left-panel rotation threw (listing a scene, setting a text or file, showing or hiding a group); the message says which | the rest of that step still runs |
+| `LPN2` | `LeftPanel.RunAsync` | One OBS call of the left-panel rotation threw (listing a scene, hiding the reference item, setting a text or file, colouring a split filter, showing or hiding a group); the message says which | the rest of that step still runs |
 | `LPN3` | `FireForget.Run` (from `LeftPanel.Start`) | The rotation threw outside its own handling | that rotation stops until the next `Start` |
 | `LPN4` | `LeftPanel.OnObsConnected` (from `ObsConnection`'s `Connected` handler) | Restarting the rotation on an OBS connect threw | the rotation isn't restarted; leftovers from before the connect may stay up |
 | `LSW1` | `SplitWatcher.OnChanged` | Handling a change to LiveSplit's split index threw | that change is missed; the next one is read as usual |
@@ -78,12 +78,14 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `StreamElements: no channelId or jwt in secrets.json, tips are off` | no `streamElements` credentials; the bot runs without tips |
 | `StreamElements stopped: fix streamElements in secrets.json and restart the bot` | StreamElements refused the JWT (after `Error SES3`) |
 | `Tip <id> already alerted, skipped` | the same tip arrived twice |
-| `Left panel: <game>, <n> panels` | a left-panel rotation started, from a game setup or OBS connecting; `(default)` after the name when the game has no entry of its own, `, <n> on a split` at the end when it has previous-split panels |
+| `Left panel: <game>, <n> panels` | a left-panel rotation started, from a game setup or OBS connecting; `(default)` after the name when the game has no entry of its own, `, <n> on a split` when it has previous-split panels, then `, split colours from <category>` or `, no split colours` |
 | `Watching LiveSplit's split index` | the split watcher started; `… previous-split panel off` instead when `LivesplitGenerated` isn't set or its folder is missing |
 | `Left panel: <game> has groups OBS doesn't: …` | the game's entry names groups missing from both left-panel scenes; they're skipped |
+| `Left panel: can't read <path>, previous-split colours left as is` | a previous-split panel came up but the entry's `Sign` file couldn't be read |
 | `No left panels for <game>, left as is` | the game has no entry and there's no `default`; the panel isn't touched |
 | `Capture setup: <name> (<id>)` | `!changecapture`: the capture sources alone are being set for that game |
 | `No game or left panel "…"`, `No left panels loaded` | `!changepanel` with an input that is neither a game nor a `leftpanel.json` entry, or with no panels loaded |
+| `No left panel rotation to move on`, `Only one left panel, nothing to move on to` | `!nextpanelitem` with no rotation (or a stopped one), or with one panel and no previous split |
 | `Left panel rotation stopped` | `!stoppaneltimer`; the current panel stays up, and OBS reconnects don't restart it |
 | `No left panel rotation to stop`, `No left panel to start` | `!stoppaneltimer` or `!startpaneltimer` with no game's rotation to act on |
 | `leftpanel.json: skipped <name>, …` | an entry naming another that leads to no panels (missing, or a loop), or a value that is neither panels nor a name |
@@ -118,8 +120,12 @@ Single-user software, so these are constants in code rather than settings.
 | `D:\Repositories\Stream-Resources\Alert Sounds\`, the only path not in `paths.json` | `Sound` |
 | Drive `A:\` (falls back to the first drive) | `DiskSpace` |
 | `Template.png` in `Backgrounds`, the background for a game without its own | `GameBackground` |
+| `Borders_Inner_16x9.png` and `Borders_Outer_16x9.png` in `Layout`, the default borders; `Borders_Inner.png` and `Borders_Outer.png` there for a game whose `Aspect` isn't `16x9` | `GameBorder` |
+| `16x9`, the aspect a game has without an `Aspect` in `games.json` | `GameBorder` |
 | `games.json` and `leftpanel.json` in `BotInput` | `Games`, `LeftPanel` |
-| `CurrentSplit\AllSplits\Index.txt` and `PreviousSplit\AllSplits\RealTime\RunTime.txt` in `LivesplitGenerated` | `SplitWatcher` |
+| `CurrentSplit\AllSplits\Index.txt`, and `RunTime.txt` and `Sign.txt` in `PreviousSplit\AllSplits\RealTime\`, in `LivesplitGenerated` | `SplitWatcher` |
+| a `PreviousSplit\<level>\RealTime\Sign.txt`, named by an entry's `Sign` in `leftpanel.json` | `LeftPanel` |
+| `gameschemes.json` in `ColorSchemes`, its categories' `SplitColors`, with `none` as the fallback | `SplitColors` |
 | `AssistantLogs` and `AssistantLogs\EventSubs` under `BotOutput`, `streamAssistant.db` under `BotOutput` | `ConsoleLogger`, `TestReplay` (reads `EventSubs`, including StreamElements' `se.…` files), `Database` |
 
 ### Channel-point rewards
@@ -143,8 +149,8 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 |---|---|---|
 | `!Scene: Layout` | `LayoutColoring` | scene holding both colour groups |
 | `!Layout: Colorables`, `!Layout: Colorables (Transitionary)` | `LayoutColoring` | the real group and its fade twin |
-| `Border: Colorable Inner`, `Border: Colorable Outer`, `!Scene: All Colorable` | `LayoutColoring` | the three sources recoloured |
-| the same three with ` (Transitionary)` appended | `LayoutColoring` | their twins |
+| `Border: Colorable Inner`, `Border: Colorable Outer`, `!Scene: All Colorable` | `LayoutColoring` | the three sources recoloured; the two borders' image (`file`) is also set per game by `GameBorder` |
+| the same three with ` (Transitionary)` appended | `LayoutColoring`, `GameBorder` | their twins; `GameBorder` sets the two borders' image the same as the real ones |
 | `Color Correction` | `LayoutColoring` | filter on every one of them; properties `color_multiply`, `color_add` |
 | `!Scene: Basics Colored` | `ChannelPoints` | scene of the train image |
 | `Image: Train` | `ChannelPoints` | the train image input |
@@ -155,8 +161,11 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 | `Game: Window Capture 0`–`2` | `GameCapture` | window capture sources, retargeted per game |
 | `Audio 5: App Capture 0`–`2` | `GameCapture` | application audio capture, fallback, retargeted per game |
 | `!Scene: Games 1920x1080` | `GameCapture` | scene holding those nine capture sources; unused ones are hidden in it |
-| `!Scene: Left Panel`, `!Scene: Left Panel Colored` | `LeftPanel` | the two scenes whose top-level `_Left Panel: <name>` groups the rotation shows and hides |
+| `!Scene: Left Panel`, `!Scene: Left Panel Colored` | `LeftPanel` | the two scenes whose top-level groups the rotation shows and hides: `_LP: <name>` in `!Scene: Left Panel`, `_LPC: <name>` in the coloured one; `<name> <n>` groups are copies of `<name>` |
+| `!Scene: Left Panel` as an item in `!Scene: Left Panel Colored` | `LeftPanel` | a reference copy for editing; hidden when a rotation starts |
 | the text sources named in `leftpanel.json` (`Livesplit: …`) | `LeftPanel` | settings `text` and `file` |
+| `Livesplit: Splits List Highlights Gold`, `AheadGained`, `AheadLost`, `BehindGained`, `BehindLost` | `SplitColors` | in `_LPC: Splits List Highlights`; filter `Color Correction 2`, property `color_multiply`, set when a rotation starts |
+| `Livesplit: Previous Run`, `Livesplit: Previous Segment`, `Livesplit: Previous Gold` | `SplitColors` | in `_LPC: Splits Previous Values`; filter `Color Correction`, property `color_multiply`, set on each previous-split panel |
 
 ### OBS volumes
 
