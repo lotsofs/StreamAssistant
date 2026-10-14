@@ -3,13 +3,13 @@ namespace StreamAssistant2 {
 		const string INNER = "Border: Colorable Inner";
 		const string OUTER = "Border: Colorable Outer";
 		const string TWIN = " (Transitionary)";
-		const string WIDE = "16x9";
+		const string DEFAULT_ASPECT = "16x9";
 		const string INNER_FILE = "Borders_Inner";
 		const string OUTER_FILE = "Borders_Outer";
 
 		/// <summary>
-		/// Points the inner and outer borders, and their fade twins, at the 16x9 images, or the plain ones for a game with
-		/// another aspect; leaves them when those images aren't there. An OBS failure is logged, not thrown.
+		/// Points the inner and outer borders, and their fade twins, at the images for the game's aspect, else the plain
+		/// ones; leaves them when neither pair is there. An OBS failure is logged, not thrown.
 		/// </summary>
 		internal static void Set(Games.Game game) {
 			string directory = Config.Data.Directories.Layout;
@@ -18,7 +18,7 @@ namespace StreamAssistant2 {
 				return;
 			}
 			if (Files(directory, game.Aspect, File.Exists) is not var (inner, outer)) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {(IsWide(game.Aspect) ? WIDE : "plain")} border images for {game.Name}, borders left as is");
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No border images for {game.Name}, borders left as is");
 				return;
 			}
 			try {
@@ -34,24 +34,23 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Whether an aspect gets the 16x9 borders: none given, or 16x9 itself (any case).
-		/// </summary>
-		internal static bool IsWide(string? aspect) {
-			return aspect == null || aspect.Equals(WIDE, StringComparison.OrdinalIgnoreCase);
-		}
-
-		/// <summary>
-		/// The inner and outer border images for the aspect: Borders_Inner_16x9.png and Borders_Outer_16x9.png when it's
-		/// wide, else Borders_Inner.png and Borders_Outer.png; null when the directory isn't set or either is missing.
+		/// The inner and outer border images for the aspect (16x9 without one): Borders_Inner_&lt;aspect&gt;.png and
+		/// Borders_Outer_&lt;aspect&gt;.png when both exist, else Borders_Inner.png and Borders_Outer.png; null when the
+		/// directory isn't set or neither pair exists.
 		/// </summary>
 		internal static (string Inner, string Outer)? Files(string directory, string? aspect, Func<string, bool> exists) {
 			if (string.IsNullOrEmpty(directory)) {
 				return null;
 			}
-			string suffix = IsWide(aspect) ? "_" + WIDE : "";
-			string inner = Path.Combine(directory, INNER_FILE + suffix + ".png");
-			string outer = Path.Combine(directory, OUTER_FILE + suffix + ".png");
-			return exists(inner) && exists(outer) ? (inner, outer) : null;
+			string suffix = "_" + (aspect ?? DEFAULT_ASPECT);
+			foreach (string variant in new[] { suffix, "" }) {
+				string inner = Path.Combine(directory, INNER_FILE + variant + ".png");
+				string outer = Path.Combine(directory, OUTER_FILE + variant + ".png");
+				if (exists(inner) && exists(outer)) {
+					return (inner, outer);
+				}
+			}
+			return null;
 		}
 	}
 }

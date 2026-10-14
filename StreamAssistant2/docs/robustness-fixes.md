@@ -281,25 +281,25 @@ note about it).
 
 ## DSB — Unused `disabled` colour category
 
-`gameschemes.json` and `countryschemes.json` (in `Stream-Resources\Colors\Schemes\`, the Stream-Resources
-repo) each have a `disabled` category. Its black-and-white scheme and all-white split colours are the same
-as `none`'s. Under Streamer.Bot, `disabled` was the default of `currentGame` while the bot's game features
-were off ("Disabling bot stuff for %currentGame%").
+`countryschemes.json` (in `Stream-Resources\Colors\Schemes\`, the Stream-Resources repo) has a `disabled`
+category, with `none`'s black-and-white scheme and all-white split colours; `gameschemes.json`'s is gone
+already. Under Streamer.Bot, `disabled` was the default of `currentGame` while the bot's game features were
+off ("Disabling bot stuff for %currentGame%").
 
-The bot uses only `gameschemes`' `none`: as the `None` game's colour and as the split-colour fallback.
-`disabled` can only be reached by typing it (`!changecolor disabled`). `countryschemes`' own `none` is
-unused too. A lookup without a set name may find either file's `none`, but the colours are the same. Read
-only.
+The bot uses only `gameschemes`' `none`: as the `None` game's colour and as the split-colour fallback, which
+is always read from `gameschemes`. `disabled` can only be reached by typing it (`!changecolor disabled`).
+`countryschemes`' own `none` is unused too; its split colours are all white where `gameschemes`' are not,
+but a lookup without a set name, which may find either `none`, only takes the scheme, and that is the same.
+Read only.
 
 ### Plan
 
-Delete `disabled` from both files, and `none` from `countryschemes.json`, keeping `gameschemes`' `none`.
+Delete `disabled` and `none` from `countryschemes.json`, keeping `gameschemes`' `none`.
 
 **Verify:** F5 logs no new colour-scheme lines, `!changecolor none` still works, and the real-data smoke
 tests pass.
 
-**Docs when done:** delete this section and the TODO row; drop `disabled` from the lists of categories with
-split colours in [color.md](color.md#data-files) and [obs.md § Split colours](obs.md#split-colours).
+**Docs when done:** delete this section and the TODO row.
 
 ---
 
@@ -328,3 +328,74 @@ the split interrupted. Only SWAT4 has `Previous` panels today.
 
 **Docs when done:** delete this section and the TODO row; [obs.md](obs.md#the-panel-file) and
 [obs.md § Split colours](obs.md#split-colours).
+
+---
+
+## RLD — `!reloaddata`: reload the data files without a restart
+
+The data files are read once, at startup: the colour tables and schemes (`Coloring.Load`, which also holds
+the split colours), `games.json` (`Games.Load`) and `leftpanel.json` (`LeftPanel.Load`). An edit to any of
+them takes effect only after a restart, which also drops and remakes every connection and posts the
+disconnect and connect lines in chat. Asked for by the owner (2026-10-14) as `/reloadData`; not built.
+
+It is named `!reloaddata` here because the admin commands are `!` words matched case-sensitively in
+`ChatHandler.CheckForAdminCommands`, all lowercase. A line starting with `/` is taken by Twitch's chat as
+one of its own commands, and an unknown one is refused rather than sent to chat. That is from memory of
+Twitch's chat, not tried here.
+
+Left out on purpose: `paths.json` and `secrets.json` (`Config.Load`), since the connections and directories
+are taken from them at start. Also files already read at each use: backgrounds, border images, train
+images, alert sounds and LiveSplit's text files.
+
+What stands in the way (read, not reproduced):
+
+- **The colour registries are refilled in place.** `ColorSchemeRegistry.LoadSets` and
+  `ColorTableRegistry.LoadTables` `Clear()` their shared dictionaries and fill them again. A colour
+  redemption, `GameColor.Set` or `SplitColors.For` running at the time reads a half-filled `Dictionary`,
+  which can give a wrong answer or throw. Neither catches, either: one broken file throws partway and leaves
+  the registries part-empty. At startup that is `Error PRG1` and a half-started bot; on a reload it would
+  wipe colours that were fine a moment before.
+- **`Games.Load` and `LeftPanel.Load` assign a new dictionary**, so readers are safe and a file that fails to
+  parse keeps the old data. But their missing-file lines (`games.json not found, per-game setup off`,
+  `leftpanel.json not found, left panel off`) would be wrong on a reload, where the old data stays.
+- **A running left-panel rotation keeps what it started with.** `LeftPanel.Start` hands `RunAsync` its
+  `PanelSet` and split colours, so new panels and colours show only from the next `Start`.
+- **The current game's layout isn't redone.** The background, border, captures, volumes and colour stay as
+  they were set until the next game setup. `!changegame` on the current category does nothing
+  (`Category is already …`), and `!changepanel` and `!changecapture` redo only their own parts.
+
+### Decisions
+
+- **Rotation:** restart the current game's rotation from its first panel straight after the reload (unless
+  `!stoppaneltimer` stopped it), or leave it until the next `Start`. Recommended: restart, so a
+  `leftpanel.json` edit can be seen at once.
+- **Game setup:** also run the full game setup for the current category (`Games.Apply(CategoryId)`), or
+  not. It recolours the layout to the game's colour, undoing a viewer's colour redemption. Recommended:
+  not; `!changepanel` and `!changecapture` cover the parts that change most.
+
+### Plan
+
+1. **Colour registries:** build the new dictionaries aside and publish each in one assignment
+   (`_randomPool` with the tables), so a reader sees all the old data or all the new. `Sets` and `Tables`
+   stop being `readonly` fields. Catch per file: a file that fails to read or parse logs
+   `Error CLR1: <file>` and keeps what it held before (nothing, at startup), and the other files still
+   load. The startup load then no longer stops the bot on one broken file.
+2. **`Games.Load` / `LeftPanel.Load`:** on a reload, a missing file keeps the loaded data and says so, in
+   place of the "off" line.
+3. **`!reloaddata`** in `CheckForAdminCommands`: off the IRC read loop through `FireForget.Run`, as
+   `TryChangeCapture` does. It runs the three loaders under one lock, so two quick reloads don't
+   interleave their lines, and then, per the decision, restarts the rotation if one is running and not
+   stopped. The games and panels loaders already log a `Loaded …` line; colours log nothing when all is
+   well, so add one `Loaded <n> colour tables and <n> scheme sets` line.
+
+**Verify:** unit tests in `ColorDataCollection`: a reload over a broken copy of a fixture file keeps that
+file's earlier contents and loads the rest; reload the fixtures in a `finally`. Live: change a panel's
+`Seconds` in `leftpanel.json`, `!reloaddata`, and the rotation restarts with the new length; change a
+scheme and `!changecolor` it; add a stray comma to a scheme file, `!reloaddata` logs `Error CLR1` and
+colours still work. Add these to [live-checks.md](live-checks.md) when built.
+
+**Docs when done:** delete this section and the TODO row; the admin commands in
+[twitch.md](twitch.md#admin-commands) and CLAUDE.md, [color.md § Loading](color.md#loading),
+[obs.md](obs.md) where it says the panel and games files are read at start, `CLR1` and the new log lines in
+[reference.md](reference.md), and [architecture.md](architecture.md) startup order if the colour load stops
+throwing.

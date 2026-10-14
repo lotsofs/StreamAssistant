@@ -348,6 +348,8 @@ namespace StreamAssistant2 {
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChangesImportant, $"Game setup: {game.Name} ({categoryId})");
 			RunStep("background", () => GameBackground.Set(game.Name));
 			RunStep("border", () => GameBorder.Set(game));
+			RunStep("scenes", () => GameScene.Set(game));
+			RunStep("sidebar", () => GameSidebar.SetGame(game.Name));
 			RunStep("colour", () => GameColor.Set(game.Name));
 			RunStep("left panel", () => LeftPanel.Start(game.Name));
 			if (!_games.ContainsKey(categoryId)) {

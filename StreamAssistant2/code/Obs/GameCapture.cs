@@ -10,22 +10,25 @@ namespace StreamAssistant2 {
 		const string GAME_CAPTURE = "Game: Game Capture ";
 		const string WINDOW_CAPTURE = "Game: Window Capture ";
 		const string AUDIO_CAPTURE = "Audio 5: App Capture ";
-		const string SCENE = "!Scene: Games 1920x1080";
 
 		/// <summary>
 		/// Points, shows and sets the volume of a capture slot per game executable; the rest are pointed at none and hidden.
-		/// Logs each shown slot, and the hidden ones together on one line.
+		/// Shown and hidden in every games scene. Logs each shown slot, and the hidden ones together on one line.
 		/// </summary>
 		internal static void Set(Game game) {
 			if (!ObsConnection.IsReady) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "OBS not connected, capture sources not set");
 				return;
 			}
+			List<string> scenes = GameScene.GamesScenes();
+			if (scenes.Count == 0) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "No games scenes in Basic Stream Layout, capture slots not shown or hidden");
+			}
 			List<(string Kind, int Slot)> hidden = new();
 			double? defaultVolume = Games.DefaultVolume;
-			SetKind(GAME_CAPTURE, game.GameCapture, defaultVolume, hidden);
-			SetKind(WINDOW_CAPTURE, game.WindowCapture, defaultVolume, hidden);
-			SetKind(AUDIO_CAPTURE, game.AudioCapture, defaultVolume, hidden);
+			SetKind(GAME_CAPTURE, game.GameCapture, defaultVolume, scenes, hidden);
+			SetKind(WINDOW_CAPTURE, game.WindowCapture, defaultVolume, scenes, hidden);
+			SetKind(AUDIO_CAPTURE, game.AudioCapture, defaultVolume, scenes, hidden);
 			if (hidden.Count > 0) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChangesUnimportant, HiddenLine(hidden));
 			}
@@ -40,9 +43,10 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Sets one kind's slots, adding the hidden ones to the list; a source that can't be set is logged and the rest still go.
+		/// Sets one kind's slots, showing or hiding each in the scenes, adding the hidden ones to the list; a source that can't
+		/// be set is logged and the rest still go.
 		/// </summary>
-		static void SetKind(string prefix, IReadOnlyList<Capture> captures, double? defaultVolume, List<(string Kind, int Slot)> hidden) {
+		static void SetKind(string prefix, IReadOnlyList<Capture> captures, double? defaultVolume, IReadOnlyList<string> scenes, List<(string Kind, int Slot)> hidden) {
 			for (int i = SLOTS; i < captures.Count; i++) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {prefix.Trim()} slot for {captures[i].Executable}, only {SLOTS}");
 			}
@@ -52,7 +56,9 @@ namespace StreamAssistant2 {
 				try {
 					bool used = IsUsed(capture.Executable);
 					Obs.SetInputSetting(source, "window", WindowValue(capture.Executable));
-					Obs.SetSourceEnabled(SCENE, source, used);
+					foreach (string scene in scenes) {
+						Obs.SetSourceEnabled(scene, source, used);
+					}
 					if (!used) {
 						hidden.Add((prefix.Trim(), i));
 						continue;

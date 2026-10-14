@@ -98,8 +98,8 @@ A category can also carry a `SplitColors` map: `None`, `ListGainedAhead`, `ListL
 `ListGainedBehind`, `ListLostBehind`, `ListGold`, `LabelPositive`, `LabelNegative` and `LabelGold`, each a
 hex colour. Only the `gameschemes` set's are used, by the left panel, to colour LiveSplit's split list
 highlights and previous-split differences for the game's category, or `none`'s
-([obs.md](obs.md#split-colours)). The colour commands don't use them. In `gameschemes`, SWAT4, SS2, `none`
-and `disabled` have them.
+([obs.md](obs.md#split-colours)). The colour commands don't use them. In `gameschemes`, SWAT4, SS2 and
+`none` have them.
 
 Rules for the data:
 - **Hex** can be in any case, with or without `#`; it is stored as lowercase `#rrggbb`. A value that

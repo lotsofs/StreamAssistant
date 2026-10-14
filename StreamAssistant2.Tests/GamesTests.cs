@@ -251,6 +251,39 @@ namespace StreamAssistant2.Tests {
 
 	[Collection(GamesStateCollection.Name)]
 	public class GamesTests {
+		static readonly string[] SidebarFiles = ["SWAT4_00.png", "SWAT4_01.png", "SWAT4_02.png", "SWAT4_20.png", "GTA3_01.png", "SWAT4_x.png", "SWAT4.png", "SWAT4_03.jpg",
+			"SWAT4_2_00.png", "SWAT4_2_01.png", "SWAT4_2_05.png", "SWAT4_Border.png"];
+
+		[Theory]
+		[InlineData(-1, "SWAT4_00.png")]
+		[InlineData(0, "SWAT4_01.png")]
+		[InlineData(1, "SWAT4_02.png")]
+		[InlineData(19, "SWAT4_20.png")]
+		[InlineData(20, "SWAT4_20.png")]
+		[InlineData(5, "SWAT4_02.png")]
+		public void SidebarImage_IsTheIndexPlusOne_ElseTheHighestBelow(int index, string expected) {
+			Assert.Equal(expected, GameSidebar.Choose(SidebarFiles, "SWAT4", index));
+		}
+
+		[Fact]
+		public void SidebarImage_NoneAtOrBelow_IsTheLowest_AndAnyCaseMatches() {
+			Assert.Equal("GTA3_01.png", GameSidebar.Choose(SidebarFiles, "gta3", -1));
+		}
+
+		[Theory]
+		[InlineData(-1, "SWAT4_2_00.png")]
+		[InlineData(0, "SWAT4_2_01.png")]
+		[InlineData(4, "SWAT4_2_05.png")]
+		[InlineData(3, "SWAT4_2_01.png")]
+		public void SidebarImage_TheSecondSeries_IsItsOwnNumbering(int index, string expected) {
+			Assert.Equal(expected, GameSidebar.Choose(SidebarFiles, "SWAT4_2", index));
+		}
+
+		[Fact]
+		public void SidebarImage_AGameWithoutImages_IsNull() {
+			Assert.Null(GameSidebar.Choose(SidebarFiles, "KTANE", 3));
+		}
+
 		[Fact]
 		public void GameBackgroundPath_ExistingFile_IsCombinedPath() {
 			string expected = Path.Combine(@"D:\Backgrounds", "KTANE.png");
@@ -274,27 +307,70 @@ namespace StreamAssistant2.Tests {
 		static readonly string Inner169 = Path.Combine(LAYOUT, "Borders_Inner_16x9.png"), Outer169 = Path.Combine(LAYOUT, "Borders_Outer_16x9.png");
 
 		[Theory]
-		[InlineData(null)]
-		[InlineData("16x9")]
-		[InlineData("16X9")]
-		public void BorderFiles_NoAspectOr16x9_The16x9Pair(string? aspect) {
-			Assert.Equal((Inner169, Outer169), GameBorder.Files(LAYOUT, aspect, _ => true));
+		[InlineData(null, "16x9")]
+		[InlineData("16x9", "16x9")]
+		[InlineData("5x4", "5x4")]
+		public void BorderFiles_TheAspectsOwnPair_16x9WithoutOne(string? aspect, string files) {
+			Assert.Equal((Path.Combine(LAYOUT, $"Borders_Inner_{files}.png"), Path.Combine(LAYOUT, $"Borders_Outer_{files}.png")), GameBorder.Files(LAYOUT, aspect, _ => true));
 		}
 
 		[Theory]
-		[InlineData("5x4")]
 		[InlineData("4x3")]
-		public void BorderFiles_AnyOtherAspect_ThePlainPair(string aspect) {
-			Assert.Equal((Inner, Outer), GameBorder.Files(LAYOUT, aspect, _ => true));
+		[InlineData(null)]
+		public void BorderFiles_AnAspectWithoutBothOfItsOwn_ThePlainPair(string? aspect) {
+			Assert.Equal((Inner, Outer), GameBorder.Files(LAYOUT, aspect, p => p == Inner || p == Outer || p == Inner169));
 		}
 
 		[Fact]
-		public void BorderFiles_AMissingImage_OrNoDirectory_IsNull() {
-			Assert.Null(GameBorder.Files(LAYOUT, null, p => p != Outer169));
-			Assert.Null(GameBorder.Files(LAYOUT, "5x4", p => p != Inner));
+		public void BorderFiles_NeitherPair_OrNoDirectory_IsNull() {
+			Assert.Null(GameBorder.Files(LAYOUT, null, p => p != Outer169 && p != Outer));
 			bool checkedFile = false;
 			Assert.Null(GameBorder.Files("", null, _ => checkedFile = true));
 			Assert.False(checkedFile);
+		}
+
+		static readonly string[] StreamItems = ["!Scene: Layout 16x9", "!Audio: Basics", "!Scene: Games 16x9", "!Scene: Games 5x4", "!Scene: Layout 5x4"];
+
+		[Fact]
+		public void NamedScenes_AreTheItemsWithThatPrefix() {
+			Assert.Equal(["!Scene: Games 16x9", "!Scene: Games 5x4"], GameScene.Named(StreamItems, GameScene.GAMES));
+			Assert.Equal(["!Scene: Layout 16x9", "!Scene: Layout 5x4"], GameScene.Named(StreamItems, GameScene.LAYOUTS));
+		}
+
+		[Theory]
+		[InlineData(null, "!Scene: Games 16x9", "!Scene: Games 5x4")]
+		[InlineData("16X9", "!Scene: Games 16x9", "!Scene: Games 5x4")]
+		[InlineData("5x4", "!Scene: Games 5x4", "!Scene: Games 16x9")]
+		public void ChooseScene_TheAspectsScene_The16x9OneWithout_AndHidesTheRest(string? aspect, string show, string hide) {
+			var (shown, hidden) = GameScene.Choose(GameScene.Named(StreamItems, GameScene.GAMES), GameScene.GAMES, aspect)!.Value;
+			Assert.Equal(show, shown);
+			Assert.Equal([hide], hidden);
+		}
+
+		[Fact]
+		public void ChooseScene_NoSceneForTheAspect_IsNull() {
+			Assert.Null(GameScene.Choose(GameScene.Named(StreamItems, GameScene.LAYOUTS), GameScene.LAYOUTS, "4x3"));
+			Assert.Null(GameScene.Choose([], GameScene.GAMES, null));
+		}
+
+		[Fact]
+		public void LayoutColourFilters_BordersAndAttachmentsTakeInnerAndOuter_TheSceneTheText() {
+			LayoutColoring.ColorRequest req = new("#ff0000", "#00ff00", "#0000ff");
+			long inner = ColorUtil.ToOBS("#ff0000"), outer = ColorUtil.ToOBS("#00ff00"), text = ColorUtil.ToOBS("#0000ff");
+			Assert.Equal([
+				("Border: Colorable Inner (Transitionary)", "color_multiply", inner),
+				("Border: Colorable Inner Attachment (Transitionary)", "color_multiply", inner),
+				("Border: Colorable Outer (Transitionary)", "color_add", outer),
+				("Border: Colorable Outer Attachment (Transitionary)", "color_add", outer),
+				("!Scene: All Colorable (Transitionary)", "color_multiply", text),
+			], LayoutColoring.Filters(req, twins: true));
+			Assert.Equal(["Border: Colorable Inner", "Border: Colorable Inner Attachment", "Border: Colorable Outer", "Border: Colorable Outer Attachment", "!Scene: All Colorable"],
+				LayoutColoring.Filters(req, twins: false).Select(f => f.Source));
+		}
+
+		[Fact]
+		public void LayoutScenes_AreTheScenesNamedLayoutAndAnAspect() {
+			Assert.Equal(["!Scene: Layout 5x4", "!Scene: Layout 16x9"], LayoutColoring.LayoutScenes(["Basic Stream Layout", "!Scene: Layout 5x4", "!Scene: Layout 16x9", "!Scene: Layout"]));
 		}
 
 		[Fact]

@@ -15,7 +15,8 @@ Read from the code. The connection and animation were not run against a live OBS
   `secrets.json`.
 - `Connect()` is idempotent. It hooks `Connected` and `Disconnected` (which log `Connected to OBS` and
   `Lost connection to OBS: <reason>`) and `StreamStateChanged`, and starts `Loop`. `Connected` also restarts
-  the left-panel rotation ([Left panel](#the-rotation)).
+  the left-panel rotation ([Left panel](#the-rotation)) and sets the dynamic sidebar again
+  ([Per-game setup](#per-game-setup)).
 - `OnStreamStateChanged` logs `OBS started streaming` and `OBS stopped streaming` (the in-between
   states are ignored). On start it resets the chatter list (`ChatterList.Reset`, see
   [twitch.md](twitch.md#chatterlist)), starts the go-live game setup
@@ -67,15 +68,21 @@ The rest of `Obs.cs` is a large commented-out block from the Streamer.Bot era. S
 [LayoutColoring.cs](../LayoutColoring.cs). The channel's layout has three colourable parts, recoloured
 through OBS's *Color Correction* filter (called `Color Correction` on every source):
 
-| Part | Source | Filter property |
-|---|---|---|
-| inner borders | `Border: Colorable Inner` | `color_multiply` |
-| outer borders | `Border: Colorable Outer` | `color_add` |
-| text and body | `!Scene: All Colorable` | `color_multiply` |
+| Part | Sources | Filter property | Colour |
+|---|---|---|---|
+| inner borders | `Border: Colorable Inner`, `Border: Colorable Inner Attachment` | `color_multiply` | inner |
+| outer borders | `Border: Colorable Outer`, `Border: Colorable Outer Attachment` | `color_add` | outer |
+| text and body | `!Scene: All Colorable` | `color_multiply` | text |
 
-Each has a twin whose name ends in ` (Transitionary)`, and the twins sit in a duplicate group, `!Layout:
-Colorables (Transitionary)`, beside the real group `!Layout: Colorables`, both inside the scene
-`!Scene: Layout`.
+The attachments are the frame's piece on the left. `!Scene: Layout 5x4` shifts the rest of the layout right
+to make room for it.
+
+Each source has a twin whose name ends in ` (Transitionary)`, and the twins sit in a duplicate group,
+`!Layout: Colorables (Transitionary)`, beside the real group `!Layout: Colorables`. Both groups are items of
+every layout scene, `!Scene: Layout <aspect>` (`16x9` and `5x4`), and the animation shows and hides them in
+each. It finds those scenes by name in OBS's scene list (`LayoutScenes`, tested). The old single
+`!Scene: Layout` is gone. While its name was still in the code, every colour change failed with
+`Error Obs29` (`No source was found by the name of !Scene: Layout`, seen 2026-10-14).
 
 ### Requests are queued
 
@@ -88,8 +95,13 @@ Recolouring takes about nine seconds and must not overlap itself, so requests ne
   `Changing to color <name> [<source>]: <hex> <hex> <hex>` to chat. The announcement therefore
   precedes the visible change by the length of the queue ahead of it.
 - One worker, started by `StartWorker()` at boot, reads the channel with `ReadAllAsync` and runs
-  `ChangeColorAsync` for each request. Exceptions are caught per request: `Error Obs29`, then the
-  exception and its message.
+  `ChangeColorAsync` for each request.
+  - A source that can't be coloured logs `Couldn't colour <source>: <message>`. A group that can't be shown
+    or hidden in a layout scene logs `Couldn't show|hide <group> in <scene>: <message>`. Either way the rest
+    of the change still runs.
+  - With no layout scenes at all (and OBS connected), it logs
+    `No !Scene: Layout <aspect> scenes, layout colour changes without the fade`.
+  - Anything else thrown is caught per request: `Error Obs29`, then the exception and its message.
 
 Never call `ChangeColorAsync` directly. Starting the worker twice is refused with a log line.
 
@@ -100,9 +112,9 @@ colour filters take) and then:
 
 | t | Step |
 |---|---|
-| 0 s | Set the three **Transitionary** filters to the new colours. Enable `Colorables (Transitionary)` |
+| 0 s | Set the **Transitionary** filters to the new colours (`Filters`, tested). Enable `Colorables (Transitionary)` in each layout scene |
 | +5.5 s | Disable the real `Colorables` group |
-| +2.5 s | Set the three **real** filters to the new colours (the group is hidden, so nothing shows) |
+| +2.5 s | Set the **real** filters to the new colours (the group is hidden, so nothing shows) |
 | +1.0 s | Enable the real `Colorables` group; disable the transitionary one |
 
 The cross-fade itself is done by OBS's show and hide transitions on those scene items, configured in
@@ -132,11 +144,11 @@ blocking OBS calls run on the thread pool, not on the IRC or EventSub read loop 
 
 `Games.Apply`, on bot start, a category change, or when OBS starts streaming
 ([events.md](events.md#category-change-and-going-live)), runs on the thread pool, not on a read loop,
-and sets up the game's background, borders, colour, left panel ([Left panel](#left-panel)) and capture
-sources from its `games.json` entry. Each step
+and sets up the game's background, borders, layout and games scenes, sidebar, colour, left panel
+([Left panel](#left-panel)) and capture sources from its `games.json` entry. Each step
 runs through `Games.RunStep`, so one that throws logs `Error GMS2: game setup <step> failed: …` and the
-later steps still run (tested). The background, border and capture steps also catch OBS rejections
-themselves, with a clearer `Couldn't set …: …` warning.
+later steps still run (tested). The background, border, scene and capture steps also catch OBS
+rejections themselves, with a clearer `Couldn't set …: …` warning.
 
 - **Background**, [GameBackground.cs](../code/Obs/GameBackground.cs): `Set` points the `Image: Background`
   input at `<Directories.Backgrounds>\<game name>.png` with `Obs.SetImageSource` and logs
@@ -146,20 +158,57 @@ themselves, with a clearer `Couldn't set …: …` warning.
   rejects the request (the source is missing or renamed), it logs `Couldn't set Image: Background: <message>`
   and the colour and capture steps still run.
 - **Borders**, [GameBorder.cs](../code/Obs/GameBorder.cs): the layout's borders frame the game, so their
-  shape follows the game's aspect ratio. 16:9 is the default.
-  - A game with no `Aspect` in `games.json`, or `"16x9"` (any case), gets
-    `<Directories.Layout>\Borders_Inner_16x9.png` and `Borders_Outer_16x9.png`. So does a category not in
-    `games.json`.
-  - Any other `Aspect` gets the plain `Borders_Inner.png` and `Borders_Outer.png`. SWAT4 has `"5x4"`, and
-    the plain images are its frame.
+  shape follows the game's aspect ratio, `Aspect` in `games.json`. 16:9 is the default, for a game without
+  one and for a category not in `games.json`.
+  - The aspect's own pair is `<Directories.Layout>\Borders_Inner_<aspect>.png` and
+    `Borders_Outer_<aspect>.png`. Only `16x9` has a pair.
+  - An aspect without both of its own images gets the plain `Borders_Inner.png` and `Borders_Outer.png`.
+    So does SWAT4's `5x4`, whose layout scene adds the attachments on the left
+    ([Layout recolouring](#layout-recolouring)).
+  - The attachments' images aren't changed per game.
   - `Set` points `Border: Colorable Inner` and `Border: Colorable Outer` at them, and their
     `(Transitionary)` twins too, so the colour animation fades between frames of the same shape. It logs
     `Borders → <inner file>, <outer file>`.
-  - If either image is missing it logs `No 16x9 border images for <name>, borders left as is` (or
-    `plain`), and with no `Layout` in `paths.json`, `Layout not set in paths.json, borders left as is`.
+  - With no plain pair either it logs `No border images for <name>, borders left as is`, and with no
+    `Layout` in `paths.json`, `Layout not set in paths.json, borders left as is`.
   - An OBS rejection logs `Couldn't set the borders: <message>`, and the later steps still run.
-  - It runs before the colour step, which recolours these same four sources (`IsWide` and `Files`,
-    tested).
+  - It runs before the colour step, which recolours these same four sources (`Files`, tested).
+- **Scenes**, [GameScene.cs](../code/Obs/GameScene.cs): the layout and the game capture each come in a scene
+  per aspect. The layouts are `!Scene: Layout 16x9` and `!Scene: Layout 5x4`. The captures are
+  `!Scene: Games 16x9` and `!Scene: Games 5x4`, which hold the same capture sources, framed for that shape.
+  `Basic Stream Layout` holds them as top-level items.
+  - `Set` lists `Basic Stream Layout`'s items. For each kind, it takes those named `!Scene: Layout <aspect>`
+    or `!Scene: Games <aspect>` (`Named`).
+  - It shows the one for the game's `Aspect`, `16x9` without one (any case), hides the others of that kind
+    there, and logs `Basic Stream Layout → <scene>`.
+  - A kind with no scene for the aspect logs `No <kind prefix><aspect> in Basic Stream Layout, left as is`.
+  - With OBS not ready it logs `OBS not connected, layout and games scenes not set`.
+  - `Choose` is tested.
+  - Only `Basic Stream Layout` is changed. A few other scenes hold their own `!Scene: Games 16x9`, and those
+    stay as they are.
+- **Sidebar**, [GameSidebar.cs](../code/Obs/GameSidebar.cs): `!Scene: Layout 5x4` holds `!Scene: Sidebar 5x4`,
+  the strip left of the 5:4 game. In it, `Sidebar: Dynamic 1` and `Sidebar: Dynamic 2` follow LiveSplit's split
+  index, each with its own series of images in `<Directories.Sidebar>\Dynamic\`:
+
+  | Source | Images |
+  |---|---|
+  | `Sidebar: Dynamic 1` | `<game name>_<n>.png` |
+  | `Sidebar: Dynamic 2` | `<game name>_2_<n>.png` |
+
+  - n is the split index + 1. So `_00` shows before a run (index −1), `_01` for the first split, and so on.
+    SWAT4 has `_00` to `_20` in both series, one per mission. A name whose part after the series isn't all
+    digits (`SWAT4_Border.png`) belongs to neither.
+  - A missing number takes the highest one below it. So after a run ends (the index is the split count),
+    the last mission's images stay up. With nothing below, it takes the lowest.
+  - `SetGame` makes the game the one followed and shows its images for the current index. The split watcher
+    calls `OnIndexChanged` on every change of the index: splits, skips, undos, resets and starts. So does an
+    OBS connect, off the connecting thread (`Error SDB1` if that throws), since OBS may have missed changes
+    while closed.
+  - Each change logs `<source> → <file>` (`SceneChangesUnimportant`). An unchanged image isn't set again.
+  - A game without images in a series, or OBS not ready, leaves that source as it is, without a log line.
+    An OBS rejection logs `Couldn't set <source>: <message>`, and the other source is still set.
+  - `Choose` is tested.
+  - `Sidebar: Fixed`, the static part of the strip, isn't changed per game.
 - **Colour**, [GameColor.cs](../code/Obs/GameColor.cs): `Set` requests `gameschemes <game name>` through
   `LayoutColoring.TryChangeToSingle`, the reward's path: the game's category in the `gameschemes` scheme
   set, at its `Default` scheme. It is queued like any colour change (the animation runs later on the
@@ -180,8 +229,11 @@ themselves, with a clearer `Couldn't set …: …` warning.
   explicit `"none"` entry. Entries beyond three are logged and dropped. Each source's `window` setting is
   set to `PLACEHOLDER-TITLE:PLACEHOLDER-CLASS:<exe>` (OBS's `title:class:executable` form; the title and
   class are deliberately fake, so each source must match by executable, which is set in OBS, as is a
-  game capture source's capture mode). A used slot is then shown (eye on) in `!Scene: Games 1920x1080`, an
-  unused one hidden there. A shown slot also gets its volume, in dB: the slot's own, else `games.json`'s
+  game capture source's capture mode). A used slot is then shown (eye on) in every games scene in
+  `Basic Stream Layout` (both `!Scene: Games 16x9` and `5x4`, so a later aspect change finds them right), an
+  unused one hidden there. With no games scenes there it logs
+  `No games scenes in Basic Stream Layout, capture slots not shown or hidden` and still points the slots
+  and sets their volumes. A shown slot also gets its volume, in dB: the slot's own, else `games.json`'s
   `default` volume, clamped to OBS's −100 to 26; with neither, the volume is left alone. Hidden slots keep
   theirs. Each shown slot logs `<source> → <exe>, shown, <dB> dB` (no dB part if none was set); the
   hidden ones share one line,
@@ -462,8 +514,9 @@ rotation starts with nothing remembered.
   the previous-split texts read (`PreviousSplit\AllSplits\…`).
 - On every change it reads the index, retrying for about 100 ms while LiveSplit holds the file. A read that
   fails or isn't a number is ignored, so a half-written file doesn't count.
-- It compares the index with the last one read. A rise of exactly one, to 1 or more, is a split or a skip.
-  Starting a run (-1 → 0), a reset, an undo or a repeat are neither.
+- It compares the index with the last one read. Any change is passed on to the sidebar
+  ([Per-game setup](#per-game-setup)), and `CurrentIndex` holds the last one read. A rise of exactly one, to 1
+  or more, is a split or a skip. Starting a run (-1 → 0), a reset, an undo or a repeat are neither.
 - **A skip is told apart by the previous split's time.** Your component (`LiveSplit.OutputToFile`) writes
   `PreviousSplit\AllSplits\RealTime\RunTime.txt` after `Index.txt`, as the previous split's live real-time
   time. A split always has one. A skipped split has none, and the component writes that as `-`.
@@ -498,7 +551,7 @@ Streamer.Bot's "Change Split Colors" action.
 **Which colours.** `Start` takes the game's category's `SplitColors` (the name `Start` was given, so
 `!changepanel SWAT4` gets SWAT4's although its panels are `Run_NoSubsplits`'s). These are laid over the
 `none` category's, so a key the game leaves out comes from `none`. A game with no category, or one without
-`SplitColors`, gets `none`'s alone. Only SWAT4, SS2, `none` and `disabled` have any. With neither, nothing
+`SplitColors`, gets `none`'s alone. Only SWAT4, SS2 and `none` have any. With neither, nothing
 is coloured. `Resolve` is tested.
 
 **The split list highlights**, on the first step with OBS ready. That is every rotation start: game setup,

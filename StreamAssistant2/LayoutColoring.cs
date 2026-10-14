@@ -4,6 +4,11 @@ namespace StreamAssistant2 {
 	internal static class LayoutColoring {
 		public record ColorRequest(string Inner, string Outer, string Text);
 
+		const string FILTER = "Color Correction";
+		const string LAYOUT_PREFIX = "!Scene: Layout ";
+		const string COLORABLES = "!Layout: Colorables";
+		const string TWIN = " (Transitionary)";
+
 		static readonly Channel<ColorRequest> _colorChangeQueue = Channel.CreateUnbounded<ColorRequest>();
 
 		static bool _running = false;
@@ -72,26 +77,81 @@ namespace StreamAssistant2 {
 			}
 		}
 
+		/// <summary>
+		/// Fades the layout to the new colours: colours the fade twins and shows their group over the real one in every
+		/// layout scene, hides the real group, colours it, then shows it again and hides the twins. A source or scene
+		/// that can't be set is logged and the rest still go.
+		/// </summary>
 		static async Task ChangeColorAsync(ColorRequest req) {
-			string filterName = "Color Correction";
-			long colInner = ColorUtil.ToOBS(req.Inner);
-			long colOuter = ColorUtil.ToOBS(req.Outer);
-			long colText = ColorUtil.ToOBS(req.Text);
-			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"Changing layout color to {colInner} {colOuter} {colText}");
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"Changing layout color to {ColorUtil.ToOBS(req.Inner)} {ColorUtil.ToOBS(req.Outer)} {ColorUtil.ToOBS(req.Text)}");
+			List<string> layouts = LayoutScenes(Obs.GetSceneNames());
+			if (layouts.Count == 0 && ObsConnection.IsConnected()) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {LAYOUT_PREFIX}<aspect> scenes, layout colour changes without the fade");
+			}
 
-			Obs.SetFilterProperty("Border: Colorable Inner (Transitionary)", filterName, "color_multiply", colInner);
-			Obs.SetFilterProperty("Border: Colorable Outer (Transitionary)", filterName, "color_add", colOuter);
-			Obs.SetFilterProperty("!Scene: All Colorable (Transitionary)", filterName, "color_multiply", colText);
-			Obs.SetSourceEnabled("!Scene: Layout", "!Layout: Colorables (Transitionary)", true);
+			SetFilters(Filters(req, twins: true));
+			Toggle(layouts, COLORABLES + TWIN, true);
 			await Task.Delay(5500);
-			Obs.SetSourceEnabled("!Scene: Layout", "!Layout: Colorables", false);
+			Toggle(layouts, COLORABLES, false);
 			await Task.Delay(2500);
-			Obs.SetFilterProperty("Border: Colorable Inner", filterName, "color_multiply", colInner);
-			Obs.SetFilterProperty("Border: Colorable Outer", filterName, "color_add", colOuter);
-			Obs.SetFilterProperty("!Scene: All Colorable", filterName, "color_multiply", colText);
+			SetFilters(Filters(req, twins: false));
 			await Task.Delay(1000);
-			Obs.SetSourceEnabled("!Scene: Layout", "!Layout: Colorables", true);
-			Obs.SetSourceEnabled("!Scene: Layout", "!Layout: Colorables (Transitionary)", false);
+			Toggle(layouts, COLORABLES, true);
+			Toggle(layouts, COLORABLES + TWIN, false);
+		}
+
+		/// <summary>
+		/// The colour filter settings for the colourable sources, or for their fade twins: the inner border and its
+		/// attachment multiply by the inner colour, the outer ones add the outer colour, and the colourable scene
+		/// multiplies by the text colour.
+		/// </summary>
+		internal static List<(string Source, string Property, long Color)> Filters(ColorRequest req, bool twins) {
+			string twin = twins ? TWIN : "";
+			long inner = ColorUtil.ToOBS(req.Inner);
+			long outer = ColorUtil.ToOBS(req.Outer);
+			long text = ColorUtil.ToOBS(req.Text);
+			return [
+				($"Border: Colorable Inner{twin}", "color_multiply", inner),
+				($"Border: Colorable Inner Attachment{twin}", "color_multiply", inner),
+				($"Border: Colorable Outer{twin}", "color_add", outer),
+				($"Border: Colorable Outer Attachment{twin}", "color_add", outer),
+				($"!Scene: All Colorable{twin}", "color_multiply", text),
+			];
+		}
+
+		/// <summary>
+		/// The layout scenes among the scene names: those named "!Scene: Layout &lt;aspect&gt;".
+		/// </summary>
+		internal static List<string> LayoutScenes(IEnumerable<string> scenes) {
+			return scenes.Where(scene => scene.StartsWith(LAYOUT_PREFIX, StringComparison.Ordinal)).ToList();
+		}
+
+		/// <summary>
+		/// Sets each colour on its source's colour filter, logging any that fails.
+		/// </summary>
+		static void SetFilters(List<(string Source, string Property, long Color)> filters) {
+			foreach (var (source, property, color) in filters) {
+				try {
+					Obs.SetFilterProperty(source, FILTER, property, color);
+				}
+				catch (Exception ex) {
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Couldn't colour {source}: {ex.Message}");
+				}
+			}
+		}
+
+		/// <summary>
+		/// Shows or hides an item in each layout scene, logging any that fails.
+		/// </summary>
+		static void Toggle(List<string> layouts, string item, bool on) {
+			foreach (string layout in layouts) {
+				try {
+					Obs.SetSourceEnabled(layout, item, on);
+				}
+				catch (Exception ex) {
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Couldn't {(on ? "show" : "hide")} {item} in {layout}: {ex.Message}");
+				}
+			}
 		}
 	}
 }

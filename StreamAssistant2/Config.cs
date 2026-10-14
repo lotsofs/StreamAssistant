@@ -61,6 +61,7 @@ namespace StreamAssistant2 {
 		public string Backgrounds { get; set; } = "";
 		public string LivesplitGenerated { get; set; } = "";
 		public string Layout { get; set; } = "";
+		public string Sidebar { get; set; } = "";
 	}
 
 	public class ObsSocketConfig {

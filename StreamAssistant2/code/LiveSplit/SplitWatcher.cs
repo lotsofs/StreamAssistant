@@ -14,6 +14,13 @@ namespace StreamAssistant2 {
 		static string _previousSign = "";
 
 		/// <summary>
+		/// The split index last read from LiveSplit's file; null before the watcher has read one.
+		/// </summary>
+		internal static int? CurrentIndex {
+			get { lock (_lock) return _last; }
+		}
+
+		/// <summary>
 		/// Watches LiveSplit's split index under LivesplitGenerated and passes each split on to the left panel; logs and
 		/// stays off when the folder isn't set or doesn't exist.
 		/// </summary>
@@ -55,12 +62,13 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// On a change to the index file: when the index moved on by one, has the split checked for a skip off this thread.
-		/// A read that fails or isn't a number is ignored.
+		/// On a change to the index file: passes a new index on to the sidebar, and when the index moved on by one, has the
+		/// split checked for a skip off this thread. A read that fails or isn't a number is ignored.
 		/// </summary>
 		static void OnChanged(string path) {
 			try {
 				bool split;
+				bool moved;
 				DateTime indexWritten = default;
 				lock (_lock) {
 					int? now = Read(path);
@@ -68,10 +76,14 @@ namespace StreamAssistant2 {
 						return;
 					}
 					split = IsSplit(_last, now.Value);
+					moved = now != _last;
 					_last = now;
 					if (split) {
 						indexWritten = File.GetLastWriteTimeUtc(path);
 					}
+				}
+				if (moved) {
+					GameSidebar.OnIndexChanged();
 				}
 				if (split) {
 					FireForget.Run("LSW4", "split check", () => CheckSplitAsync(indexWritten));

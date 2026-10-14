@@ -41,15 +41,16 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `SUB1` | `Subscriptions.HandleCommunitySubGiftNotif` | The gift-bomb announcement threw (the only handler with its own catch) | no announcement |
 | `SUB2` | `FireForget.Run` (from `Subscriptions.HandleSubGiftNotif`) | The check for bomb recipients whose bomb never arrived threw | those recipients go unreported |
 | `CP1` | `ChannelPoints.CloseRedemption` | Helix refused to fulfil or cancel a train or colour redemption (often a 403; see [color.md](color.md)) | redemption left open |
-| `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | An OBS call threw during a colour change; the message is logged next | worker moves to the next request |
+| `Obs29` | `LayoutColoring.ProcessColorChangeQueueAsync` | Something threw during a colour change outside the per-source and per-scene handling (each failed filter or group logs `Couldn't colour …` / `Couldn't show|hide …` and the change goes on); the message is logged next | worker moves to the next request |
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
 | `GMS_cap` | `FireForget.Run` (from `Games.TryChangeCapture`) | `!changecapture` threw outside `RunStep`'s own catch | the capture sources aren't changed |
-| `GMS2` | `Games.RunStep` (from `Games.Apply`, and `!changecapture`) | One game setup step (background, border, colour, left panel or capture sources) threw; the message names the step | that step skipped, the later ones still run |
+| `GMS2` | `Games.RunStep` (from `Games.Apply`, and `!changecapture`) | One game setup step (background, border, scenes, sidebar, colour, left panel or capture sources) threw; the message names the step | that step skipped, the later ones still run |
 | `GMS1` | `Games.Load` | `games.json` couldn't be read or parsed | no games loaded; every category resolves to `None` and leaves the capture sources alone |
 | `LPN1` | `LeftPanel.Load` | `leftpanel.json` couldn't be read or parsed | no left panels loaded |
 | `LPN2` | `LeftPanel.RunAsync` | One OBS call of the left-panel rotation threw (listing a scene, hiding the reference item, setting a text or file, colouring a split filter, showing or hiding a group); the message says which | the rest of that step still runs |
 | `LPN3` | `FireForget.Run` (from `LeftPanel.Start`) | The rotation threw outside its own handling | that rotation stops until the next `Start` |
 | `LPN4` | `LeftPanel.OnObsConnected` (from `ObsConnection`'s `Connected` handler) | Restarting the rotation on an OBS connect threw | the rotation isn't restarted; leftovers from before the connect may stay up |
+| `SDB1` | `FireForget.Run` (from `GameSidebar.OnObsConnected`) | Setting the dynamic sidebar again after an OBS connect threw | the sidebar keeps what OBS had until the next index change or game setup |
 | `LSW1` | `SplitWatcher.OnChanged` | Handling a change to LiveSplit's split index threw | that change is missed; the next one is read as usual |
 | `LSW2` | `SplitWatcher` (the watcher's `Error` event) | The `FileSystemWatcher` failed, e.g. its buffer overflowed; the message is logged | events may be missed |
 | `LSW3` | `SplitWatcher.Start` | Starting the watcher threw | no previous-split panel this run |
@@ -120,8 +121,9 @@ Single-user software, so these are constants in code rather than settings.
 | `D:\Repositories\Stream-Resources\Alert Sounds\`, the only path not in `paths.json` | `Sound` |
 | Drive `A:\` (falls back to the first drive) | `DiskSpace` |
 | `Template.png` in `Backgrounds`, the background for a game without its own | `GameBackground` |
-| `Borders_Inner_16x9.png` and `Borders_Outer_16x9.png` in `Layout`, the default borders; `Borders_Inner.png` and `Borders_Outer.png` there for a game whose `Aspect` isn't `16x9` | `GameBorder` |
-| `16x9`, the aspect a game has without an `Aspect` in `games.json` | `GameBorder` |
+| `Dynamic\<game>_<n>.png` and `Dynamic\<game>_2_<n>.png` in `Sidebar`, n the split index + 1 (`_00` before a run) | `GameSidebar` |
+| `Borders_Inner_<aspect>.png` and `Borders_Outer_<aspect>.png` in `Layout` (only `16x9` has them), else `Borders_Inner.png` and `Borders_Outer.png` there | `GameBorder` |
+| `16x9`, the aspect a game has without an `Aspect` in `games.json` | `GameBorder`, `GameScene` |
 | `games.json` and `leftpanel.json` in `BotInput` | `Games`, `LeftPanel` |
 | `CurrentSplit\AllSplits\Index.txt`, and `RunTime.txt` and `Sign.txt` in `PreviousSplit\AllSplits\RealTime\`, in `LivesplitGenerated` | `SplitWatcher` |
 | a `PreviousSplit\<level>\RealTime\Sign.txt`, named by an entry's `Sign` in `leftpanel.json` | `LeftPanel` |
@@ -147,20 +149,23 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 
 | Name | Used in | Role |
 |---|---|---|
-| `!Scene: Layout` | `LayoutColoring` | scene holding both colour groups |
+| `!Scene: Layout 16x9`, `!Scene: Layout 5x4` (any scene named `!Scene: Layout <aspect>`) | `LayoutColoring`, `GameScene` | the layout per aspect, each holding both colour groups; the colour fade shows and hides the groups in all of them, and the game's aspect's one is shown in `Basic Stream Layout` |
 | `!Layout: Colorables`, `!Layout: Colorables (Transitionary)` | `LayoutColoring` | the real group and its fade twin |
 | `Border: Colorable Inner`, `Border: Colorable Outer`, `!Scene: All Colorable` | `LayoutColoring` | the three sources recoloured; the two borders' image (`file`) is also set per game by `GameBorder` |
 | the same three with ` (Transitionary)` appended | `LayoutColoring`, `GameBorder` | their twins; `GameBorder` sets the two borders' image the same as the real ones |
+| `Border: Colorable Inner Attachment`, `Border: Colorable Outer Attachment`, and their ` (Transitionary)` twins | `LayoutColoring` | the frame's piece on the left, recoloured like the inner and outer borders |
 | `Color Correction` | `LayoutColoring` | filter on every one of them; properties `color_multiply`, `color_add` |
 | `!Scene: Basics Colored` | `ChannelPoints` | scene of the train image |
 | `Image: Train` | `ChannelPoints` | the train image input |
 | `Image: Background` | `GameBackground` | the per-game background image input |
+| `Sidebar: Dynamic 1`, `Sidebar: Dynamic 2` | `GameSidebar` | the images in `!Scene: Sidebar 5x4` (inside `!Scene: Layout 5x4`) that follow the split index, each from its own series, setting `file` |
 | `Text: Stream Uptime` | `TwitchUptime` | the uptime text, `U: <h>h <mm>m`, `U: Offline` or `U: ?`, setting `text` |
 | `Text: Time Of Day` | `Clock` | the clock text, `yyyy-MM-dd HH:mm`, setting `text` |
 | `Game: Game Capture 0`–`2` | `GameCapture` | game capture sources, retargeted per game |
 | `Game: Window Capture 0`–`2` | `GameCapture` | window capture sources, retargeted per game |
 | `Audio 5: App Capture 0`–`2` | `GameCapture` | application audio capture, fallback, retargeted per game |
-| `!Scene: Games 1920x1080` | `GameCapture` | scene holding those nine capture sources; unused ones are hidden in it |
+| `!Scene: Games 16x9`, `!Scene: Games 5x4` (any `!Scene: Games <aspect>` item of `Basic Stream Layout`) | `GameCapture`, `GameScene` | scenes holding those nine capture sources, framed per aspect; unused ones are hidden in each |
+| `Basic Stream Layout` | `GameScene`, `GameCapture` | the stream scene whose `!Scene: Layout <aspect>` and `!Scene: Games <aspect>` items are found by name; of each kind, the game's aspect's one is shown and the others hidden |
 | `!Scene: Left Panel`, `!Scene: Left Panel Colored` | `LeftPanel` | the two scenes whose top-level groups the rotation shows and hides: `_LP: <name>` in `!Scene: Left Panel`, `_LPC: <name>` in the coloured one; `<name> <n>` groups are copies of `<name>` |
 | `!Scene: Left Panel` as an item in `!Scene: Left Panel Colored` | `LeftPanel` | a reference copy for editing; hidden when a rotation starts |
 | the text sources named in `leftpanel.json` (`Livesplit: …`) | `LeftPanel` | settings `text` and `file` |

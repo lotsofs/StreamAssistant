@@ -166,13 +166,20 @@ wrappers; the rest of the file is commented out ([obs.md](obs.md#the-wrapper)).
 [Games.cs](../code/Obs/Games.cs): loads `<BotInput>\games.json` (Twitch category id → game name and
 game, window and audio capture executables) and resolves a category to its game, falling back to id `0`. `HandleUpdate` takes
 `channel.update` and calls `Apply`, the per-game setup, when the category changes;
-`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, borders, colour, left panel and capture sources; the capture sources only for a category in `games.json`.
+`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, borders, layout and games scenes, sidebar, colour, left panel and capture sources; the capture sources only for a category in `games.json`.
 
 [GameBackground.cs](../code/Obs/GameBackground.cs): `Set(gameName)` points `Image: Background` at the
 game's PNG in `Directories.Backgrounds`, else `Template.png` there, or logs and leaves it when neither exists.
 [GameBorder.cs](../code/Obs/GameBorder.cs): `Set(game)` points the inner and outer `Border: Colorable` sources,
-and their fade twins, at the 16x9 border images in `Directories.Layout`, or the plain ones for a game whose
-`Aspect` is something else.
+and their fade twins, at the border images for the game's `Aspect` (16x9 by default) in `Directories.Layout`,
+or the plain ones when that aspect has none of its own.
+[GameScene.cs](../code/Obs/GameScene.cs): `Set(game)` shows the `!Scene: Layout <aspect>` and
+`!Scene: Games <aspect>` items of `Basic Stream Layout` for the game's aspect (16x9 by default) and hides the
+others of each kind there; `GamesScenes()` lists the games scenes for `GameCapture`, which shows and hides
+its slots in each.
+[GameSidebar.cs](../code/Obs/GameSidebar.cs): `SetGame(name)` makes the game the one whose
+`Sidebar: Dynamic 1` and `2` images follow LiveSplit's split index; `OnIndexChanged`, from `SplitWatcher`, and
+`OnObsConnected`, from `ObsConnection`, show the image for the current index.
 [GameColor.cs](../code/Obs/GameColor.cs): `Set(gameName)` queues the game's `gameschemes` colour scheme
 through `LayoutColoring`, or logs and leaves the colour when there is none.
 [GameCapture.cs](../code/Obs/GameCapture.cs): `Set(game)` points the three numbered game, window and

@@ -29,6 +29,14 @@ namespace StreamAssistant2 {
 			return _obs.GetSceneItemList(sceneName).Select(item => item.SourceName).ToList();
 		}
 
+		/// <summary>
+		/// The names of every scene; empty when not connected.
+		/// </summary>
+		public static List<string> GetSceneNames() {
+			if (!ObsConnection.IsConnected()) return [];
+			return _obs.GetSceneList().Scenes.Select(scene => scene.Name).ToList();
+		}
+
 		public static void SetImageSource(string sourceName, string newFile) {
 			SetInputSetting(sourceName, "file", newFile);
 		}
