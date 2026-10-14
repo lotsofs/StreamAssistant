@@ -79,7 +79,7 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `StreamElements: no channelId or jwt in secrets.json, tips are off` | no `streamElements` credentials; the bot runs without tips |
 | `StreamElements stopped: fix streamElements in secrets.json and restart the bot` | StreamElements refused the JWT (after `Error SES3`) |
 | `Tip <id> already alerted, skipped` | the same tip arrived twice |
-| `Left panel: <game>, <n> panels` | a left-panel rotation started, from a game setup or OBS connecting; `(default)` after the name when the game has no entry of its own, `, <n> on a split` when it has previous-split panels, then `, split colours from <category>` or `, no split colours` |
+| `Left panel: <game>, <n> panels` | a left-panel rotation started, from a game setup or OBS connecting; `(default)` after the name when the game has no entry of its own, or `(<entry>)` when its entry names another one (`SWAT4 (Run_NoSubsplits)`), `, <n> on a split` when it has previous-split panels, then `, split colours from <category>` or `, no split colours` |
 | `Watching LiveSplit's split index` | the split watcher started; `… previous-split panel off` instead when `LivesplitGenerated` isn't set or its folder is missing |
 | `Left panel: <game> has groups OBS doesn't: …` | the game's entry names groups missing from both left-panel scenes; they're skipped |
 | `Left panel: can't read <path>, previous-split colours left as is` | a previous-split panel came up but the entry's `Sign` file couldn't be read |

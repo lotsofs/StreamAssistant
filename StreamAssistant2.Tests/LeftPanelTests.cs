@@ -184,12 +184,23 @@ namespace StreamAssistant2.Tests {
 			var sets = LeftPanel.Parse($$"""{ {{GTA3}}, "GTA4": "GTA3", "GTA5": "gta3" }""");
 			Assert.Same(sets["GTA3"], sets["GTA4"]);
 			Assert.Same(sets["GTA3"], sets["GTA5"]);
+			Assert.Equal("GTA3", sets["GTA4"].Entry);
 		}
 
 		[Fact]
 		public void Parse_NameChain_IsFollowed() {
 			var sets = LeftPanel.Parse($$"""{ "GTA5": "GTA4", "GTA4": "GTA3", {{GTA3}} }""");
 			Assert.Same(sets["GTA3"], sets["GTA5"]);
+			Assert.Equal("GTA3", sets["GTA5"].Entry);
+		}
+
+		[Theory]
+		[InlineData("SWAT4", false, "Run_NoSubsplits", "SWAT4 (Run_NoSubsplits)")]
+		[InlineData("gta3", false, "GTA3", "gta3")]
+		[InlineData("KTANE", true, "default", "KTANE (default)")]
+		[InlineData("GTA3", false, "", "GTA3")]
+		public void Which_NamesTheEntryWhenItIsntTheGamesOwn(string game, bool isDefault, string entry, string expected) {
+			Assert.Equal(expected, LeftPanel.Which(game, isDefault, new PanelSet([], []) { Entry = entry }));
 		}
 
 		[Theory]
@@ -829,6 +840,11 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal(L("Left panel: GTA3 (default)", LeftPanel.LineKind.Title), lines[0]);
 			Assert.Equal(L("  Splits Basics", LeftPanel.LineKind.Item), lines[2]);
 			Assert.DoesNotContain(lines, l => l.Text.StartsWith('>'));
+		}
+
+		[Fact]
+		public void TheTitle_NamesTheEntryAGameSharesPanelsWith() {
+			Assert.Equal(L("Left panel: GTA3 (Run_NoSubsplits)", LeftPanel.LineKind.Title), LeftPanel.StatusLines(Status(0, set: Set with { Entry = "Run_NoSubsplits" }), Now)[0]);
 		}
 
 		[Fact]

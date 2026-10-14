@@ -37,6 +37,11 @@ namespace StreamAssistant2 {
 			/// for none.
 			/// </summary>
 			internal string? Sign { get; init; }
+
+			/// <summary>
+			/// The leftpanel.json entry that defines the set, which entries naming it share; blank for one made in code.
+			/// </summary>
+			internal string Entry { get; init; } = "";
 		}
 
 		sealed class PanelSetDto {
@@ -177,7 +182,7 @@ namespace StreamAssistant2 {
 			Dictionary<string, string> links = new(StringComparer.OrdinalIgnoreCase);
 			foreach (var (name, entry) in raw) {
 				if (entry.ValueKind == JsonValueKind.Object) {
-					sets[name] = ToSet(entry.Deserialize<PanelSetDto>(_jsonOptions)!);
+					sets[name] = ToSet(entry.Deserialize<PanelSetDto>(_jsonOptions)!, name);
 				}
 				else if (entry.ValueKind == JsonValueKind.String) {
 					links[name] = entry.GetString()!;
@@ -214,13 +219,25 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// One entry's panel set.
+		/// One entry's panel set, under the entry's name.
 		/// </summary>
-		static PanelSet ToSet(PanelSetDto dto) {
+		static PanelSet ToSet(PanelSetDto dto, string entry) {
 			return new PanelSet(Groups(dto.Always), ToPanels(dto.Panels)) {
 				Previous = ToPanels(dto.Previous),
 				Sign = string.IsNullOrWhiteSpace(dto.Sign) ? null : dto.Sign.Trim(),
+				Entry = entry,
 			};
+		}
+
+		/// <summary>
+		/// The game with the leftpanel.json entry its panels come from, when that isn't its own: "KTANE (default)" for the
+		/// fallback, "SWAT4 (Run_NoSubsplits)" for an entry it names; the game alone otherwise.
+		/// </summary>
+		internal static string Which(string game, bool isDefault, PanelSet set) {
+			if (isDefault) {
+				return $"{game} (default)";
+			}
+			return set.Entry.Length > 0 && !set.Entry.Equals(game, StringComparison.OrdinalIgnoreCase) ? $"{game} ({set.Entry})" : game;
 		}
 
 		/// <summary>
@@ -303,7 +320,7 @@ namespace StreamAssistant2 {
 				return;
 			}
 			_game = gameName;
-			string which = isDefault ? $"{gameName} (default)" : gameName;
+			string which = Which(gameName, isDefault, set);
 			int count = set.Panels.Count;
 			string onSplit = set.Previous.Count > 0 ? $", {set.Previous.Count} on a split" : "";
 			var colors = SplitColors.For(gameName);
@@ -659,7 +676,7 @@ namespace StreamAssistant2 {
 			if (status == null) {
 				return [new StatusLine("Left panel: none", LineKind.Title)];
 			}
-			string title = $"Left panel: {status.Game}{(status.IsDefault ? " (default)" : "")}{(status.Stopped ? ", stopped" : "")}";
+			string title = $"Left panel: {Which(status.Game, status.IsDefault, status.Set)}{(status.Stopped ? ", stopped" : "")}";
 			List<StatusLine> lines = [new StatusLine(title, LineKind.Title), new StatusLine("Always", LineKind.Heading)];
 			if (status.Set.Always.Count == 0) {
 				lines.Add(new StatusLine("  (none)", LineKind.Item));

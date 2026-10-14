@@ -61,7 +61,8 @@ The right-hand column shows what the left-panel rotation ([obs.md](obs.md#the-ro
   and once a second while a timer counts. `StatusLines` is a pure function in the bot (tested), so the
   window only maps each line's kind to a brush.
 - **What it shows**, from top to bottom:
-  - a title: `Left panel: <game>`, with ` (default)` when the game has no entry of its own, and
+  - a title: `Left panel: <game>`, with ` (default)` when the game has no entry of its own, or the entry
+    its panels come from when its entry names another (`SWAT4 (Run_NoSubsplits)`; `LeftPanel.Which`), and
     `, stopped` after `!stoppaneltimer`
   - the `Always` groups
   - the `Loop` panels

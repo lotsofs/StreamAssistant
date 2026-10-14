@@ -372,7 +372,9 @@ It runs all the time, not only while streaming.
   as `Ads` does.
 - If `Lookup` finds no entry and there is no `default`, it logs `No left panels for <game>, left as is`.
 - Otherwise it looks up the game's split colours ([Split colours](#split-colours)) and logs
-  `Left panel: <game>, <n> panels`, or `Left panel: <game> (default), <n> panels`, on `SceneChanges`. It adds
+  `Left panel: <game>, <n> panels` on `SceneChanges`. After the game it names where the panels come from
+  when that isn't the game's own entry: `(default)`, or the entry the game's entry names
+  (`SWAT4 (Run_NoSubsplits)`; `Which`, tested). It adds
   `, <n> on a split` when the entry has `Previous`, then `, split colours from <category>` or
   `, no split colours`. Then it starts `RunAsync` through `FireForget` (`Error LPN3` if it throws
   unexpectedly).
