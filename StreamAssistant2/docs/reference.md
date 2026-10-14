@@ -54,7 +54,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `LSW1` | `SplitWatcher.OnChanged` | Handling a change to LiveSplit's split index threw | that change is missed; the next one is read as usual |
 | `LSW2` | `SplitWatcher` (the watcher's `Error` event) | The `FileSystemWatcher` failed, e.g. its buffer overflowed; the message is logged | events may be missed |
 | `LSW3` | `SplitWatcher.Start` | Starting the watcher threw | no previous-split panel this run |
-| `LSW4` | `FireForget.Run` (from `SplitWatcher.OnChanged`) | The skip check after a split threw | that split doesn't show the previous-split panel |
+| `LSW4` | `FireForget.Run` (from `SplitWatcher.OnChanged`) | The handling after a change of the split index threw: the skip check, the previous-split panel or the sign's layout colour (`index change failed`) | that change doesn't show the previous-split panel or recolour the layout |
 | `OSS1` | `ObsConnection.OnStreamStateChanged` | Handling OBS's stream start or stop threw | chatter list not reset |
 | `DSK1` | `DiskSpace.WatchAsync` | A disk-space check threw | next minute |
 | `UpT5` | `TwitchUptime.UptimeLoopAsync` | An uptime check threw (outside its own HTTP handling), including the OBS write | next poll |
@@ -83,6 +83,7 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `Watching LiveSplit's split index` | the split watcher started; `… previous-split panel off` instead when `LivesplitGenerated` isn't set or its folder is missing |
 | `Left panel: <game> has groups OBS doesn't: …` | the game's entry names groups missing from both left-panel scenes; they're skipped |
 | `Left panel: can't read <path>, previous-split colours left as is` | a previous-split panel came up but the entry's `Sign` file couldn't be read |
+| `Split sign <sign>: layout colour <game> <scheme>` | after a split index change, a game with sign schemes (SWAT4) fades to the scheme for the previous split's sign trend; no chat line |
 | `No left panels for <game>, left as is` | the game has no entry and there's no `default`; the panel isn't touched |
 | `Capture setup: <name> (<id>)` | `!changecapture`: the capture sources alone are being set for that game |
 | `No game or left panel "…"`, `No left panels loaded` | `!changepanel` with an input that is neither a game nor a `leftpanel.json` entry, or with no panels loaded |

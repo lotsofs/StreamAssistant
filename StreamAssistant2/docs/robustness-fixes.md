@@ -179,7 +179,11 @@ branch for a run in progress goes:
 It has no case for a segment that beat its PB without being a gold, so such a split is written as `Lost…`.
 The end-of-run branch does have it (`PBGained` / `NoPBGained`). The bot's split colours
 ([obs.md](obs.md#split-colours)) then colour that segment difference `LabelNegative` instead of
-`LabelPositive`, on stream. Read in the component's source; not reproduced.
+`LabelPositive`, on stream. **Seen live** on 2026-10-14 at 15:47, in a SWAT4 run.
+`PreviousSplit\AllSplits\RealTime\` held `Sign.txt` `LostAhead` with `SegmentDifference.txt` `-40.03` (and
+`RunDifference.txt` `-40.03`, `GoldDifference.txt` `+7.2`), so the previous-split panel showed the
+40-second gain in red. The layout colour by sign isn't affected: it goes by the run's side, and `LostAhead`
+is still Ahead.
 
 ### Plan
 

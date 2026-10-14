@@ -218,7 +218,9 @@ background alone. Then `GameBorder.Set` points the layout's borders at the image
 `Basic Stream Layout` and hides the others, and `GameSidebar.SetGame` makes the 5:4 sidebar's two dynamic images
 follow the game's split index ([obs.md](obs.md#per-game-setup)). Then `GameColor.Set` queues the
 game's `gameschemes` colour scheme, which replaces any colour showing and posts the usual
-`Changing to color …` chat line; a game without a scheme (RoN) only logs. Then `LeftPanel.Start` starts
+`Changing to color …` chat line; a game without a scheme (RoN) only logs. For a game whose category has
+`SignSchemes` (SWAT4) the scheme is the one for LiveSplit's previous-split sign, and each later change of the
+split index recolours by the sign again, without a chat line. Then `LeftPanel.Start` starts
 rotating the game's left-panel panels, or the default ones ([obs.md](obs.md#left-panel)). Last, `GameCapture.Set` points
 the numbered game, window and audio capture sources at the game's executables, logging each one. An id
 not in `games.json` skips that step, logging `<id> not in games.json, capture sources left as is`, so

@@ -36,6 +36,59 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal((run, segment, gold), SplitColors.SignKeys(sign));
 		}
 
+		[Theory]
+		[InlineData("Gold", "Gold")]
+		[InlineData("GoldAhead", "Gold")]
+		[InlineData("GoldBehind", "Gold")]
+		[InlineData("PBGold", "Gold")]
+		[InlineData("NoPBGold", "Gold")]
+		[InlineData("Ahead", "Ahead")]
+		[InlineData("GainedAhead", "Ahead")]
+		[InlineData("LostAhead", "Ahead")]
+		[InlineData("PB", "Ahead")]
+		[InlineData("PBGained", "Ahead")]
+		[InlineData("PBLost", "Ahead")]
+		[InlineData("Behind", "Behind")]
+		[InlineData("GainedBehind", "Behind")]
+		[InlineData("LostBehind", "Behind")]
+		[InlineData("NoPB", "Behind")]
+		[InlineData("NoPBGained", "Behind")]
+		[InlineData("NoPBLost", "Behind")]
+		[InlineData(" lostbehind\r\n", "Behind")]
+		[InlineData("Gained", null)]
+		[InlineData("Lost", null)]
+		[InlineData("NotApplicable", null)]
+		[InlineData("Undetermined", null)]
+		[InlineData("", null)]
+		[InlineData(null, null)]
+		public void Trend_GoldFirst_ThenTheRunsSide(string? sign, string? trend) {
+			Assert.Equal(trend, SplitColors.Trend(sign));
+		}
+
+		static readonly ColorSchemeRegistry.Category Swat4 = JObject.Parse("""
+			{
+				"Default": "Menu",
+				"SignSchemes": { "Ahead": "BlueTeam", "Behind": "RedTeam", "Gold": "Element" },
+				"ColorSchemes": { "Menu": {}, "BlueTeam": {}, "RedTeam": {}, "Element": {} }
+			}
+			""").ToObject<ColorSchemeRegistry.Category>()!;
+
+		[Theory]
+		[InlineData("Ahead", "BlueTeam")]
+		[InlineData("LostBehind", "RedTeam")]
+		[InlineData("GoldAhead", "Element")]
+		[InlineData("NotApplicable", "Menu")]
+		[InlineData(null, "Menu")]
+		public void ChooseScheme_TheTrendsScheme_ElseTheDefault(string? sign, string scheme) {
+			Assert.Equal(scheme, GameColor.ChooseScheme(Swat4, sign));
+		}
+
+		[Fact]
+		public void ChooseScheme_ACategoryWithoutSignSchemes_IsNull() {
+			Assert.Null(GameColor.ChooseScheme(JObject.Parse("""{ "Default": "Menu" }""").ToObject<ColorSchemeRegistry.Category>(), "Ahead"));
+			Assert.Null(GameColor.ChooseScheme(null, "Ahead"));
+		}
+
 		static ColorSchemeRegistry.ThemeSet Set(string categories) {
 			return JObject.Parse($$"""{ "Categories": { {{categories}} } }""").ToObject<ColorSchemeRegistry.ThemeSet>()!;
 		}

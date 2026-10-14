@@ -109,6 +109,30 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void Schemes_SignSchemesWithAnUnknownTrendOrScheme_AreDroppedAndLogged() {
+			var set = JObject.Parse("""
+				{ "Categories": { "SWAT4": {
+					"ColorSchemes": { "BlueTeam": { "Inner": "#000086", "Outer": "#000062", "Text": "#fffbff" } },
+					"SignSchemes": { "Ahead": "BlueTeam", "Behind": "Nope", "Sideways": "BlueTeam" }
+				} } }
+				""").ToObject<ColorSchemeRegistry.ThemeSet>()!;
+			List<string> log = new();
+			void OnLine(ConsoleLogger.ColorType _, string line) { lock (log) log.Add(line); }
+			ConsoleLogger.LineLogged += OnLine;
+			try {
+				ColorSchemeRegistry.CheckSignSchemes("gameschemes", set);
+			}
+			finally {
+				ConsoleLogger.LineLogged -= OnLine;
+			}
+			Assert.Equal(["Ahead"], set.Categories["SWAT4"].SignSchemes.Keys.ToList());
+			lock (log) {
+				Assert.Contains(log, l => l.Contains("Colour scheme gameschemes SWAT4: skipped sign scheme \"Behind\", no scheme \"Nope\""));
+				Assert.Contains(log, l => l.Contains("Colour scheme gameschemes SWAT4: skipped sign scheme \"Sideways\", not one of Ahead, Behind, Gold"));
+			}
+		}
+
+		[Fact]
 		public void Schemes_NoDuplicatesDropsNothing() {
 			JObject root = JObject.Parse(File.ReadAllText(Path.Combine(ColorData.Fixture("ColorSchemes"), "gameschemes.json")));
 			Assert.Empty(ColorSchemeRegistry.DropDuplicateNames(root));

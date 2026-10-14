@@ -216,6 +216,22 @@ rejections themselves, with a clearer `Couldn't set …: …` warning.
   A game with no category there (RoN) logs `No colour scheme for <name>, colour left as is` instead of
   the chat failure line (`SchemeInput`, tested; the real `gameschemes KTANE` is checked in the real-data
   smoke test).
+  - **By split sign.** A category with `SignSchemes` ([color.md](color.md#data-files)) follows LiveSplit's
+    previous-split sign. SWAT4 does: `BlueTeam` when ahead, `RedTeam` when behind, `Element` for a gold,
+    `Menu` (its `Default`) otherwise.
+  - The sign is the one over all splits in real time, `PreviousSplit\AllSplits\RealTime\Sign.txt`. Its trend
+    comes from `SplitColors.Trend` (tested):
+    - any gold sign (`GoldAhead` too) is Gold;
+    - otherwise the run's side: `…Ahead` and `PB…` are Ahead, `…Behind` and `NoPB…` are Behind;
+    - `NotApplicable`, `Gained`, `Lost` and the like have no trend.
+  - `Set` takes the scheme for the sign as it is then, so a SWAT4 setup mid-run goes straight to that.
+  - After every change of the split index, once the sign has been rewritten, the split watcher calls
+    `GameColor.OnSign`. That covers splits, skips, undos, resets and starting a run, so a reset goes back
+    to `Menu`.
+  - When the scheme differs from the one it last went to, `OnSign` queues it on the colour worker without
+    a chat line and logs `Split sign <sign>: layout colour <game> <scheme>`. Choosing it is
+    `ChooseScheme`, tested.
+  - A manual colour (a reward or `!changecolor`) stays until the trend next changes.
 - **Capture sources**, [GameCapture.cs](../code/Obs/GameCapture.cs): three kinds, three numbered slots
   each, numbered from 0:
 
@@ -522,15 +538,17 @@ rotation starts with nothing remembered.
 - **A skip is told apart by the previous split's time.** Your component (`LiveSplit.OutputToFile`) writes
   `PreviousSplit\AllSplits\RealTime\RunTime.txt` after `Index.txt`, as the previous split's live real-time
   time. A split always has one. A skipped split has none, and the component writes that as `-`.
-  - So after a rise, `CheckSplitAsync` waits, off the watcher's thread, until
+  - So after any change of the index, `AfterIndexChangeAsync` waits, off the watcher's thread, until
     `PreviousSplit\AllSplits\RealTime\Sign.txt` has been written since `Index.txt`. It checks every 50 ms,
     for up to 2 s.
   - The component writes each level's sign after its times, real time before game time, and `AllSplits` is
     its last level. So once that sign is fresh, the run time is too, and so is every real-time sign the
     `Previous` panels colour by.
-  - Then it reads `RunTime.txt`. `-` means a skip, which does nothing.
+  - For a rise, it then reads `RunTime.txt`. `-` means a skip, which doesn't show the previous-split panel.
   - Anything else calls `LeftPanel.OnSplit()`. That includes a sign that isn't rewritten in time or a time
     that can't be read, so the panel still shows for those.
+  - Last, for every change, it passes the sign (`ReadSign`) to `GameColor.OnSign`, which recolours the
+    layout by it for a game with sign schemes ([Per-game setup](#per-game-setup)).
 - `OnSplit` completes a `TaskCompletionSource` that the rotation's wait is watching, then swaps in a fresh
   one. It runs continuations asynchronously, so the watcher's thread never runs a rotation step.
 - Logs:
@@ -539,7 +557,8 @@ rotation starts with nothing remembered.
     panel off`, when it can't start.
   - Nothing per split or skip.
   - `Error LSW1` when handling a change throws, `Error LSW2: <message>` when the watcher itself fails,
-    `Error LSW3` when starting it throws, and `Error LSW4: split check failed: …` when the skip check throws.
+    `Error LSW3` when starting it throws, and `Error LSW4: index change failed: …` when the handling after an
+    index change throws.
 
 `IsSplit`, `IsSkip` and `ParseIndex` are tested. The watcher itself isn't, since its file events don't arrive on a
 fixed schedule.

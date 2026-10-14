@@ -101,6 +101,18 @@ highlights and previous-split differences for the game's category, or `none`'s
 ([obs.md](obs.md#split-colours)). The colour commands don't use them. In `gameschemes`, SWAT4, SS2 and
 `none` have them.
 
+A category can also carry a `SignSchemes` map. It picks one of the category's own schemes for the trend of
+LiveSplit's previous-split sign: `Ahead`, `Behind` or `Gold`. A sign with none of those takes the
+category's `Default`. Only `gameschemes` categories with one are recoloured this way, after each split
+([obs.md](obs.md#per-game-setup)). SWAT4 has it:
+
+```json
+"SignSchemes": { "Ahead": "BlueTeam", "Behind": "RedTeam", "Gold": "Element" }
+```
+
+A key that isn't one of the three trends, or a scheme the category doesn't have, is dropped at load
+(`CheckSignSchemes`, tested).
+
 Rules for the data:
 - **Hex** can be in any case, with or without `#`; it is stored as lowercase `#rrggbb`. A value that
   isn't six hex digits is skipped, a scheme with any bad channel is dropped whole, and a bad split colour
@@ -126,6 +138,8 @@ Colour scheme <set>: skipped "<category>", same name as "<first>"
 Colour scheme <set> <category>: skipped "<scheme>", same name as "<first>"
 Colour scheme <set> <category>: skipped "<scheme>", not all of "<inner>" "<outer>" "<text>" are hex colours
 Colour scheme <set> <category>: skipped split colour "<key>", "<value>" is not a hex colour
+Colour scheme <set> <category>: skipped sign scheme "<key>", not one of Ahead, Behind, Gold
+Colour scheme <set> <category>: skipped sign scheme "<key>", no scheme "<scheme>"
 ```
 
 Scheme files are deduplicated as raw JSON (`ColorSchemeRegistry.DropDuplicateNames`) before they

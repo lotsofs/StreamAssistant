@@ -90,6 +90,19 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
+		/// The trend of LiveSplit's sign (any case, trimmed): Gold for any gold, else Ahead or Behind by the run (a PB
+		/// counts as ahead, no PB as behind); null when the sign says neither.
+		/// </summary>
+		internal static string? Trend(string? sign) {
+			return sign?.Trim().ToLowerInvariant() switch {
+				"gold" or "goldahead" or "goldbehind" or "pbgold" or "nopbgold" => "Gold",
+				"ahead" or "gainedahead" or "lostahead" or "pb" or "pbgained" or "pblost" => "Ahead",
+				"behind" or "gainedbehind" or "lostbehind" or "nopb" or "nopbgained" or "nopblost" => "Behind",
+				_ => null,
+			};
+		}
+
+		/// <summary>
 		/// The split list highlights' filter colours; a highlight whose key has no colour is left out.
 		/// </summary>
 		internal static List<FilterColor> HighlightFilters(IReadOnlyDictionary<string, string> colors) {

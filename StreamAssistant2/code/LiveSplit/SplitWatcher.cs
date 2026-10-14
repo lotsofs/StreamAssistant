@@ -62,8 +62,9 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// On a change to the index file: passes a new index on to the sidebar, and when the index moved on by one, has the
-		/// split checked for a skip off this thread. A read that fails or isn't a number is ignored.
+		/// On a change to the index file: when the index changed, passes it on to the sidebar and has the previous split's
+		/// sign handled off this thread, with the split checked for a skip when the index moved on by one. A read that fails
+		/// or isn't a number is ignored.
 		/// </summary>
 		static void OnChanged(string path) {
 			try {
@@ -78,15 +79,13 @@ namespace StreamAssistant2 {
 					split = IsSplit(_last, now.Value);
 					moved = now != _last;
 					_last = now;
-					if (split) {
+					if (moved) {
 						indexWritten = File.GetLastWriteTimeUtc(path);
 					}
 				}
 				if (moved) {
 					GameSidebar.OnIndexChanged();
-				}
-				if (split) {
-					FireForget.Run("LSW4", "split check", () => CheckSplitAsync(indexWritten));
+					FireForget.Run("LSW4", "index change", () => AfterIndexChangeAsync(indexWritten, split));
 				}
 			}
 			catch (Exception ex) {
@@ -96,17 +95,26 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Tells the left panel about a split once LiveSplit has rewritten the previous split's sign, written after its
-		/// times, unless the time is empty: a skip. Still a split when the sign isn't rewritten within 2 s or the time
-		/// can't be read.
+		/// Once LiveSplit has rewritten the previous split's sign, written after its times: for a split, tells the left
+		/// panel unless the time is empty (a skip), then passes the sign on to the game's colour. Still goes on when the
+		/// sign isn't rewritten within 2 s; a time that can't be read still counts as a split.
 		/// </summary>
-		static async Task CheckSplitAsync(DateTime indexWritten) {
+		static async Task AfterIndexChangeAsync(DateTime indexWritten, bool split) {
 			for (int wait = 0; wait < 40 && File.GetLastWriteTimeUtc(_previousSign) < indexWritten; wait++) {
 				await Task.Delay(50);
 			}
-			if (!IsSkip(ReadText(_previousRunTime))) {
+			if (split && !IsSkip(ReadText(_previousRunTime))) {
 				LeftPanel.OnSplit();
 			}
+			GameColor.OnSign(ReadSign());
+		}
+
+		/// <summary>
+		/// LiveSplit's sign for the previous split over all splits, in real time; null before the watcher has started or
+		/// when it can't be read.
+		/// </summary>
+		internal static string? ReadSign() {
+			return _previousSign.Length > 0 ? ReadText(_previousSign) : null;
 		}
 
 		/// <summary>

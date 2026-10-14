@@ -56,6 +56,19 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[RealDataFact]
+		public void RealGameSchemes_Swat4HasASchemeForEverySignTrend() {
+			ColorData.Load(ColorData.RealColors!, ColorData.RealColorSchemes!);
+			try {
+				Assert.True(ColorSchemeRegistry.TryGetSet("gameschemes", out var set));
+				Assert.True(ColorSchemeRegistry.TryGetCategoryInSet(set!, "SWAT4", out var swat4));
+				Assert.All(ColorSchemeRegistry.SignTrends, trend => Assert.True(swat4!.SignSchemes.ContainsKey(trend), $"SWAT4 has no sign scheme for {trend}"));
+			}
+			finally {
+				ColorData.LoadFixtures();
+			}
+		}
+
+		[RealDataFact]
 		public void RealGameSchemes_NoneHasEverySplitColour() {
 			ColorData.Load(ColorData.RealColors!, ColorData.RealColorSchemes!);
 			try {

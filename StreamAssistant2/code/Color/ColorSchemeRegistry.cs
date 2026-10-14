@@ -9,8 +9,14 @@ namespace StreamAssistant2 {
 		public class Category {
 			public Dictionary<string, Scheme> ColorSchemes { get; } = new(ColorNameComparer.Instance);
 			public Dictionary<string, string> SplitColors { get; } = new(ColorNameComparer.Instance);
+			public Dictionary<string, string> SignSchemes { get; } = new(ColorNameComparer.Instance);
 			public string Default { get; set; } = "";
 		}
+
+		/// <summary>
+		/// The keys a category's SignSchemes may have: the trends of LiveSplit's previous-split sign.
+		/// </summary>
+		internal static readonly string[] SignTrends = ["Ahead", "Behind", "Gold"];
 
 		public class Scheme {
 			public string Outer { get; set; } = "";
@@ -33,6 +39,7 @@ namespace StreamAssistant2 {
 				var ts = root.ToObject<ThemeSet>();
 				if (ts != null) {
 					NormalizeHex(name, ts);
+					CheckSignSchemes(name, ts);
 					Sets[name] = ts;
 				}
 			}
@@ -101,6 +108,23 @@ namespace StreamAssistant2 {
 					else {
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Colour scheme {setName} {categoryName}: skipped split colour \"{key}\", \"{value}\" is not a hex colour");
 						category.SplitColors.Remove(key);
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Drops (with a log line) any sign scheme whose key isn't a sign trend or whose scheme isn't in its category.
+		/// </summary>
+		internal static void CheckSignSchemes(string setName, ThemeSet set) {
+			foreach (var (categoryName, category) in set.Categories) {
+				foreach (var (trend, schemeName) in category.SignSchemes.ToList()) {
+					string? problem = !SignTrends.Contains(trend, StringComparer.OrdinalIgnoreCase) ? $"not one of {string.Join(", ", SignTrends)}"
+						: !category.ColorSchemes.ContainsKey(schemeName ?? "") ? $"no scheme \"{schemeName}\""
+						: null;
+					if (problem != null) {
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Colour scheme {setName} {categoryName}: skipped sign scheme \"{trend}\", {problem}");
+						category.SignSchemes.Remove(trend);
 					}
 				}
 			}
