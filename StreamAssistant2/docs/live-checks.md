@@ -12,6 +12,11 @@ something fails, note it here and raise it.
 - **42.** Emulate a tip from the StreamElements activity feed: note whether `SE notification: channel.tips` appears at all (the docs don't say whether emulated tips reach this topic)
 - **82.** `!changecapture KTANE`: `Capture setup: KTANE (461492)` and the capture lines; no chat line, and the background, colour and left panel stay
 - **89.** `!changepanel GTASA`: the two `Splits Current` panels in a row (Current Mission, then Current Split) use different copies in OBS: the second appears with its own values, with no flash of the first's
+- **114.** From an account other than `lotsofs` or `botsofs`: `!skeys` logs `FAQ !skeys for <user>` and chat gets `@<user> The program used to show…` once; `!skeys` again within a minute logs `FAQ !skeys for <user>: on cooldown` and chat gets nothing; `Why are you KILLING hostages` gets the `!civilians` answer
+- **115.** Create a text source `Text: Money Goal` in OBS and F5: right after `Connected to OBS` it reads `0 / 999 EUR`, with no `Couldn't set Text: Money Goal` or `Error MON3`
+- **116.** `!moneygoal 500`: the log shows `Money goal set to 500 EUR, now 0 / 500 EUR` and OBS follows; `!moneygoal abc` logs `Not a money goal: "abc" (try !moneygoal 500)` and changes nothing
+- **117.** `!test tip 4.20 msg hello`: the tip alert runs, the log shows `Test tip: not counted toward the money goal`, and the OBS text stays as it was
+- **118.** `!resetmoney` logs `Money total reset (was … EUR), now 0 / <goal> EUR` and OBS follows; then F5: the goal and total are as you left them
 
 ## With LiveSplit running SWAT4 splits
 
@@ -19,6 +24,7 @@ something fails, note it here and raise it.
 - **110.** A SWAT4 split while ahead: `Split sign <sign>: layout colour SWAT4 BlueTeam`, the layout fades to blue, and nothing is posted to chat; while behind it goes `RedTeam`, on a gold `Element` (seen 2026-10-14 15:43: `LostBehind` gave `RedTeam`; ahead and gold, and that nothing went to chat, are still to see)
 - **111.** A second split with the same trend doesn't fade again; a reset (or starting a new run) fades back to `Menu` (seen 2026-10-14 15:43: sign `NotApplicable` gave `Menu`; the same-trend split is still to see)
 - **112.** `!changegame SWAT4` mid-run while ahead: the setup's chat line is `Changing to color SWAT4:BlueTeam …`, not `Menu`
+- **113.** Once the component's 2026-10-15 build is in LiveSplit (SGN): two SWAT4 splits in a row with the same sign (say `LostBehind` twice). The second's previous-split panel comes in as promptly as the first's, within about half a second of the split and not 2 s later
 
 ## Closing and reopening OBS while the bot runs
 
@@ -65,3 +71,4 @@ something fails, note it here and raise it.
 - **43.** The first real tip: alerted once, dumped as `AssistantLogs\EventSubs\se.channel.tips_<stamp>.log` with no `email` in it, and the `Tip: …` line shows its `status` and `approved`. Note those values here, and whether a moderated tip arrives twice (the second would log `already alerted, skipped`)
 - **44.** Then `!test replay se.channel.tips_<that stamp>` replays it
 - **59.** The first real raid: chat shows its `Raid:` line, and the log has no `Unhandled chat notice event` for it
+- **119.** The first real tip: the log shows `Money goal: +<amount> EUR from <user>, now …` and the OBS text goes up by the amount. Note its currency here if it isn't EUR (the line would then say `counted as … EUR`)

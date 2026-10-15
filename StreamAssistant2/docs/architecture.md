@@ -31,7 +31,8 @@ hardcoded on purpose ([reference.md](reference.md) lists them).
                          │  DiskSpace, TwitchUptime, Clock, Ads:      │
                          │    own loops                               │
   StreamElements (WS) ──►│  StreamElementsSocket ──► Tips: sound,     │
-                         │    chat, TextToSpeech                      │
+                         │    chat, TextToSpeech, MoneyGoal (SQLite,  │
+                         │    OBS text)                               │
                          │  Obs / ObsConnection ◄── LayoutColoring    │
                          │  ConsoleLogger ──► log file + MainWindow   │
                          └────────────────────────────────────────────┘
@@ -112,7 +113,7 @@ transport classes and the colour code (the test project reaches internals throug
 | [Program.cs](../Program.cs) | Entry point, startup order, shutdown | above |
 | [Config.cs](../Config.cs) | Loads `paths.json` + `secrets.json` into `Config.Data` | [infrastructure.md](infrastructure.md#config) |
 | [ConsoleLogger.cs](../ConsoleLogger.cs) | All logging: dated file + `LineLogged` event | [infrastructure.md](infrastructure.md#logging) |
-| [Database.cs](../Database.cs) | SQLite, one table (`flushes`) | [infrastructure.md](infrastructure.md#database) |
+| [Database.cs](../Database.cs) | SQLite: the toilet rewards' `flushes` and the `money_goal` row | [infrastructure.md](infrastructure.md#database) |
 | [Sound.cs](../Sound.cs) | NAudio alert-sound playback | [infrastructure.md](infrastructure.md#sound) |
 | [TextToSpeech.cs](../TextToSpeech.cs) | SAPI speech queue | [infrastructure.md](infrastructure.md#text-to-speech) |
 | [LanguageFilter.cs](../LanguageFilter.cs) | Naive bad-word replacement before TTS | [infrastructure.md](infrastructure.md#language-filter) |
@@ -120,14 +121,14 @@ transport classes and the colour code (the test project reaches internals throug
 | [TwitchUptime.cs](../TwitchUptime.cs) | Scrapes uptime from decapi.me and writes it to OBS | [infrastructure.md](infrastructure.md#uptime) |
 | [LayoutColoring.cs](../LayoutColoring.cs) | Serialised colour-change queue and the OBS animation | [obs.md](obs.md#layout-recolouring) |
 | [Util.cs](../Util.cs) | `TrueModulo` overloads; used only by `ColorUtil.HsvToRgb` | |
-| [Money.cs](../Money.cs), [ISaveable.cs](../ISaveable.cs) | Unused leftovers | [legacy.md](legacy.md) |
+| [ISaveable.cs](../ISaveable.cs) | Unused leftover | [legacy.md](legacy.md) |
 
 ### `code/Twitch/`
 
 | File | Role |
 |---|---|
 | [TwitchIRCManager.cs](../code/Twitch/TwitchIRCManager.cs) | Raw TCP IRC: read chat, send chat |
-| [ChatHandler.cs](../code/Twitch/ChatHandler.cs) | Parses IRC lines; admin commands; (stubbed) public commands |
+| [ChatHandler.cs](../code/Twitch/ChatHandler.cs) | Parses IRC lines; admin commands; public FAQ commands and their cooldown |
 | [ChatCommand.cs](../code/Twitch/ChatCommand.cs) | Data holder for a public command |
 | [ChatterList.cs](../code/Twitch/ChatterList.cs) | First-time-chatter list |
 | [TwitchEventSub.cs](../code/Twitch/TwitchEventSub.cs) | WebSocket session loop and subscribing |
@@ -153,9 +154,15 @@ All of this is covered in [twitch.md](twitch.md) and [events.md](events.md).
 |---|---|
 | [StreamElementsSocket.cs](../code/StreamElements/StreamElementsSocket.cs) | WebSocket session loop to StreamElements' Astro gateway: subscribe, probes, reconnect |
 | [StreamElementsEventHandler.cs](../code/StreamElements/StreamElementsEventHandler.cs) | Dispatch on topic; the `EventSubs\se.…` dump without the tipper's email |
-| [Tips.cs](../code/StreamElements/Tips.cs) | Tip alert: anthem, chat line, speech |
+| [Tips.cs](../code/StreamElements/Tips.cs) | Tip alert: anthem, chat line, speech; counts the tip toward the money goal |
 
 Covered in [streamelements.md](streamelements.md) and [events.md](events.md#tips).
+
+### `code/Money/`
+
+[MoneyGoal.cs](../code/Money/MoneyGoal.cs): the tips' running total toward a goal, kept in the database,
+written to OBS's `Text: Money Goal`, and changed by `!moneygoal` and `!resetmoney`. See
+[obs.md](obs.md#money-goal).
 
 ### `code/Obs/`
 
@@ -235,7 +242,8 @@ left-panel column on the right). See [dashboard.md](dashboard.md).
 
 **A chat message.** IRC line → `TwitchIRCManager.ListenLoop` → `OnMessage` →
 `ChatHandler.ProcessMessage` → `HandlePrivMsg` → log it, `ChatterList.AddChatter`, then admin commands
-(for `lotsofs`/`botsofs`) or public commands (everyone else; replies are stubbed out).
+(for `lotsofs`/`botsofs`) or the public FAQ commands (everyone else), which answer in chat through
+`TwitchIRCManager.SendMessage`.
 
 **A channel-point redemption.** EventSub `notification` →
 `TwitchEventHandler.Handle` → `ChannelPoints.ProcessAdd` → switch on reward id → sound, database,
@@ -252,7 +260,8 @@ payload to a custom log file) → `Subscriptions.Handle…` → sound, delay, `T
 earlier pre-warnings, starts a new `RunScheduleAsync` with four warnings.
 
 **A tip.** StreamElements `message` on `channel.tips` → `StreamElementsEventHandler.Handle` (dumps it,
-email removed) → `Tips.Process` → anthem, `💸` chat line, 6 s, speech.
+email removed) → `Tips.Process` → `MoneyGoal.Credit` (database, then `Text: Money Goal`, in the
+background), anthem, `💸` chat line, 6 s, speech.
 
 **A log line.** Anywhere → `ConsoleLogger.ColoredLine` → async file append **and** `LineLogged` event →
 `MainWindow` marshals to the UI thread and appends to the list.

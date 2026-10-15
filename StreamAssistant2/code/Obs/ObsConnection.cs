@@ -56,6 +56,7 @@ namespace StreamAssistant2 {
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "Connected to OBS");
 			LeftPanel.OnObsConnected();
 			GameSidebar.OnObsConnected();
+			MoneyGoal.OnObsConnected();
 		}
 
 		static void OnDisconnected(object? sender, ObsDisconnectionInfo e) {

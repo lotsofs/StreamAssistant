@@ -48,7 +48,8 @@ The owner runs the bot from the editor with F5, often while a stream is on. So:
 ## Verification, by area
 
 `code/Color/`, the scheduling logic (disk alerts, the clock's text format, ad warnings), the IRC and
-EventSub timeouts, the EventSub and StreamElements session loops and the tip sentences have automated tests.
+EventSub timeouts, the EventSub and StreamElements session loops, the tip sentences and the FAQ commands
+have automated tests.
 Everything else is checked by running the app and reading the dashboard.
 
 ### Unit tests
@@ -83,9 +84,11 @@ compile it). The test project references the bot's project, and the bot grants i
 | `StreamElementsRetryTests` | `StreamElementsSocket.RetryDelay` doubling to its cap, and the default silence limit matching the health deadline |
 | `GamesTests` | `Games`: `games.json` parsing (slot objects, the `default` volume, `Aspect`, case), `ResolveCategory`, `Lookup`, `ResolvePanel` (`!changepanel`), the change commands (`!changegame`, and `!changecapture` / `!changepanel` with nothing loaded), going live and boot (Helix fetch and the OBS wait replaced), `RunStep`; `GameCapture`'s slot assignment, volumes and log lines; `GameBackground.PathFor`, `GameSidebar.Choose` (the index + 1, the highest below when missing, the lowest when none is below, any case, the second series numbered on its own, a game without images) and `GameBorder.Files` (the aspect's own pair, 16x9 without one, the plain pair when the aspect has none, none without either or the directory); `GameScene.Named` and `Choose` (layout and games scenes by prefix, the aspect's scene, 16x9 without one, the rest hidden, none for an unknown aspect); `LayoutColoring.Filters` (borders and attachments take inner and outer, the scene the text, twins and real) and `LayoutScenes`; `ChannelPoints.RedemptionLine`. Never reaches OBS |
 | `LeftPanelTests` | `LeftPanel.GroupName` (each scene's own prefix), `Numbered`, `Parse` (the file shape, case, missing and null parts, skipped and pause panels, group-name clean-up, entries that name another entry, chains, dead ends and loops, `Sign`, `Keep`, the defining `Entry`), `Which` (the default, an entry named by another, the game's own) and `Lookup` (any case, the `default` fallback). `LeftPanelRotationTests`: `Transition` and `Missing`, and the real `RunAsync` against fake OBS calls (a step's order with the copy listing and the reference item hidden, timings and the wrap, waiting for OBS, one panel and none, cancelling, missing groups, a throwing call, and splits: the `Previous` panels then the interrupted panel again, a split during them, none without `Previous`, a single panel waiting for splits; skips in the loop, during a split and on a single panel; a kept family staying up while the others move; split colours: the highlights on the first step only, each `Previous` step's colours by its sign before showing, and none without a sign, without colours or with an unreadable sign; plus the panel indexes each step reports); never reaches OBS. `LeftPanelPlanTests`: `Plan` on a layout like the real one (the families move together to the lowest copy hidden in each, and copy sources take its number; remembered values come along only with the families they were set with; consecutive `Splits Current` panels alternate; the fallback when no number is free in every family; an `Always` family keeps its copy; a kept family that's up stays, the others move avoiding its number unless they can't, a kept family that isn't up moves, `Keep` alone shows its groups, and with every family kept the sources go on the kept copy; numbered names stand for their family; unnumbered sources get the copy's number too; panels without copies are set as written) and `Exists`. The rotation tests' fake OBS has copies, the reference item and a wrong-prefix group per scene. `LeftPanelStatusLinesTests`: the dashboard column's lines from `StatusLines` (sections, markers, `Always` on once shown, the timer and where there is none, panel names, lines with missing groups flagged, kept groups listed and flagged, the title, with the entry a game shares panels with, `(blank)` and `(none)`). `LeftPanelStopTests`: `Stop`, `Resume`, `Start` and `OnObsConnected` together, on panels loaded from a temporary `leftpanel.json` with OBS never ready; a stopped rotation isn't restarted by OBS connecting until resumed or started again, and `Status` follows `Start` and `Stop`; `Next` only logs without a rotation, after a stop, or with one panel; the start line's split-colours part. A real-data test checks the real `leftpanel.json` against `games.json`, that its name entries lead to panels and that no panel is skipped, skipped itself when the file is absent |
-| `SplitWatcherTests` | `SplitWatcher.IsSplit` (up by exactly one, not the run's start, undo, reset or a repeat), `IsSkip` (only an empty `-` time) and `ParseIndex`; the `FileSystemWatcher` and the wait for the time file aren't tested |
+| `SplitWatcherTests` | `SplitWatcher.IsSplit` (up by exactly one, not the run's start, undo, reset or a repeat), `IsSkip` (only an empty `-` time) and `ParseIndex`; the `FileSystemWatcher` and the wait for the sign file aren't tested |
 | `SplitColorsTests` | `SplitColors.SignKeys` (every sign LiveSplit writes, case, padding, unknown and blank), `Trend` (gold first, then the run's side, none for the rest), `GameColor.ChooseScheme` (the trend's scheme, else the default, none without sign schemes), `Resolve` (the game's colours over `none`'s, a game without any, nothing at all), `HighlightFilters` and `PreviousFilters` (sources, filters, OBS values, a key without a colour left out) |
 | `TipsTests` | `Tips.FormatAmount` (a dot under `nl-NL`), `Money`, `Sentence` with and without a message, `ChatLine`, `IsNew`, and `StreamElementsEventHandler.Redact` dropping only the email from StreamElements' documented payload. Never calls `Tips.Process`, which plays, posts and speaks |
+| `MoneyGoalTests` | `MoneyGoal.ToCents` (half a cent rounds away from zero), `Text` (`<total> / <goal> EUR`, the default goal) and `ParseGoal` (dot or comma decimals; zero, negative, words, units, thousands separators and an overflow refused). Never calls `Credit`, `TrySetGoal` or `Reset`, which reach the database and OBS |
+| `FaqCommandTests` | `ChatHandler.FindCommand` (each `!name` anywhere and in any case, a question per command, question words inside other words not counting, the first match winning), `Reply`, and `Cooldowns` (per user and command, ending at 60 s, a refused try not extending it). Never calls `CheckForCommands`, which posts to chat |
 
 Fixtures live in `Fixtures/Colors/` and `Fixtures/ColorSchemes/`. Because the registries are static,
 test parallelism is off for the assembly; a test that loads other data must reload the fixtures in a
@@ -115,11 +118,12 @@ Add a `case` to `ChatHandler.CheckForAdminCommands`. The command is the first wo
 argument is the rest, trimmed. Reach the bot's capabilities through the modules
 (`LayoutColoring`, `TwitchIRCManager.SendMessage`, `TextToSpeech.EnqueueSpeech`).
 
-### Turn on a public chat command
+### Add a public chat command
 
-The FAQ commands in `ChatHandler._commands` already match. In `CheckForCommands`, replace the commented
-`MsgQueue.Enqueue(MsgTypes.ChatMsg, outputMsg)` with `TwitchIRCManager.SendMessage(outputMsg)`. Consider a
-per-command cooldown first, since the loop has none and every matching command fires.
+Add a `ChatCommand(name, regex, output)` to `ChatHandler._commands`. List order is priority: a message
+gets only the first command it matches. Follow the existing patterns (a `!name` branch, and a question
+branch of lookaheads whose words each start with `\b`), then add lines that should and shouldn't match to
+`FaqCommandTests`. The reply format and the cooldown are shared ([twitch.md](twitch.md#public-commands)).
 
 ### Add an EventSub event
 

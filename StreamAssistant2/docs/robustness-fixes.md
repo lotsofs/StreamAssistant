@@ -168,8 +168,8 @@ an EventSub event and a colour redemption still work.
 ## SGN — LiveSplit never writes `GainedAhead` / `GainedBehind` during a run
 
 Your component, `LiveSplit.OutputToFile` (`D:\Repositories\LiveSplit.OutputToFile`), writes the previous
-split's sign to `PreviousSplit\<level>\<method>\Sign.txt`. In `OutputToFileComponent.WriteSplitTimes`, the
-branch for a run in progress goes:
+split's sign to `PreviousSplit\<level>\<method>\Sign.txt`. In the build in LiveSplit's `Components` folder
+(`LiveSplit.OutputToFile.dll`, dated 2026-07-02), the branch for a run in progress goes:
 
 1. no run delta → `NotApplicable`
 2. a gold (or no gold before) → `GoldAhead` / `GoldBehind`
@@ -185,20 +185,24 @@ The end-of-run branch does have it (`PBGained` / `NoPBGained`). The bot's split 
 40-second gain in red. The layout colour by sign isn't affected: it goes by the run's side, and `LostAhead`
 is still Ahead.
 
+The component's source has the case since its commit `eff130c` (2026-10-15), now in
+`SplitFiles.WriteSplitTimes`. That build isn't deployed yet: the DLL in LiveSplit was still the 2026-07-02
+one on 2026-10-15.
+
 ### Plan
 
-1. In the running branch, before the last `else`, add
-   `else if (segmentDelta < TimeSpan.Zero) { MakeFile(FILE_PREVIOUS_SIGN, (runDelta < TimeSpan.Zero ? Signs.GainedAhead : Signs.GainedBehind).ToString(), method, lvl); }`,
-   the same test the end-of-run branch makes.
-2. Rebuild the component and copy its DLL into LiveSplit's `Components` folder, with LiveSplit closed
-   (owner).
-3. Nothing changes in the bot: `SplitColors.SignKeys` already maps `GainedAhead` and `GainedBehind`.
+1. Copy the component's build (`bin\Debug\LiveSplit.OutputToFile.dll`) into LiveSplit's `Components`
+   folder, with LiveSplit closed (owner). It also brings the component's other 2026-10-15 changes: files
+   skipped when unchanged and written on a background thread, which the bot's split watcher allows for
+   ([obs.md](obs.md#splits-from-livesplit), LIV 113).
+2. Nothing changes in the bot: `SplitColors.SignKeys` already maps `GainedAhead` and `GainedBehind`.
 
 **Verify:** in a practice run, beat a segment's PB without a gold. `Sign.txt` reads `GainedAhead` or
 `GainedBehind`, and on SWAT4 the bot colours the previous split's segment difference `LabelPositive`.
 
 **Docs when done:** delete this section and the TODO row, and the LiveSplit note at the end of
-[obs.md § Split colours](obs.md#split-colours).
+[obs.md § Split colours](obs.md#split-colours). In [obs.md § Splits from LiveSplit](obs.md#splits-from-livesplit),
+drop the sentence about the build in LiveSplit rewriting every file.
 
 ---
 

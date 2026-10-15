@@ -97,10 +97,10 @@ namespace StreamAssistant2 {
 		/// <summary>
 		/// Once LiveSplit has rewritten the previous split's sign, written after its times: for a split, tells the left
 		/// panel unless the time is empty (a skip), then passes the sign on to the game's colour. Still goes on when the
-		/// sign isn't rewritten within 2 s; a time that can't be read still counts as a split.
+		/// sign isn't rewritten within 0.5 s; a time that can't be read still counts as a split.
 		/// </summary>
 		static async Task AfterIndexChangeAsync(DateTime indexWritten, bool split) {
-			for (int wait = 0; wait < 40 && File.GetLastWriteTimeUtc(_previousSign) < indexWritten; wait++) {
+			for (int wait = 0; wait < 10 && File.GetLastWriteTimeUtc(_previousSign) < indexWritten; wait++) {
 				await Task.Delay(50);
 			}
 			if (split && !IsSkip(ReadText(_previousRunTime))) {

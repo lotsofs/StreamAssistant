@@ -15,8 +15,8 @@ Read from the code. The connection and animation were not run against a live OBS
   `secrets.json`.
 - `Connect()` is idempotent. It hooks `Connected` and `Disconnected` (which log `Connected to OBS` and
   `Lost connection to OBS: <reason>`) and `StreamStateChanged`, and starts `Loop`. `Connected` also restarts
-  the left-panel rotation ([Left panel](#the-rotation)) and sets the dynamic sidebar again
-  ([Per-game setup](#per-game-setup)).
+  the left-panel rotation ([Left panel](#the-rotation)), sets the dynamic sidebar again
+  ([Per-game setup](#per-game-setup)) and rewrites the money goal text ([Money goal](#money-goal)).
 - `OnStreamStateChanged` logs `OBS started streaming` and `OBS stopped streaming` (the in-between
   states are ignored). On start it resets the chatter list (`ChatterList.Reset`, see
   [twitch.md](twitch.md#chatterlist)), starts the go-live game setup
@@ -140,6 +140,30 @@ it is set is dropped with a chat line instead. A train that starts logs `Choo ch
 channel. `RunTrainAsync` starts with `await Task.Yield()`, so its
 blocking OBS calls run on the thread pool, not on the IRC or EventSub read loop that started it.
 
+## Money goal
+
+[MoneyGoal.cs](../code/Money/MoneyGoal.cs) keeps a running total of tips toward a goal, in EUR, and shows
+it in the text source `Text: Money Goal` as `<total> / <goal> EUR` (`16.54 / 500 EUR`, amounts formatted
+like the tip lines). You create that source in OBS, wherever it should show; the bot only sets its
+`text`.
+
+- **What counts:** StreamElements tips only, in full, once each ([events.md](events.md#tips)). A tip in
+  another currency is counted as its number, logged on `Important` with `counted as … EUR`. Cheers and
+  subs don't count: Twitch doesn't say what a sub cost (its payloads carry only the tier), and cheers
+  are left out by choice. `!test tip` isn't counted, and a tip that arrives while the bot isn't
+  running is never seen.
+- **Where it's kept:** the `money_goal` row in the database, in whole cents
+  ([infrastructure.md](infrastructure.md#database)), so it survives restarts. A first start begins at
+  `0 / 999 EUR`.
+- **Changing it:** `!moneygoal <amount>` sets the goal and `!resetmoney` sets the total back to 0
+  ([twitch.md](twitch.md#admin-commands)).
+- **When the text is written:** after each tip, goal change and reset, and on every OBS connect, read
+  back from the database. With OBS closed nothing is written and nothing is logged; the next connect
+  catches up. A missing source logs `Couldn't set Text: Money Goal: …`.
+- **Log lines:** `Money goal: +4.20 EUR from <user>, now 16.54 / 500 EUR` on `Notification`. A failed
+  credit logs `Error MON1`, a failed `!moneygoal` or `!resetmoney` `Error MON2`, and a failed write on
+  OBS connect `Error MON3`.
+
 ## Per-game setup
 
 `Games.Apply`, on bot start, a category change, or when OBS starts streaming
@@ -225,8 +249,8 @@ rejections themselves, with a clearer `Couldn't set …: …` warning.
     - otherwise the run's side: `…Ahead` and `PB…` are Ahead, `…Behind` and `NoPB…` are Behind;
     - `NotApplicable`, `Gained`, `Lost` and the like have no trend.
   - `Set` takes the scheme for the sign as it is then, so a SWAT4 setup mid-run goes straight to that.
-  - After every change of the split index, once the sign has been rewritten, the split watcher calls
-    `GameColor.OnSign`. That covers splits, skips, undos, resets and starting a run, so a reset goes back
+  - After every change of the split index, once the sign has been rewritten (or 0.5 s have passed, for a
+    sign that didn't change), the split watcher calls `GameColor.OnSign`. That covers splits, skips, undos, resets and starting a run, so a reset goes back
     to `Menu`.
   - When the scheme differs from the one it last went to, `OnSign` queues it on the colour worker without
     a chat line and logs `Split sign <sign>: layout colour <game> <scheme>`. Choosing it is
@@ -540,10 +564,18 @@ rotation starts with nothing remembered.
   time. A split always has one. A skipped split has none, and the component writes that as `-`.
   - So after any change of the index, `AfterIndexChangeAsync` waits, off the watcher's thread, until
     `PreviousSplit\AllSplits\RealTime\Sign.txt` has been written since `Index.txt`. It checks every 50 ms,
-    for up to 2 s.
+    for up to 0.5 s.
   - The component writes each level's sign after its times, real time before game time, and `AllSplits` is
     its last level. So once that sign is fresh, the run time is too, and so is every real-time sign the
     `Previous` panels colour by.
+  - The component's source, since 2026-10-15, skips a file whose contents haven't changed, and writes the
+    files on a background thread, in the order it queued them. So a sign that repeats (`LostBehind` twice
+    in a row) is never rewritten, and the wait runs out. That's why it is only 0.5 s: a split's files are
+    all written within about 40 ms, so by then an old sign is the current one. Reproduced headless on
+    2026-10-15: on two repeated `LostBehind` splits, `Sign.txt` kept the earlier split's time. A changed
+    sign was written within 1 ms of `Index.txt`. The build in LiveSplit still rewrites every file on every
+    split, so there the sign is always fresh
+    ([SGN](robustness-fixes.md#sgn--livesplit-never-writes-gainedahead--gainedbehind-during-a-run)).
   - For a rise, it then reads `RunTime.txt`. `-` means a skip, which doesn't show the previous-split panel.
   - Anything else calls `LeftPanel.OnSplit()`. That includes a sign that isn't rewritten in time or a time
     that can't be read, so the panel still shows for those.
@@ -615,10 +647,11 @@ the old table had it ([PBL](robustness-fixes.md#pbl--pblost-leaves-the-segment-d
 - A sign file that can't be read logs `Left panel: can't read <path>, previous-split colours left as is`.
 - A filter call that throws logs `Error LPN2: left panel colouring <source> failed: …`, like the rotation's
   other OBS calls.
-- **LiveSplit never writes `GainedAhead` or `GainedBehind` during a run.** The component's running branch
-  (`OutputToFileComponent.cs`, the sign after `runDelta == null`) has no case for a segment that beat its PB
+- **LiveSplit never writes `GainedAhead` or `GainedBehind` during a run.** The build in LiveSplit's
+  `Components` folder (2026-07-02) has no case, in the running branch, for a segment that beat its PB
   without being a gold. It writes `LostAhead` / `LostBehind` instead, so that segment's difference gets
-  `LabelNegative`. The end-of-run branch has the case (`PBGained` / `NoPBGained`)
+  `LabelNegative`. The end-of-run branch has the case (`PBGained` / `NoPBGained`). The component's source
+  has written them since 2026-10-15, but that build isn't in LiveSplit yet
   ([SGN](robustness-fixes.md#sgn--livesplit-never-writes-gainedahead--gainedbehind-during-a-run)).
 
 ### Where the data came from

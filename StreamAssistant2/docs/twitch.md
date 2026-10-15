@@ -122,16 +122,24 @@ Command is the first word (case-sensitive); the rest, trimmed, is the argument.
 | `!stoppaneltimer` | `LeftPanel.Stop`: stops the left-panel rotation and leaves the current panel up, logging `Left panel rotation stopped`. An OBS reconnect doesn't restart it; `!startpaneltimer`, a category change or going live does. With no rotation it logs `No left panel rotation to stop` ([obs.md](obs.md#the-rotation)) |
 | `!nextpanelitem` | `LeftPanel.Next`: cuts the panel up short, so the rotation moves on to the next panel now, as though its time were up (during a previous split, to the next previous-split panel). With no rotation, a stopped one, or only one panel and no previous split, it logs `No left panel rotation to move on` or `Only one left panel, nothing to move on to` ([obs.md](obs.md#the-rotation)) |
 | `!startpaneltimer` | `LeftPanel.Resume`: starts the last game's rotation again from its first panel, logging `Left panel: <game>, …`; with none it logs `No left panel to start` |
+| `!moneygoal <amount>` | `MoneyGoal.TrySetGoal`: sets the money goal in EUR (`500`, `12.50` or `12,50`), logging `Money goal set to <goal> EUR, now <total> / <goal> EUR`, and updates its OBS text. Anything but a positive amount logs `Not a money goal: "…" (try !moneygoal 500)` ([obs.md](obs.md#money-goal)) |
+| `!resetmoney` | `MoneyGoal.Reset`: sets the money total back to 0, logging `Money total reset (was <total> EUR), now 0 / <goal> EUR`, and updates its OBS text; the goal stays |
 
 ### Public commands
 
 `ChatHandler._commands` is a list of `ChatCommand(name, regex, output)` for the stream's FAQ
-(`!civilians`, `!ktane`, `!language`, `!skeys`, `!song`, `!sssa`). `CheckForCommands` runs every regex
-against every message and builds `@user: <output>`, but the `MsgQueue.Enqueue` that would send it is
-commented out, so **nothing is ever sent**. Re-enabling means calling
-`TwitchIRCManager.SendMessage(outputMsg)`. The regexes use lookaheads so a command fires on its `!name`
-or on a natural-language question (`why/how … killing … civilians`). Note that `Regex.Match` runs with no
-timeout and no per-user cooldown, and a message matching several commands would trigger them all.
+(`!civilians`, `!ktane`, `!language`, `!skeys`, `!song`, `!sssa`). Each regex uses lookaheads so a
+command fires on its `!name` anywhere in the message (`!ktane` also on `!manual`, `!language` also on
+`!spanish`, `!turkish` and the other language names), or on a natural-language question: one word from
+each of its groups, in any order, such as `why/how` + `kill/shoot` + `hostage/civilian/innocent`. Each
+word must start a word in the message (`\b`), so `how` doesn't match inside `show` or `are` inside
+`care`, but they are stems, so `keys`, `whats` and `shooting` count. Matching ignores case.
+
+`CheckForCommands` answers only the **first** command in the list that matches (list order is
+priority), with `@<user> <output>` through `TwitchIRCManager.SendMessage`, and logs
+`FAQ <command> for <user>` on `Notification`. A user gets the same command at most once every 60 s
+(`COOLDOWN`); inside that it logs `FAQ <command> for <user>: on cooldown` and sends nothing. Other users
+and other commands aren't held up. The cooldowns last until the bot restarts. Tested in `FaqCommandTests`.
 
 ### ChatterList
 

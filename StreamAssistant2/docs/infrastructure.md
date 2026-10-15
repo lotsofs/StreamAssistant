@@ -125,7 +125,8 @@ To add something time-based, write a loop in the owning module and start it from
 `<BotOutput>\streamAssistant.db`. Every call opens its own connection and disposes it; there is no pool
 of your own, no transaction and no WAL setting.
 
-`InitAsync()` runs at startup and issues `CREATE TABLE IF NOT EXISTS` for the single table:
+`InitAsync()` runs at startup and issues `CREATE TABLE IF NOT EXISTS` for both tables, then makes sure
+the money goal's one row exists:
 
 ```sql
 flushes (
@@ -135,6 +136,13 @@ flushes (
   created_at INTEGER NOT NULL    -- Unix seconds, UTC
 )
 -- index idx_flush_user_id on flushes(user_id)
+
+money_goal (
+  id            INTEGER PRIMARY KEY CHECK (id = 1),   -- one row
+  current_cents INTEGER NOT NULL,                     -- tips since the last !resetmoney
+  goal_cents    INTEGER NOT NULL
+)
+-- INSERT OR IGNORE (1, 0, 99900): a first start begins at 0 / 999 EUR; later starts keep the row
 ```
 
 | Method | Statement |
@@ -142,8 +150,14 @@ flushes (
 | `InsertFlushAsync(flushId, userId, userLogin)` | `INSERT`; a duplicate redemption id throws |
 | `RetrieveFlushesAsync(userId)` | `SELECT flush_id … WHERE user_id = $user_id` |
 | `DeleteFlushesAsync(userId)` | `DELETE … WHERE user_id = $user_id` |
+| `GetMoneyAsync()` | `SELECT current_cents, goal_cents`; `(0, 99900)` if the row is missing |
+| `AddMoneyAsync(cents)` | `UPDATE … SET current_cents = current_cents + $cents` |
+| `SetMoneyGoalAsync(cents)` | `UPDATE … SET goal_cents = $cents` |
+| `ResetMoneyAsync()` | `UPDATE … SET current_cents = 0` |
 
-All are parameterised. Only the toilet rewards use it ([events.md](events.md#how-the-flush-pair-works)).
+All are parameterised. The flush table is for the toilet rewards
+([events.md](events.md#how-the-flush-pair-works)), the money one for the money goal
+([obs.md](obs.md#money-goal)). Amounts are whole cents, so sums don't drift.
 `IF NOT EXISTS` never alters an existing table, so a schema change needs a real migration step in
 `InitAsync`, not just an edited `CREATE`.
 

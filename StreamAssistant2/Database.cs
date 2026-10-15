@@ -32,6 +32,15 @@ namespace StreamAssistant2 {
 
 			CREATE INDEX IF NOT EXISTS idx_flush_user_id
 			ON flushes(user_id);
+
+			CREATE TABLE IF NOT EXISTS money_goal (
+				id INTEGER PRIMARY KEY CHECK (id = 1),
+				current_cents INTEGER NOT NULL,
+				goal_cents INTEGER NOT NULL
+			);
+
+			INSERT OR IGNORE INTO money_goal (id, current_cents, goal_cents)
+			VALUES (1, 0, " + MoneyGoal.DEFAULT_GOAL_CENTS + @");
 			";
 
 			await cmd.ExecuteNonQueryAsync();
@@ -97,6 +106,53 @@ namespace StreamAssistant2 {
 			delete.Parameters.AddWithValue("$user_id", userId);
 
 			await delete.ExecuteNonQueryAsync();
+		}
+
+		// The money total and goal, in cents
+		internal static async Task<(long Current, long Goal)> GetMoneyAsync() {
+			await using var connection = new SqliteConnection(_connectionString);
+			await connection.OpenAsync();
+
+			var select = connection.CreateCommand();
+			select.CommandText =
+			@"
+			SELECT current_cents, goal_cents
+			FROM money_goal
+			WHERE id = 1
+			";
+
+			await using var reader = await select.ExecuteReaderAsync();
+			if (!await reader.ReadAsync()) {
+				return (0, MoneyGoal.DEFAULT_GOAL_CENTS);
+			}
+			return (reader.GetInt64(0), reader.GetInt64(1));
+		}
+
+		// Adds cents to the money total
+		internal static Task AddMoneyAsync(long cents) {
+			return UpdateMoneyAsync("current_cents = current_cents + $cents", cents);
+		}
+
+		// Sets the money goal, in cents
+		internal static Task SetMoneyGoalAsync(long cents) {
+			return UpdateMoneyAsync("goal_cents = $cents", cents);
+		}
+
+		// Sets the money total to 0
+		internal static Task ResetMoneyAsync() {
+			return UpdateMoneyAsync("current_cents = $cents", 0);
+		}
+
+		// Updates the money row with a SET clause that takes $cents
+		static async Task UpdateMoneyAsync(string set, long cents) {
+			await using var connection = new SqliteConnection(_connectionString);
+			await connection.OpenAsync();
+
+			var update = connection.CreateCommand();
+			update.CommandText = $"UPDATE money_goal SET {set} WHERE id = 1";
+			update.Parameters.AddWithValue("$cents", cents);
+
+			await update.ExecuteNonQueryAsync();
 		}
 
 	}

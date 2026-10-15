@@ -11,8 +11,9 @@ namespace StreamAssistant2 {
 		// Ids alerted this run
 		static readonly HashSet<string> _alerted = new();
 
-		// Plays the alert for a channel.tips event
-		internal static async Task Process(JsonElement data) {
+		/// <summary>Plays the alert for a channel.tips event and adds it to the money goal.</summary>
+		/// <param name="isTest">From !test: alert, but leave the money goal alone.</param>
+		internal static async Task Process(JsonElement data, bool isTest = false) {
 			string id = data.ReadString("_id");
 			if (!IsNew(id)) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.StreamElementsConfusion, $"Tip {id} already alerted, skipped");
@@ -29,6 +30,12 @@ namespace StreamAssistant2 {
 			string approved = data.ReadString("approved", "?");
 
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.StreamElementsNotification, $"Tip: {user} {Money(amount, currency)} (status {status}, approved {approved})");
+			if (isTest) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, "Test tip: not counted toward the money goal");
+			}
+			else {
+				MoneyGoal.Credit(user, amount, currency);
+			}
 			Sound.PlaySound(Sound.Sounds.IndianAnthem);
 			TwitchIRCManager.SendMessage(ChatLine(user, amount, currency));
 			await Task.Delay(TTS_DELAY_MS);

@@ -37,6 +37,9 @@ full explanation is. Skim this before making a change you think is small.
 - **There is no scheduler.** Time-based work is a loop in the owning module with its own try/catch.
   ([infrastructure.md](infrastructure.md#periodic-work))
 - **Static state has no locks.** Assume one thread unless you check.
+- **A LiveSplit file's write time doesn't mark every split.** The component (source from 2026-10-15) skips
+  a file whose contents haven't changed and writes the rest on a background thread, so a repeated sign
+  keeps the earlier split's time. ([obs.md](obs.md#splits-from-livesplit))
 
 ## Twitch and Helix
 
@@ -52,12 +55,16 @@ full explanation is. Skim this before making a change you think is small.
   ([streamelements.md](streamelements.md#keepalive-the-probe))
 - **A StreamElements tip carries the tipper's email, and the name is free text.** The dump and log go
   through `Redact`; the name goes through `LanguageFilter` before chat and TTS. ([events.md](events.md#tips))
+- **The money goal only counts tips the bot sees.** A tip that arrives while it isn't running is never
+  counted, and `!test tip` deliberately isn't. Inside `Tips`, `Money(...)` is the amount formatter, not
+  the goal: that is `MoneyGoal`. ([obs.md](obs.md#money-goal))
 - **A refused StreamElements token stops that connection until restart** (`Error SES3`, then
   `StreamElements stopped`); the rest of the bot carries on. ([streamelements.md](streamelements.md#session-lifecycle))
 - **IRC tags are ignored.** The bot knows nothing about badges, moderators or display names.
 - **`channel.follow` is subscribed but not handled**, so every follow logs a "not handled" line.
-- **`CheckForCommands` matches and then sends nothing**; the public FAQ commands are off.
-  ([legacy.md](legacy.md))
+- **The FAQ commands never answer `lotsofs` or `botsofs`**, so try them from another account. Each
+  answers a user at most once a minute, and a message gets only the first that matches.
+  ([twitch.md](twitch.md#public-commands))
 - **A silent connection is recycled, not just shown red**: IRC after 7 minutes, EventSub after 20 s.
   The EventSub one has been seen live; the IRC one hasn't yet. ([TODO.md](TODO.md), item DCD)
 

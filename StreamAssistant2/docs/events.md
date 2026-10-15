@@ -106,8 +106,8 @@ keyed by that id.
 
 [Cheers.cs](../code/Twitch/Cheers.cs): reads `is_anonymous`, `user_login`, `bits` and `message` (the
 message goes through `LanguageFilter`), plays *Team17 Applauds*, waits 5 s, then speaks
-`<user> cheered <bits>: <message>`. The user name isn't filtered. `MONEY_PER_BIT` and the `Money` update
-are leftovers (commented out).
+`<user> cheered <bits>: <message>`. The user name isn't filtered. Cheers don't count toward the money
+goal ([obs.md](obs.md#money-goal)).
 
 ## Raids
 
@@ -137,17 +137,20 @@ tipper's email removed, and hands them to `Tips.Process` ([Tips.cs](../code/Stre
    goes through `LanguageFilter` like the message. A blank name becomes `Someone`.
 3. **Log** `Tip: <user> <amount> <currency> (status <status>, approved <approved>)` on
    `StreamElementsNotification`.
-4. **Play** *IndianAnthem* (0.4).
-5. **Post** `💸 <user> tipped <amount> <currency> 💸` to chat.
-6. **Wait 6 s**, then speak `<user> donated <amount> <currency>: <message>`. Without a message, the
+4. **Count it** toward the money goal (`MoneyGoal.Credit`, in the background; see
+   [obs.md](obs.md#money-goal)).
+5. **Play** *IndianAnthem* (0.4).
+6. **Post** `💸 <user> tipped <amount> <currency> 💸` to chat.
+7. **Wait 6 s**, then speak `<user> donated <amount> <currency>: <message>`. Without a message, the
    sentence ends after the currency.
 
 The amount is `5` when whole and two decimals otherwise (`4.20`), always with a dot, whatever the
-machine's culture (`Tips.FormatAmount`). Nothing is credited to `Money` (see MNY in [TODO.md](TODO.md)).
-`status` and `approved` are logged but not acted on; how moderated tips arrive isn't known yet.
+machine's culture (`Tips.FormatAmount`). `status` and `approved` are logged but not acted on; how
+moderated tips arrive isn't known yet.
 
 `!test tip <amount> [msg <text…>]` runs the whole alert, chat line included
-([twitch.md](twitch.md#the-test-harness)).
+([twitch.md](twitch.md#the-test-harness)), but doesn't count toward the money goal: it logs
+`Test tip: not counted toward the money goal` instead.
 
 ## Ads
 

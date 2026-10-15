@@ -20,7 +20,7 @@ namespace StreamAssistant2 {
 				switch (topic) {
 					case StreamElementsSocket.TIPS_TOPIC:
 						JsonElement tip = data.Clone();
-						FireForget.Run("SEH_t", "tip", () => Tips.Process(tip));
+						FireForget.Run("SEH_t", "tip", () => Tips.Process(tip, isTest));
 						break;
 					default:
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.StreamElementsConfusion, $"StreamElements event happened, but is not handled in code: {topic}");

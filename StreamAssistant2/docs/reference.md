@@ -51,6 +51,9 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `LPN3` | `FireForget.Run` (from `LeftPanel.Start`) | The rotation threw outside its own handling | that rotation stops until the next `Start` |
 | `LPN4` | `LeftPanel.OnObsConnected` (from `ObsConnection`'s `Connected` handler) | Restarting the rotation on an OBS connect threw | the rotation isn't restarted; leftovers from before the connect may stay up |
 | `SDB1` | `FireForget.Run` (from `GameSidebar.OnObsConnected`) | Setting the dynamic sidebar again after an OBS connect threw | the sidebar keeps what OBS had until the next index change or game setup |
+| `MON1` | `FireForget.Run` (from `MoneyGoal.Credit`) | Adding a tip to the money goal threw, usually the database | that tip isn't counted |
+| `MON2` | `FireForget.Run` (from `MoneyGoal.TrySetGoal`, `Reset`) | `!moneygoal` or `!resetmoney` threw, usually the database | goal or total unchanged |
+| `MON3` | `FireForget.Run` (from `MoneyGoal.OnObsConnected`) | Reading the money goal to rewrite its OBS text after a connect threw | the text keeps what OBS had until the next tip or command |
 | `LSW1` | `SplitWatcher.OnChanged` | Handling a change to LiveSplit's split index threw | that change is missed; the next one is read as usual |
 | `LSW2` | `SplitWatcher` (the watcher's `Error` event) | The `FileSystemWatcher` failed, e.g. its buffer overflowed; the message is logged | events may be missed |
 | `LSW3` | `SplitWatcher.Start` | Starting the watcher threw | no previous-split panel this run |
@@ -76,6 +79,9 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `Subscription <type> failed` | a `400` from the subscribe POST: wrong version or missing condition |
 | `Unhandled channel point reward redemption id: <id>` | a reward the code has no case for |
 | `Event Sub Event happened, but is not handled in code: <type>` | a subscription with no `case`, e.g. `channel.follow` |
+| `Money goal: +<amount> EUR from <user>, now <total> / <goal> EUR` | a tip was counted; on `Important`, with `counted as … EUR`, when it came in another currency |
+| `Test tip: not counted toward the money goal` | a `!test tip` ran the alert without counting |
+| `FAQ <command> for <user>` / `…: on cooldown` | a chat line matched an FAQ command: answered, or not because that user had it within 60 s |
 | `StreamElements: no channelId or jwt in secrets.json, tips are off` | no `streamElements` credentials; the bot runs without tips |
 | `StreamElements stopped: fix streamElements in secrets.json and restart the bot` | StreamElements refused the JWT (after `Error SES3`) |
 | `Tip <id> already alerted, skipped` | the same tip arrived twice |
@@ -162,6 +168,7 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 | `Sidebar: Dynamic 1`, `Sidebar: Dynamic 2` | `GameSidebar` | the images in `!Scene: Sidebar 5x4` (inside `!Scene: Layout 5x4`) that follow the split index, each from its own series, setting `file` |
 | `Text: Stream Uptime` | `TwitchUptime` | the uptime text, `U: <h>h <mm>m`, `U: Offline` or `U: ?`, setting `text` |
 | `Text: Time Of Day` | `Clock` | the clock text, `yyyy-MM-dd HH:mm`, setting `text` |
+| `Text: Money Goal` | `MoneyGoal` | the money goal, `<total> / <goal> EUR`, setting `text`; you create it ([obs.md](obs.md#money-goal)) |
 | `Game: Game Capture 0`–`2` | `GameCapture` | game capture sources, retargeted per game |
 | `Game: Window Capture 0`–`2` | `GameCapture` | window capture sources, retargeted per game |
 | `Audio 5: App Capture 0`–`2` | `GameCapture` | application audio capture, fallback, retargeted per game |
@@ -238,6 +245,7 @@ Every other input with audio (window captures for chat, S Keys, Winamp, LiveSpli
 | 5.5 s, 2.5 s, 1 s | `LayoutColoring.ChangeColorAsync` | the recolour animation, nine seconds in all |
 | 60 min; warnings at 5, 3, 2, 1 min before | `Ads` | assumed ad cadence |
 | 5 s | `TwitchUptime.MIN_GAP` | least time between uptime requests; a poll inside it waits out the rest |
+| 60 s | `ChatHandler.COOLDOWN` | a user gets the same FAQ command answered at most this often |
 | 60 s | `TwitchHelixApi` | HTTP timeout (EventSub's separate client keeps the default) |
 
 ### Thresholds
@@ -248,6 +256,7 @@ Every other input with audio (window captures for chat, S Keys, Winamp, LiveSpli
 | 300 / 360 / 420 s, 12 / 15 / 20 s and 40 / 50 / 70 s | `ConnectionHealth.Irc` / `.EventSub` / `.StreamElements`: status colours and the health log (420 s, 20 s and 70 s are the reconnect timeouts) |
 | 5000 lines | `MainWindow.MAX_LINES` |
 | 32 tokens | `TripleColorParser.MAX_TOKENS` |
+| 999 EUR | `MoneyGoal.DEFAULT_GOAL_CENTS`: the money goal on a first start, until `!moneygoal`; the goal and total are in `MoneyGoal.CURRENCY`, EUR |
 
 ## Chat conventions
 
@@ -267,4 +276,5 @@ The bot's chat messages are prefixed with an emoji that says what kind they are.
 | `sssDino` | the stream's own emote, at the start of the ad-break begging messages |
 
 Some lines carry no prefix: `Test <n>` (a first-time chatter), `YOOO BRO`, the ad warnings,
-`Raid: <user> (<viewers>)`, and `Stream category change [from <id>] to <id>`.
+`Raid: <user> (<viewers>)`, `Stream category change [from <id>] to <id>`, and the FAQ answers,
+`@<user> <answer>`.
