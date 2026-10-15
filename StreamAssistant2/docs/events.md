@@ -181,7 +181,7 @@ streamer ran one) the pending warnings are cancelled and rescheduled from that b
 
 ## Category change and going live
 
-[Games.cs](../code/Obs/Games.cs). `channel.update` fires on any channel-info edit (title, language,
+[Games.cs](../code/Games/Games.cs). `channel.update` fires on any channel-info edit (title, language,
 labels), not just the category. `HandleUpdate` reads `category_id` and compares it with the last one
 seen (`CategoryChangeMessage`, tested): the same id does nothing. A different one is stored, posts
 `Stream category change from <old id> to <new id>` to chat (`Stream category change to <id>` when there is

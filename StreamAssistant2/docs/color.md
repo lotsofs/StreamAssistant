@@ -8,7 +8,7 @@ especially, can't be worked out from the code alone.
 ## What it does
 
 Three channel-point rewards in [ChannelPoints.cs](../code/Twitch/ChannelPoints.cs) call
-[LayoutColoring.cs](../LayoutColoring.cs) (at the project root):
+[LayoutColoring.cs](../code/Obs/LayoutColoring.cs) (at the project root):
 
 | Reward | Calls | Input |
 |---|---|---|

@@ -9,7 +9,7 @@ text format, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
 
 ## Config
 
-[Config.cs](../Config.cs). `Config.Load()` runs before anything else, from `Program.Main`.
+[Config.cs](../code/Core/Config.cs). `Config.Load()` runs before anything else, from `Program.Main`.
 
 1. Reads **`paths.json`** from the working directory (so the app must run from the project folder). It
    holds only `directories`: `BotInput`, `BotOutput`, `Trains`, `Colors`, `ColorSchemes`, `Backgrounds`,
@@ -43,7 +43,7 @@ has no matching property and is never read.
 
 ## Logging
 
-[ConsoleLogger.cs](../ConsoleLogger.cs). The class keeps its name from the console era; it now feeds the
+[ConsoleLogger.cs](../code/Core/ConsoleLogger.cs). The class keeps its name from the console era; it now feeds the
 WPF window ([dashboard.md](dashboard.md)).
 
 | Call | File | Window | Use for |
@@ -121,7 +121,7 @@ To add something time-based, write a loop in the owning module and start it from
 
 ## Database
 
-[Database.cs](../Database.cs) uses `Microsoft.Data.Sqlite`, with the file at
+[Database.cs](../code/Core/Database.cs) uses `Microsoft.Data.Sqlite`, with the file at
 `<BotOutput>\streamAssistant.db`. Every call opens its own connection and disposes it; there is no pool
 of your own, no transaction and no WAL setting.
 
@@ -163,7 +163,7 @@ All are parameterised. The flush table is for the toilet rewards
 
 ## Sound
 
-[Sound.cs](../Sound.cs) plays alert clips with NAudio: a fresh `AudioFileReader` and `WaveOutEvent` per
+[Sound.cs](../code/Audio/Sound.cs) plays alert clips with NAudio: a fresh `AudioFileReader` and `WaveOutEvent` per
 play, both disposed on `PlaybackStopped`, on the default output device. Playback is asynchronous;
 `PlaySound` returns immediately and several can overlap.
 
@@ -183,7 +183,7 @@ There is no delayed variant: handlers `await Task.Delay(...)` between sounds.
 
 ## Text to speech
 
-[TextToSpeech.cs](../TextToSpeech.cs) wraps `System.Speech`'s `SpeechSynthesizer` (SAPI) behind a queue.
+[TextToSpeech.cs](../code/Audio/TextToSpeech.cs) wraps `System.Speech`'s `SpeechSynthesizer` (SAPI) behind a queue.
 
 - The static constructor selects the voice **`Microsoft Catherine`** and starts the worker. If that voice
   isn't installed `SelectVoice` throws, the type fails to initialise, and every later TTS call throws
@@ -203,7 +203,7 @@ handler does it itself (resub text, cheer text). Usernames and gift recipients a
 
 ## Language filter
 
-[LanguageFilter.cs](../LanguageFilter.cs) holds a dictionary of offensive words from an old Oxford
+[LanguageFilter.cs](../code/Audio/LanguageFilter.cs) holds a dictionary of offensive words from an old Oxford
 dictionary export, each with a replacement chosen by the author, and `ReplaceBadWords` runs
 `string.Replace(key, value, ignoreCase)` for each in dictionary order.
 
@@ -214,7 +214,7 @@ stay above any shorter entry it contains (`jewess` before `jew`, `faggot` before
 
 ## Disk space
 
-[DiskSpace.cs](../DiskSpace.cs) watches free space so the VOD recording doesn't run out of room. It looks
+[DiskSpace.cs](../code/Timing/DiskSpace.cs) watches free space so the VOD recording doesn't run out of room. It looks
 at drive `A:\` and falls back to the first drive from `DriveInfo.GetDrives()` if there is no `A:`.
 
 `DiskSpace.Start()` runs a loop that wakes on every whole minute (`ClockMarks.UntilNextMinute`: UTC, recomputed
@@ -268,7 +268,7 @@ recomputed every pass, so nothing drifts, and a sleep or clock change costs at m
 
 ## Uptime
 
-[TwitchUptime.cs](../TwitchUptime.cs), started by `TwitchUptime.Start()`, asks
+[TwitchUptime.cs](../code/Timing/TwitchUptime.cs), started by `TwitchUptime.Start()`, asks
 `https://decapi.me/twitch/uptime/lotsofs` (a third-party scraper, used instead of Helix) how long the stream
 has been live, and writes the answer to the OBS text source `Text: Stream Uptime`.
 
@@ -307,7 +307,7 @@ re-aims it.
 
 ## Connection health
 
-[ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs) holds the thresholds for the three connection ages
+[ConnectionHealth.cs](../code/Timing/ConnectionHealth.cs) holds the thresholds for the three connection ages
 the dashboard shows, and logs when a connection goes stale. The thresholds are one table for both the
 window's colours and the log, and **dead is the reconnect timeout itself**:
 

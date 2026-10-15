@@ -8,7 +8,7 @@ Read from the code; nothing here was run against Twitch.
 
 ## Credentials and identity
 
-[Config.cs](../Config.cs) puts these in `Config.Data` (from `secrets.json`; never print their values):
+[Config.cs](../code/Core/Config.cs) puts these in `Config.Data` (from `secrets.json`; never print their values):
 
 | Setting | Used for |
 |---|---|

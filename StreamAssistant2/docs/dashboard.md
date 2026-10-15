@@ -34,7 +34,7 @@ state straight from the transports (the window polls; the bot never pushes to it
 | EventSub | `TwitchEventSub.KeepAliveTimer.Elapsed` | grey | 12 s | 15 s | 20 s |
 | StreamElements | `StreamElementsSocket.SinceLastMessage.Elapsed` | grey | 40 s | 50 s | 70 s |
 
-The thresholds live in [ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs), shared with the
+The thresholds live in [ConnectionHealth.cs](../code/Timing/ConnectionHealth.cs), shared with the
 connection-health log ([infrastructure.md](infrastructure.md#connection-health)), and red *is* the reconnect
 timeout: `TwitchIRCManager.SilenceTimeout`, `TwitchEventSub.KeepAliveTimeout` and
 `StreamElementsSocket.SilenceTimeout`. The IRC number is really

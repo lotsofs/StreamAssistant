@@ -60,12 +60,9 @@ reward's task silently and can leave the train image showing. All names are hard
 listed in [reference.md](reference.md#obs-names); renaming something in OBS breaks the matching call
 without any compile-time hint.
 
-The rest of `Obs.cs` is a large commented-out block from the Streamer.Bot era. See
-[legacy.md](legacy.md#obs-raw-request-builder).
-
 ## Layout recolouring
 
-[LayoutColoring.cs](../LayoutColoring.cs). The channel's layout has three colourable parts, recoloured
+[LayoutColoring.cs](../code/Obs/LayoutColoring.cs). The channel's layout has three colourable parts, recoloured
 through OBS's *Color Correction* filter (called `Color Correction` on every source):
 
 | Part | Sources | Filter property | Colour |
@@ -174,14 +171,14 @@ runs through `Games.RunStep`, so one that throws logs `Error GMS2: game setup <s
 later steps still run (tested). The background, border, scene and capture steps also catch OBS
 rejections themselves, with a clearer `Couldn't set …: …` warning.
 
-- **Background**, [GameBackground.cs](../code/Obs/GameBackground.cs): `Set` points the `Image: Background`
+- **Background**, [GameBackground.cs](../code/Games/GameBackground.cs): `Set` points the `Image: Background`
   input at `<Directories.Backgrounds>\<game name>.png` with `Obs.SetImageSource` and logs
   `Image: Background → <file>`. A missing file falls back to `Template.png` in the same folder, logging
   `No background for <game name>, using Template.png`; with that missing too, the image stays as it is
   (`PathFor`, tested; the fallback itself isn't). If OBS
   rejects the request (the source is missing or renamed), it logs `Couldn't set Image: Background: <message>`
   and the colour and capture steps still run.
-- **Borders**, [GameBorder.cs](../code/Obs/GameBorder.cs): the layout's borders frame the game, so their
+- **Borders**, [GameBorder.cs](../code/Games/GameBorder.cs): the layout's borders frame the game, so their
   shape follows the game's aspect ratio, `Aspect` in `games.json`. 16:9 is the default, for a game without
   one and for a category not in `games.json`.
   - The aspect's own pair is `<Directories.Layout>\Borders_Inner_<aspect>.png` and
@@ -197,7 +194,7 @@ rejections themselves, with a clearer `Couldn't set …: …` warning.
     `Layout` in `paths.json`, `Layout not set in paths.json, borders left as is`.
   - An OBS rejection logs `Couldn't set the borders: <message>`, and the later steps still run.
   - It runs before the colour step, which recolours these same four sources (`Files`, tested).
-- **Scenes**, [GameScene.cs](../code/Obs/GameScene.cs): the layout and the game capture each come in a scene
+- **Scenes**, [GameScene.cs](../code/Games/GameScene.cs): the layout and the game capture each come in a scene
   per aspect. The layouts are `!Scene: Layout 16x9` and `!Scene: Layout 5x4`. The captures are
   `!Scene: Games 16x9` and `!Scene: Games 5x4`, which hold the same capture sources, framed for that shape.
   `Basic Stream Layout` holds them as top-level items.
@@ -210,7 +207,7 @@ rejections themselves, with a clearer `Couldn't set …: …` warning.
   - `Choose` is tested.
   - Only `Basic Stream Layout` is changed. A few other scenes hold their own `!Scene: Games 16x9`, and those
     stay as they are.
-- **Sidebar**, [GameSidebar.cs](../code/Obs/GameSidebar.cs): `!Scene: Layout 5x4` holds `!Scene: Sidebar 5x4`,
+- **Sidebar**, [GameSidebar.cs](../code/Games/GameSidebar.cs): `!Scene: Layout 5x4` holds `!Scene: Sidebar 5x4`,
   the strip left of the 5:4 game. In it, `Sidebar: Dynamic 1` and `Sidebar: Dynamic 2` follow LiveSplit's split
   index, each with its own series of images in `<Directories.Sidebar>\Dynamic\`:
 
@@ -233,7 +230,7 @@ rejections themselves, with a clearer `Couldn't set …: …` warning.
     An OBS rejection logs `Couldn't set <source>: <message>`, and the other source is still set.
   - `Choose` is tested.
   - `Sidebar: Fixed`, the static part of the strip, isn't changed per game.
-- **Colour**, [GameColor.cs](../code/Obs/GameColor.cs): `Set` requests `gameschemes <game name>` through
+- **Colour**, [GameColor.cs](../code/Games/GameColor.cs): `Set` requests `gameschemes <game name>` through
   `LayoutColoring.TryChangeToSingle`, the reward's path: the game's category in the `gameschemes` scheme
   set, at its `Default` scheme. It is queued like any colour change (the animation runs later on the
   colour worker), replaces whatever colour is showing, and posts the usual `Changing to color …` line.
@@ -256,7 +253,7 @@ rejections themselves, with a clearer `Couldn't set …: …` warning.
     a chat line and logs `Split sign <sign>: layout colour <game> <scheme>`. Choosing it is
     `ChooseScheme`, tested.
   - A manual colour (a reward or `!changecolor`) stays until the trend next changes.
-- **Capture sources**, [GameCapture.cs](../code/Obs/GameCapture.cs): three kinds, three numbered slots
+- **Capture sources**, [GameCapture.cs](../code/Games/GameCapture.cs): three kinds, three numbered slots
   each, numbered from 0:
 
   | Sources | `games.json` list |
@@ -324,7 +321,7 @@ rotation with a previous-split panel ([Splits from LiveSplit](#splits-from-lives
 
 ### The panel file
 
-[LeftPanel.cs](../code/Obs/LeftPanel.cs) loads `<BotInput>\leftpanel.json` at startup, after `games.json`.
+[LeftPanel.cs](../code/LeftPanel/LeftPanel.cs) loads `<BotInput>\leftpanel.json` at startup, after `games.json`.
 The file is keyed by `games.json` `Name` (any case), plus a `default` entry for a game without its own:
 
 ```json

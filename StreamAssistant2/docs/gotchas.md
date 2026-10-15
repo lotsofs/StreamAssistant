@@ -103,8 +103,9 @@ full explanation is. Skim this before making a change you think is small.
 - **The build is warning-free.** Keep it that way rather than suppressing.
 - **`code/` is lowercase and a case-only rename needs `git mv`**, with VS Code holding a handle on the
   folder itself; move subfolders instead. ([CLAUDE.md](../CLAUDE.md))
-- **Don't clean up the commented-out code or finish either migration unasked.**
-  ([legacy.md](legacy.md))
+- **The test project mirrors `code/`'s folders, but `ColorData.cs` must stay at its root**: it finds the
+  bot's `paths.json` two folders up from itself, so moving it skips the real-data tests.
+  ([development.md](development.md#unit-tests))
 - **`Fold` relies on `string.Normalize`**, which silently does nothing under `InvariantGlobalization`.
 
 ## Logging

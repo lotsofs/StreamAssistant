@@ -37,36 +37,6 @@
 				@"^((?=.*!sssa)|(?=.*\bwhat)(?=.*\bsssa)).*$",
 				"The goal of SSSA is to deliver almost every vehicle in the game to a location. Only exceptions are vehicles that cannot be acquired without the use of glitches. (hotrina, hotrinb, rc vehicles, decorative flying vehicles)"
 			),
-			//new ChatCommand (
-			//	"!wherefrom",
-			//	"",
-			//	"This is a weird question to be asking a streamer first thing upon entering. Are you looking for someone to stalk? Anyway, the streamer currently lives somewhere in the Netherlands."
-			//),
-			//new ChatCommand (
-			//	"",
-			//	"",
-			//	""
-			//),
-			//new ChatCommand (
-			//	"",
-			//	"",
-			//	""
-			//),
-			//new ChatCommand (
-			//	"",
-			//	"",
-			//	""
-			//),
-			//new ChatCommand (
-			//	"",
-			//	"",
-			//	""
-			//),
-			//new ChatCommand (
-			//	"",
-			//	"",
-			//	""
-			//),
 		];
 
 		static string GetUserName(string prefix) {

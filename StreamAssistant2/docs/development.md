@@ -56,7 +56,10 @@ Everything else is checked by running the app and reading the dashboard.
 
 xUnit project `../StreamAssistant2.Tests` (a sibling folder so the bot's default file globbing doesn't
 compile it). The test project references the bot's project, and the bot grants it
-`InternalsVisibleTo`.
+`InternalsVisibleTo`. Its files sit in folders that mirror `code/` (`Color/`, `Twitch/`, `Timing/`, …), so
+`code/Games/Games.cs` is tested in `Games/GamesTests.cs`. `ColorData.cs` and `Fixtures/` stay at its root:
+`ColorData.cs` holds the assembly-wide attributes and finds the bot's `paths.json` two folders up from
+itself.
 
 | File | Covers |
 |---|---|
@@ -181,8 +184,8 @@ loader's log lines are in [color.md](color.md).
 ### Add a module
 
 A `static class` under `code/<Area>/` (WPF windows and panels go in `ui/`). Start it from `Program`,
-in `StartBotAsync` or `EnableBot`, in the right order. Both the root and `code/` are mid-migration;
-don't move existing files unprompted.
+in `StartBotAsync` or `EnableBot`, in the right order. Its tests go in the matching folder of the test
+project.
 
 ## When you change something
 

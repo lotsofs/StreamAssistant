@@ -106,22 +106,24 @@ transport classes and the colour code (the test project reaches internals throug
 
 ## Where everything lives
 
-### Root (older layout, mid-migration)
+Everything is under `code/<Area>/`, except [Program.cs](../Program.cs) (the entry point, startup order
+and shutdown, above) at the root and the window in [ui/](#ui). The test project mirrors these folders.
+
+### `code/Core/`
 
 | File | Role | Detail |
 |---|---|---|
-| [Program.cs](../Program.cs) | Entry point, startup order, shutdown | above |
-| [Config.cs](../Config.cs) | Loads `paths.json` + `secrets.json` into `Config.Data` | [infrastructure.md](infrastructure.md#config) |
-| [ConsoleLogger.cs](../ConsoleLogger.cs) | All logging: dated file + `LineLogged` event | [infrastructure.md](infrastructure.md#logging) |
-| [Database.cs](../Database.cs) | SQLite: the toilet rewards' `flushes` and the `money_goal` row | [infrastructure.md](infrastructure.md#database) |
-| [Sound.cs](../Sound.cs) | NAudio alert-sound playback | [infrastructure.md](infrastructure.md#sound) |
-| [TextToSpeech.cs](../TextToSpeech.cs) | SAPI speech queue | [infrastructure.md](infrastructure.md#text-to-speech) |
-| [LanguageFilter.cs](../LanguageFilter.cs) | Naive bad-word replacement before TTS | [infrastructure.md](infrastructure.md#language-filter) |
-| [DiskSpace.cs](../DiskSpace.cs) | Free-space watchdog for drive `A:\` | [infrastructure.md](infrastructure.md#disk-space) |
-| [TwitchUptime.cs](../TwitchUptime.cs) | Scrapes uptime from decapi.me and writes it to OBS | [infrastructure.md](infrastructure.md#uptime) |
-| [LayoutColoring.cs](../LayoutColoring.cs) | Serialised colour-change queue and the OBS animation | [obs.md](obs.md#layout-recolouring) |
-| [Util.cs](../Util.cs) | `TrueModulo` overloads; used only by `ColorUtil.HsvToRgb` | |
-| [ISaveable.cs](../ISaveable.cs) | Unused leftover | [legacy.md](legacy.md) |
+| [Config.cs](../code/Core/Config.cs) | Loads `paths.json` + `secrets.json` into `Config.Data` | [infrastructure.md](infrastructure.md#config) |
+| [ConsoleLogger.cs](../code/Core/ConsoleLogger.cs) | All logging: dated file + `LineLogged` event | [infrastructure.md](infrastructure.md#logging) |
+| [Database.cs](../code/Core/Database.cs) | SQLite: the toilet rewards' `flushes` and the `money_goal` row | [infrastructure.md](infrastructure.md#database) |
+
+### `code/Audio/`
+
+| File | Role | Detail |
+|---|---|---|
+| [Sound.cs](../code/Audio/Sound.cs) | NAudio alert-sound playback | [infrastructure.md](infrastructure.md#sound) |
+| [TextToSpeech.cs](../code/Audio/TextToSpeech.cs) | SAPI speech queue | [infrastructure.md](infrastructure.md#text-to-speech) |
+| [LanguageFilter.cs](../code/Audio/LanguageFilter.cs) | Naive bad-word replacement before TTS | [infrastructure.md](infrastructure.md#language-filter) |
 
 ### `code/Twitch/`
 
@@ -132,7 +134,6 @@ transport classes and the colour code (the test project reaches internals throug
 | [ChatCommand.cs](../code/Twitch/ChatCommand.cs) | Data holder for a public command |
 | [ChatterList.cs](../code/Twitch/ChatterList.cs) | First-time-chatter list |
 | [TwitchEventSub.cs](../code/Twitch/TwitchEventSub.cs) | WebSocket session loop and subscribing |
-| [ConnectionHealth.cs](../code/Twitch/ConnectionHealth.cs) | Shared IRC/EventSub/StreamElements age thresholds; logs a connection going bad and recovering |
 | [TwitchEventSubSubscription.cs](../code/Twitch/TwitchEventSubSubscription.cs) | The table of subscriptions to create |
 | [TwitchEventHandler.cs](../code/Twitch/TwitchEventHandler.cs) | Dispatch on event type |
 | [TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) | Outbound REST: redemption status, channel category |
@@ -141,7 +142,7 @@ transport classes and the colour code (the test project reaches internals throug
 | [Cheers.cs](../code/Twitch/Cheers.cs) | Bits alert |
 | [Raids.cs](../code/Twitch/Raids.cs) | Raid chat line |
 | [StreamEvents.cs](../code/Twitch/StreamEvents.cs) | Logs Twitch's stream online and offline |
-| [Subscriptions.cs](../code/Twitch/Subscriptions.cs) | Sub, resub, gift and gift-bomb alerts: sound, delay, speech; the gift-bomb list (plus a large commented-out legacy block) |
+| [Subscriptions.cs](../code/Twitch/Subscriptions.cs) | Sub, resub, gift and gift-bomb alerts: sound, delay, speech; the gift-bomb list |
 | [SubscriptionMessages.cs](../code/Twitch/SubscriptionMessages.cs) | The spoken sentences for those alerts |
 | [CommunityGiftSub.cs](../code/Twitch/CommunityGiftSub.cs) | Collects the recipients of one gift bomb |
 | [TestEvents/](../code/Twitch/TestEvents/) | `!test` scripts: simulated events built in code (`TestEventRunner`, `TestArgs`, one file per area), StreamElements tips included |
@@ -168,32 +169,37 @@ written to OBS's `Text: Money Goal`, and changed by `!moneygoal` and `!resetmone
 
 [ObsConnection.cs](../code/Obs/ObsConnection.cs): the OBS websocket, its reconnect loop, and the
 stream-state handler ([obs.md](obs.md#connection)). [Obs.cs](../code/Obs/Obs.cs): the thin OBS request
-wrappers; the rest of the file is commented out ([obs.md](obs.md#the-wrapper)).
+wrappers ([obs.md](obs.md#the-wrapper)). [LayoutColoring.cs](../code/Obs/LayoutColoring.cs): the
+serialised colour-change queue and the OBS animation ([obs.md](obs.md#layout-recolouring)).
 
-[Games.cs](../code/Obs/Games.cs): loads `<BotInput>\games.json` (Twitch category id → game name and
+### `code/Games/`
+
+[Games.cs](../code/Games/Games.cs): loads `<BotInput>\games.json` (Twitch category id → game name and
 game, window and audio capture executables) and resolves a category to its game, falling back to id `0`. `HandleUpdate` takes
 `channel.update` and calls `Apply`, the per-game setup, when the category changes;
 `OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, borders, layout and games scenes, sidebar, colour, left panel and capture sources; the capture sources only for a category in `games.json`.
 
-[GameBackground.cs](../code/Obs/GameBackground.cs): `Set(gameName)` points `Image: Background` at the
+[GameBackground.cs](../code/Games/GameBackground.cs): `Set(gameName)` points `Image: Background` at the
 game's PNG in `Directories.Backgrounds`, else `Template.png` there, or logs and leaves it when neither exists.
-[GameBorder.cs](../code/Obs/GameBorder.cs): `Set(game)` points the inner and outer `Border: Colorable` sources,
+[GameBorder.cs](../code/Games/GameBorder.cs): `Set(game)` points the inner and outer `Border: Colorable` sources,
 and their fade twins, at the border images for the game's `Aspect` (16x9 by default) in `Directories.Layout`,
 or the plain ones when that aspect has none of its own.
-[GameScene.cs](../code/Obs/GameScene.cs): `Set(game)` shows the `!Scene: Layout <aspect>` and
+[GameScene.cs](../code/Games/GameScene.cs): `Set(game)` shows the `!Scene: Layout <aspect>` and
 `!Scene: Games <aspect>` items of `Basic Stream Layout` for the game's aspect (16x9 by default) and hides the
 others of each kind there; `GamesScenes()` lists the games scenes for `GameCapture`, which shows and hides
 its slots in each.
-[GameSidebar.cs](../code/Obs/GameSidebar.cs): `SetGame(name)` makes the game the one whose
+[GameSidebar.cs](../code/Games/GameSidebar.cs): `SetGame(name)` makes the game the one whose
 `Sidebar: Dynamic 1` and `2` images follow LiveSplit's split index; `OnIndexChanged`, from `SplitWatcher`, and
 `OnObsConnected`, from `ObsConnection`, show the image for the current index.
-[GameColor.cs](../code/Obs/GameColor.cs): `Set(gameName)` queues the game's `gameschemes` colour scheme
+[GameColor.cs](../code/Games/GameColor.cs): `Set(gameName)` queues the game's `gameschemes` colour scheme
 through `LayoutColoring`, or logs and leaves the colour when there is none.
-[GameCapture.cs](../code/Obs/GameCapture.cs): `Set(game)` points the three numbered game, window and
+[GameCapture.cs](../code/Games/GameCapture.cs): `Set(game)` points the three numbered game, window and
 audio capture sources at the game's executables, `none` for unused slots. All three in
 [obs.md](obs.md#per-game-setup).
 
-[LeftPanel.cs](../code/Obs/LeftPanel.cs): loads `<BotInput>\leftpanel.json` (game name → the groups always
+### `code/LeftPanel/`
+
+[LeftPanel.cs](../code/LeftPanel/LeftPanel.cs): loads `<BotInput>\leftpanel.json` (game name → the groups always
 shown and the panels to take turns) and finds a game's entry, falling back to `default`. `Start(game)`,
 called from `Games.Apply`, rotates those panels in OBS until the next `Start`; `OnObsConnected`, from
 `ObsConnection`'s `Connected` handler, restarts it after an OBS restart; `Stop` and `Resume` back the
@@ -219,6 +225,13 @@ next minute) for the periodic loops. See [infrastructure.md](infrastructure.md#p
 [Clock.cs](../code/Timing/Clock.cs): the per-minute loop that writes the OBS clock text and posts the date to chat
 at local midnight. See [infrastructure.md](infrastructure.md#clock).
 
+[DiskSpace.cs](../code/Timing/DiskSpace.cs): the free-space watchdog for drive `A:\`
+([infrastructure.md](infrastructure.md#disk-space)). [TwitchUptime.cs](../code/Timing/TwitchUptime.cs):
+scrapes the uptime from decapi.me and writes it to OBS ([infrastructure.md](infrastructure.md#uptime)).
+[ConnectionHealth.cs](../code/Timing/ConnectionHealth.cs): the shared IRC, EventSub and StreamElements age
+thresholds, and the once-a-second check that logs a connection going bad and recovering
+([infrastructure.md](infrastructure.md#connection-health)).
+
 ### `code/Util/`
 
 [FireForget.cs](../code/Util/FireForget.cs): `FireForget.Run(code, what, work)` starts an async body
@@ -228,6 +241,8 @@ without awaiting it and logs a throw as `Error <code>: <what> failed`. Used for 
 `JsonElement`, reading by dotted path (`"sub.sub_tier"`) and returning a fallback for a missing step, a
 `null` or the wrong kind. `ReadInt`, `ReadDecimal` and `ReadBool` also accept numeric and boolean strings
 (`ReadDecimal` only with a dot). Every EventSub and StreamElements payload read goes through these.
+
+[Util.cs](../code/Util/Util.cs): `TrueModulo` overloads, used only by `ColorUtil.HsvToRgb`.
 
 ### `code/Color/`
 
