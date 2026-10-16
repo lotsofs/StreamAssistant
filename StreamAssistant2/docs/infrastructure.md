@@ -108,6 +108,7 @@ can't stop another.
 | uptime poll | `TwitchUptime.Start()` | about when the stream's uptime ticks over a minute, and at once on going live | `UpT5` |
 | ad warnings | `Ads.Process` | once per ad break, see below | `ADS1` per warning |
 | connection health | `ConnectionHealth.Start()` | every second | `CHL1` |
+| which image and text sources are showing in `Basic Stream Layout`, for the dashboard ([dashboard.md](dashboard.md#obs-sources)) | `ObsInputs.Start()` | every 2 s while OBS is ready | `OBI1` |
 
 Details of each are under [Disk space](#disk-space), [Clock](#clock), [Uptime](#uptime),
 [Connection health](#connection-health) and [events.md](events.md#ads). The loops end with the process; there is no shutdown hook.

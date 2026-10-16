@@ -4,10 +4,15 @@ namespace StreamAssistant2 {
 	internal static class LayoutColoring {
 		public record ColorRequest(string Inner, string Outer, string Text);
 
-		const string FILTER = "Color Correction";
+		internal const string FILTER = "Color Correction";
 		const string LAYOUT_PREFIX = "!Scene: Layout ";
-		const string COLORABLES = "!Layout: Colorables";
-		const string TWIN = " (Transitionary)";
+		internal const string COLORABLES = "!Layout: Colorables";
+		internal const string TWIN = " (Transitionary)";
+		internal const string INNER = "Border: Colorable Inner";
+		internal const string INNER_ATTACHMENT = "Border: Colorable Inner Attachment";
+		internal const string OUTER = "Border: Colorable Outer";
+		internal const string OUTER_ATTACHMENT = "Border: Colorable Outer Attachment";
+		internal const string TEXT_SCENE = "!Scene: All Colorable";
 
 		static readonly Channel<ColorRequest> _colorChangeQueue = Channel.CreateUnbounded<ColorRequest>();
 
@@ -111,11 +116,11 @@ namespace StreamAssistant2 {
 			long outer = ColorUtil.ToOBS(req.Outer);
 			long text = ColorUtil.ToOBS(req.Text);
 			return [
-				($"Border: Colorable Inner{twin}", "color_multiply", inner),
-				($"Border: Colorable Inner Attachment{twin}", "color_multiply", inner),
-				($"Border: Colorable Outer{twin}", "color_add", outer),
-				($"Border: Colorable Outer Attachment{twin}", "color_add", outer),
-				($"!Scene: All Colorable{twin}", "color_multiply", text),
+				(INNER + twin, "color_multiply", inner),
+				(INNER_ATTACHMENT + twin, "color_multiply", inner),
+				(OUTER + twin, "color_add", outer),
+				(OUTER_ATTACHMENT + twin, "color_add", outer),
+				(TEXT_SCENE + twin, "color_multiply", text),
 			];
 		}
 

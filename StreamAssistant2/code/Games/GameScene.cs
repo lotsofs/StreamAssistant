@@ -2,7 +2,7 @@ using Game = StreamAssistant2.Games.Game;
 
 namespace StreamAssistant2 {
 	internal static class GameScene {
-		const string STREAM = "Basic Stream Layout";
+		internal const string STREAM = "Basic Stream Layout";
 		internal const string LAYOUTS = "!Scene: Layout ";
 		internal const string GAMES = "!Scene: Games ";
 		const string DEFAULT_ASPECT = "16x9";

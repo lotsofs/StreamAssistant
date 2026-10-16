@@ -3,7 +3,7 @@
 		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 		Title="Stream Assistant"
 		Icon="/icon.ico"
-		Width="1100" Height="650"
+		Width="1600" Height="900"
 		Background="#0C0C0C"
 		FontFamily="Consolas" FontSize="13">
 	<DockPanel>
@@ -21,6 +21,59 @@
 					<ItemsControl.ItemTemplate>
 						<DataTemplate>
 							<TextBlock Text="{Binding Text}" Foreground="{Binding Brush}" TextWrapping="Wrap" />
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+			</ScrollViewer>
+		</Border>
+
+		<Border DockPanel.Dock="Right" Width="440" Background="#141414" Padding="6,4" BorderBrush="#333333" BorderThickness="1,0,0,0">
+			<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+				<ItemsControl x:Name="ObsSourcesList">
+					<ItemsControl.ItemTemplate>
+						<DataTemplate>
+							<Grid>
+								<DockPanel x:Name="Plain" ToolTip="{Binding ToolTip}" Background="Transparent">
+									<Border x:Name="Swatch" DockPanel.Dock="Left" Width="10" Height="10" Margin="0,3,4,0" VerticalAlignment="Top"
+											Background="{Binding Swatch}" BorderBrush="#666666" BorderThickness="1" />
+									<TextBlock x:Name="PlainText" TextWrapping="Wrap"><Run Text="{Binding Label, Mode=OneWay}" Foreground="{Binding LabelBrush}" /><Run Text="{Binding Rest, Mode=OneWay}" Foreground="{Binding Brush}" /></TextBlock>
+								</DockPanel>
+								<WrapPanel x:Name="ChipRow" Visibility="Collapsed" Margin="0,1">
+									<TextBlock Text="{Binding Label}" Foreground="{Binding LabelBrush}" Width="88" VerticalAlignment="Center" />
+									<ItemsControl ItemsSource="{Binding Chips}" VerticalAlignment="Center">
+										<ItemsControl.ItemsPanel>
+											<ItemsPanelTemplate>
+												<WrapPanel Orientation="Horizontal" />
+											</ItemsPanelTemplate>
+										</ItemsControl.ItemsPanel>
+										<ItemsControl.ItemTemplate>
+											<DataTemplate>
+												<StackPanel Orientation="Horizontal" Margin="0,0,8,0" ToolTip="{Binding ToolTip}" Background="Transparent">
+													<Border Width="12" Height="12" Margin="0,0,3,0" VerticalAlignment="Center"
+															Background="{Binding Fill}" BorderBrush="{Binding Edge}" BorderThickness="1" />
+													<TextBlock Text="{Binding Code}" Foreground="{Binding CodeBrush}" VerticalAlignment="Center" />
+												</StackPanel>
+											</DataTemplate>
+										</ItemsControl.ItemTemplate>
+									</ItemsControl>
+									<TextBlock Text="{Binding After}" Foreground="#888888" VerticalAlignment="Center" />
+								</WrapPanel>
+							</Grid>
+							<DataTemplate.Triggers>
+								<DataTrigger Binding="{Binding Swatch}" Value="{x:Null}">
+									<Setter TargetName="Swatch" Property="Visibility" Value="Collapsed" />
+								</DataTrigger>
+								<DataTrigger Binding="{Binding IsRow}" Value="True">
+									<Setter TargetName="Plain" Property="Visibility" Value="Collapsed" />
+									<Setter TargetName="ChipRow" Property="Visibility" Value="Visible" />
+								</DataTrigger>
+								<DataTrigger Binding="{Binding IsHeading}" Value="True">
+									<Setter TargetName="Plain" Property="Background" Value="#1C2733" />
+									<Setter TargetName="Plain" Property="Margin" Value="-6,8,-6,2" />
+									<Setter TargetName="PlainText" Property="Margin" Value="6,1" />
+									<Setter TargetName="PlainText" Property="FontWeight" Value="Bold" />
+								</DataTrigger>
+							</DataTemplate.Triggers>
 						</DataTemplate>
 					</ItemsControl.ItemTemplate>
 				</ItemsControl>

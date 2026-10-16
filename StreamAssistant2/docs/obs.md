@@ -49,12 +49,21 @@ retried afterwards.
 |---|---|---|
 | `SetSourceEnabled(scene, source, enabled)` | `GetSceneItemId(scene, source, 0)` then `SetSceneItemEnabled` | `LayoutColoring`, the train reward, `LeftPanel` |
 | `GetSceneItemNames(scene)` | `GetSceneItemList(scene)`, the top-level items' `SourceName`s (empty when not connected) | `LeftPanel` |
-| `SetInputSetting(input, key, value)` | `SetInputSettings(input, {key: value}, overlay: true)` | `SetImageSource`, `GameCapture`, `Clock`, `TwitchUptime`, `LeftPanel` |
-| `SetImageSource(source, file)` | `SetInputSetting(source, "file", file)` | the train reward, `GameBackground`, `GameBorder` |
+| `SetInputSetting(input, key, value)` | `SetInputSettings(input, {key: value}, overlay: true)` | `SetImageSource`, `GameCapture`, `Clock`, `TwitchUptime`, `MoneyGoal`, `LeftPanel` |
+| `SceneItems(name, group)` | `GetSceneItemList`, or `GetGroupSceneItemList` for a group, sent raw through `SendRequest`: each item's `sourceName`, `sceneItemEnabled`, and whether it's a scene (`sourceType`) or group (`isGroup`). Null when OBS isn't ready or refuses. Raw because the library's `SceneItemDetails` has no enabled state and its group call is marked broken | `ObsInputs`, for the dashboard |
+| `SetImageSource(source, file)` | `SetInputSetting(source, "file", file)` | the train reward, `GameBackground`, `GameBorder`, `GameSidebar` |
 | `SetInputVolumeDb(input, dB)` | `SetInputVolume(input, dB, inputVolumeDb: true)` | `GameCapture` |
-| `SetFilterProperty(source, filter, property, value)` | `SetSourceFilterSettings(source, filter, {property: value}, overlay: true)` | `LayoutColoring` |
+| `SetFilterProperty(source, filter, property, value)` | `SetSourceFilterSettings(source, filter, {property: value}, overlay: true)` | `LayoutColoring`, `LeftPanel` (split colours) |
 
-None of them catch. A missing scene, source or filter name makes the library throw. That is handled
+`SetInputSetting`, `SetInputVolumeDb` and `SetFilterProperty` also record what they set in
+`ObsInputs.Current` ([ObsInputs.cs](../code/Obs/ObsInputs.cs)), for the dashboard's
+[OBS sources](dashboard.md#obs-sources) list: one entry per source and setting (the key, `volume`, or
+`<filter> · <property>`), with the value, the time, and OBS's error message when it refused. A colour
+property's integer is recorded as `#rrggbb`. `SetSourceEnabled` records each item it shows or hides, by
+scene, so the list can grey the colour rows whose group is off screen. Nothing is recorded when OBS isn't
+connected.
+
+None of them catch: a refusal is recorded, then rethrown. A missing scene, source or filter name makes the library throw. That is handled
 for colour changes (the worker logs `Error Obs29`) but not for the train reward, where it ends the
 reward's task silently and can leave the train image showing. All names are hardcoded strings,
 listed in [reference.md](reference.md#obs-names); renaming something in OBS breaks the matching call

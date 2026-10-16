@@ -11,6 +11,18 @@ namespace StreamAssistant2 {
 		const string WINDOW_CAPTURE = "Game: Window Capture ";
 		const string AUDIO_CAPTURE = "Audio 5: App Capture ";
 
+		static readonly Dictionary<string, string> _kindNames = new() {
+			[GAME_CAPTURE.Trim()] = "Game capture",
+			[WINDOW_CAPTURE.Trim()] = "Window capture",
+			[AUDIO_CAPTURE.Trim()] = "Audio capture",
+		};
+
+		/// <summary>
+		/// A capture kind's short name by its sources' name before the slot number: "Game capture" for "Game: Game Capture";
+		/// any other name as it is.
+		/// </summary>
+		internal static string KindName(string kind) => _kindNames.GetValueOrDefault(kind, kind);
+
 		/// <summary>
 		/// Points, shows and sets the volume of a capture slot per game executable; the rest are pointed at none and hidden.
 		/// Shown and hidden in every games scene. Logs each shown slot, and the hidden ones together on one line.
@@ -38,8 +50,15 @@ namespace StreamAssistant2 {
 		/// The one log line for every slot set to none and hidden, slot numbers grouped by kind.
 		/// </summary>
 		internal static string HiddenLine(IReadOnlyList<(string Kind, int Slot)> hidden) {
-			var groups = hidden.GroupBy(h => h.Kind).Select(g => $"{g.Key} {string.Join(", ", g.Select(h => h.Slot))}");
-			return $"→ none, hidden: {string.Join("; ", groups)}";
+			return $"→ none, hidden: {SlotGroups(hidden)}";
+		}
+
+		/// <summary>
+		/// Slot numbers grouped by kind, in the order the kinds first appear: "Game: Game Capture 1, 2; Game: Window Capture 0".
+		/// </summary>
+		internal static string SlotGroups(IReadOnlyList<(string Kind, int Slot)> slots) {
+			var groups = slots.GroupBy(h => h.Kind).Select(g => $"{g.Key} {string.Join(", ", g.Select(h => h.Slot))}");
+			return string.Join("; ", groups);
 		}
 
 		/// <summary>

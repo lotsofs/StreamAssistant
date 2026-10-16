@@ -50,6 +50,7 @@ namespace StreamAssistant2
 				Clock.Start();
 				ConnectionHealth.Start();
 				SplitWatcher.Start();
+				ObsInputs.Start();
 
 				EnableBot();
 				FireForget.Run("GMS_boot", "boot game setup", Games.OnBootAsync);

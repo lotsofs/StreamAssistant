@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using System.Globalization;
+using Newtonsoft.Json.Linq;
 using OBSWebsocketDotNet;
 
 namespace StreamAssistant2 {
@@ -9,6 +10,7 @@ namespace StreamAssistant2 {
 			if (!ObsConnection.IsConnected()) return;
 			var sceneItemId = _obs.GetSceneItemId(sceneName, sourceName, 0);
 			_obs.SetSceneItemEnabled(sceneName, sceneItemId, enabled);
+			ObsInputs.Current.SetVisible(sceneName, sourceName, enabled);
 		}
 
 		/// <summary>
@@ -27,6 +29,29 @@ namespace StreamAssistant2 {
 			return _obs.GetSceneList().Scenes.Select(scene => scene.Name).ToList();
 		}
 
+		/// <summary>
+		/// A scene's items, or a group's, each with whether it's enabled and whether it's a scene or group of its own; null
+		/// when OBS isn't ready or refuses (no such scene or group). Sent as raw requests, since the library's own scene
+		/// items leave out the enabled state and its group listing doesn't work.
+		/// </summary>
+		public static List<ObsInputs.SceneItem>? SceneItems(string name, bool group) {
+			if (!ObsConnection.IsReady) return null;
+			try {
+				JObject response = _obs.SendRequest(group ? "GetGroupSceneItemList" : "GetSceneItemList", new JObject { ["sceneName"] = name });
+				if ((response["sceneItems"] ?? response["responseData"]?["sceneItems"]) is not JArray items) {
+					return null;
+				}
+				return items.OfType<JObject>().Select(item => new ObsInputs.SceneItem(
+					(string?)item["sourceName"] ?? "",
+					(bool?)item["sceneItemEnabled"] ?? false,
+					(string?)item["sourceType"] == "OBS_SOURCE_TYPE_SCENE",
+					(bool?)item["isGroup"] ?? false)).ToList();
+			}
+			catch (ErrorResponseException) {
+				return null;
+			}
+		}
+
 		public static void SetImageSource(string sourceName, string newFile) {
 			SetInputSetting(sourceName, "file", newFile);
 		}
@@ -39,7 +64,7 @@ namespace StreamAssistant2 {
 			var set = new JObject {
 				[key] = value
 			};
-			_obs.SetInputSettings(inputName, set, true);
+			Recorded(inputName, key, ObsInputs.KindOf(key, value), value, () => _obs.SetInputSettings(inputName, set, true));
 		}
 
 		/// <summary>
@@ -47,16 +72,36 @@ namespace StreamAssistant2 {
 		/// </summary>
 		public static void SetInputVolumeDb(string inputName, double db) {
 			if (!ObsConnection.IsConnected()) return;
-			_obs.SetInputVolume(inputName, (float)db, true);
+			string shown = db.ToString("0.##", CultureInfo.InvariantCulture);
+			Recorded(inputName, "volume", ObsInputs.Kind.Volume, shown, () => _obs.SetInputVolume(inputName, (float)db, true));
 		}
 
+		/// <summary>
+		/// Sets one property on a source's filter, keeping the rest.
+		/// </summary>
 		public static void SetFilterProperty(string sourceName, string filterName, string propertyName, JToken value) {
 			if (!ObsConnection.IsConnected()) return;
 
 			var settings = new JObject {
 				[propertyName] = value,
 			};
-			_obs.SetSourceFilterSettings(sourceName, filterName, settings, true);
+			bool color = value.Type == JTokenType.Integer && propertyName.StartsWith("color", StringComparison.Ordinal);
+			string shown = color ? ObsInputs.ColorHex(value.Value<long>()) : value.ToString();
+			Recorded(sourceName, $"{filterName} · {propertyName}", ObsInputs.Kind.Filter, shown, () => _obs.SetSourceFilterSettings(sourceName, filterName, settings, true));
+		}
+
+		/// <summary>
+		/// Makes the OBS call and records what it set for the dashboard, or OBS's refusal before passing it on.
+		/// </summary>
+		static void Recorded(string source, string setting, ObsInputs.Kind kind, string value, Action call) {
+			try {
+				call();
+			}
+			catch (Exception ex) {
+				ObsInputs.Current.Failed(source, setting, kind, value, ex.Message, DateTime.UtcNow);
+				throw;
+			}
+			ObsInputs.Current.Set(source, setting, kind, value, DateTime.UtcNow);
 		}
 	}
 }

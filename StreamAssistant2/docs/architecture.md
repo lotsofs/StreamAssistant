@@ -56,11 +56,14 @@ service registry.
    3. `Games.Load()`: `<BotInput>\games.json`, the game behind each Twitch category. Never throws.
    4. `LeftPanel.Load()`: `<BotInput>\leftpanel.json`, each game's left-panel panels
       ([obs.md](obs.md#left-panel)). Never throws.
-   5. `Database.InitAsync()`: opens `streamAssistant.db`, creates the `flushes` table if missing.
+   5. `Database.InitAsync()`: opens `streamAssistant.db`, creates the `flushes` and `money_goal` tables if
+      missing.
    6. Logs `Data loaded`.
    7. `DiskSpace.Start()`, `TwitchUptime.Start()`, `Clock.Start()` and `ConnectionHealth.Start()`: the
       periodic loops. `Clock` doesn't need OBS yet: it skips its OBS write until OBS is ready. Then
-      `SplitWatcher.Start()`, the watcher on LiveSplit's split index. Never throws.
+      `SplitWatcher.Start()`, the watcher on LiveSplit's split index, which never throws, and
+      `ObsInputs.Start()`, the dashboard's check of which images and texts are showing in `Basic Stream Layout`, idle
+      until OBS is ready.
    8. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
       `OnMessage += ChatHandler.ProcessMessage`, `TwitchHelixApi.Init()`, `TwitchEventSub.Connect()`,
       `StreamElementsSocket.Connect()` (only logs "tips are off" without credentials),
@@ -171,6 +174,8 @@ written to OBS's `Text: Money Goal`, and changed by `!moneygoal` and `!resetmone
 stream-state handler ([obs.md](obs.md#connection)). [Obs.cs](../code/Obs/Obs.cs): the thin OBS request
 wrappers ([obs.md](obs.md#the-wrapper)). [LayoutColoring.cs](../code/Obs/LayoutColoring.cs): the
 serialised colour-change queue and the OBS animation ([obs.md](obs.md#layout-recolouring)).
+[ObsInputs.cs](../code/Obs/ObsInputs.cs): what the wrappers last set on each source (or OBS's refusal),
+and the lines the dashboard's OBS sources list shows from it ([dashboard.md](dashboard.md#obs-sources)).
 
 ### `code/Games/`
 
@@ -250,8 +255,8 @@ See [color.md](color.md), which is the authority on them.
 
 ### `ui/`
 
-[MainWindow.xaml](../ui/MainWindow.xaml) and its code-behind: the dashboard (status bar, log, and the
-left-panel column on the right). See [dashboard.md](dashboard.md).
+[MainWindow.xaml](../ui/MainWindow.xaml) and its code-behind: the dashboard (status bar, log, and on the
+right a column of the OBS sources the bot has set and the left-panel column). See [dashboard.md](dashboard.md).
 
 ## Data flows worth knowing
 

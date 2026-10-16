@@ -567,6 +567,15 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal("→ none, hidden: Game: Game Capture 1, 2; Game: Window Capture 0, 1, 2; Audio 5: App Capture 2", line);
 		}
 
+		// The grouping alone, which the dashboard's merged none line also uses
+		[Fact]
+		public void CaptureSlotGroups_KindsInFirstSeenOrder() {
+			Assert.Equal("Game: Window Capture 0; Game: Game Capture 1, 2", GameCapture.SlotGroups([
+				("Game: Window Capture", 0), ("Game: Game Capture", 1), ("Game: Game Capture", 2),
+			]));
+			Assert.Equal("", GameCapture.SlotGroups([]));
+		}
+
 		[Fact]
 		public void RunStep_ThrowingStep_IsLogged_AndDoesNotThrow() {
 			List<string> log = new();

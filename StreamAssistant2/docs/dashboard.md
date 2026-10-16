@@ -9,15 +9,20 @@ by the user, with F5).
 
 ## Layout
 
-A `DockPanel` on a near-black background, Consolas 13, default size 1100 × 650:
+A `DockPanel` on a near-black background, Consolas 13, default size 1600 × 900. From left to right under
+the status bar: the log, the OBS sources column, the left-panel column.
 
 - **Status bar** (docked top): `Twitch IRC time since last ping: mm:ss  |  Event Sub time since last
   keepalive: mm:ss  |  StreamElements time since last reply: mm:ss`. The three ages are `Run` elements
   named `IrcAge`, `EventSubAge` and `StreamElementsAge`.
-- **Left-panel column** (docked right, 360 px, `#141414`, under the status bar): an `ItemsControl` named
+- **Left-panel column** (docked right, outermost, 360 px, `#141414`): an `ItemsControl` named
   `LeftPanelList` in a vertical `ScrollViewer`, each row a wrapping `TextBlock` in its own colour. See
   [The left panel](#the-left-panel).
-- **Log** (fills the rest): a `ListBox` named `LogList`, extended selection, no horizontal scrollbar,
+- **OBS sources column** (docked right, left of the left-panel column, 440 px, `#141414`): an
+  `ItemsControl` named `ObsSourcesList` in a vertical `ScrollViewer`, each row a wrapping `TextBlock`
+  with a 10 × 10 colour swatch on its left when it has one and a tooltip when it has one. See
+  [OBS sources](#obs-sources).
+- **Log** (fills the rest, about 800 px at the default size): a `ListBox` named `LogList`, extended selection, no horizontal scrollbar,
   virtualised with container recycling, bound to an `ObservableCollection<LogLine>`. Each row is a
   wrapping `TextBlock` in that line's colour, with a custom item template that has no hover state and a
   `#264F78` selected background.
@@ -90,6 +95,103 @@ The right-hand column shows what the left-panel rotation ([obs.md](obs.md#the-ro
 | Panel, group, and the marked loop panel during a split | `#EEEEEE` |
 | The panel up, and the `Always` groups once shown | `#EE8844` (the `SceneChanges` orange) |
 | Any line with a group OBS doesn't have | `#EE4444` (the `Error` red), whatever its kind |
+
+## OBS sources
+
+A column of its own, between the log and the left panel: every OBS source the bot has set this run and
+what it last set it to.
+
+- **Where it comes from:** the three OBS wrappers that change a source, `Obs.SetInputSetting` (text, image
+  file and capture window, so also `SetImageSource` and the left panel's own calls), `SetInputVolumeDb` and
+  `SetFilterProperty`. Each records what it set, or OBS's error, in `ObsInputs.Current`
+  ([code/Obs/ObsInputs.cs](../code/Obs/ObsInputs.cs); [obs.md](obs.md#the-wrapper)). `SetSourceEnabled`
+  records each item it shows or hides there too, which is how the filter rows know when they're off screen.
+  And `ObsInputs.Start()`, from `Program`, works out every 2 s while OBS is ready which image and text sources
+  the bot has set are showing in `Basic Stream Layout`, whichever scene is live: `ObsInputs.ShowingIn` lists that
+  scene's items (`Obs.SceneItems`, obs-websocket's `GetSceneItemList`, sent raw because the library's own
+  scene items leave out the enabled state), and follows each enabled item that is a scene into its items, or
+  a group into its (`GetGroupSceneItemList`, raw too, since the library's call for it is broken). A source
+  is showing when an enabled item reaches it that way; each scene or group is listed once per pass. When
+  `Basic Stream Layout` itself can't be listed, the last answer stays. Nothing is recorded while OBS isn't connected, since
+  nothing is set. The list only knows what the bot set: a change made in OBS by hand doesn't show, and a
+  source the bot hasn't touched yet this run isn't listed.
+- **How it updates:** the same 250 ms tick calls `UpdateObsSources()`, which builds the lines with
+  `ObsInputs.StatusLines(Snapshot(), ObsConnection.IsReady, DateTime.UtcNow, Visible(), <characters per
+  line>, Showing())` and changes the list only when they differ from the last draw: when something was set,
+  shown or hidden, OBS connected or disconnected, or an age reached another second. The rows are kept and
+  updated in place (`SourceLine` and `ChipView` raise `PropertyChanged`), so a row isn't rebuilt while you
+  hover it and its tooltip stays open; rows are only added or removed at the end. The characters per line
+  come from the list's width and the width of a Consolas digit, so they follow the scrollbar coming and
+  going. `StatusLines` is a pure function in the bot (tested).
+- **What it shows**, from top to bottom, each group left out when it has nothing:
+  - a title, `OBS sources`, or `OBS sources (OBS not connected)`, when the last values stay listed
+  - `Captures`: each used game, window and audio capture slot, sorted by source, as
+    `<source> → <executable>` (the part of OBS's `title:class:executable` value after the last colon), then
+    ` · <dB> dB` when a volume was set on it. The slots set to `none` follow on one grey line, their kinds'
+    short names (`GameCapture.KindName`) and slot numbers grouped as in the capture log line
+    (`GameCapture.SlotGroups`): `Audio capture 1, 2; Game capture 1, 2; Window capture 0, 1, 2 → none · 12 s ago`.
+    The numbers are the sources' own, from 0
+  - `Filters`: rows of swatches with short codes, then any other filter (see below)
+  - `Text`: the most recently set first. A text set directly shows in quotes, `<source> → "<text>"`, line
+    breaks as ` ⏎ `. A text source reading its text from a file (the left panel's LiveSplit texts) shows the
+    file's name, `<source> → SegmentTime.txt`, shortened and hovered like an image's. Both come in through
+    `SetInputSetting`, as the `text` and `file` keys; a `file` counts as an image only for an image type
+    (`.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tga`, `.webp`, `.jxr`, `.psd`; `ObsInputs.KindOf`), any other
+    as a text. A text last found not showing in `Basic Stream Layout` is grey, like an image
+  - `Images`: `<source> → <file name>`, the most recently set first. When a line wouldn't fit on one line,
+    the source name is shortened word by word from the last, each word to its first letter with its brackets
+    and punctuation (`ObsInputs.Abbreviate`): `Border: Colorable Outer (Transitionary)` becomes
+    `Border: Colorable Outer (T)`, then `Border: Colorable O (T)`, and so on, until it fits. Room for an age of
+    ` · 59 s ago` is always kept, so the name doesn't change as the age grows. Hovering the line shows the
+    full name and path. An image last found not showing in `Basic Stream Layout` is grey, and its tooltip
+    says so; one not checked yet stays white
+  - `Other`: any other setting, `<source> · <setting> → <value>`, and a volume on a source with no capture
+    line, sorted by source
+  - before anything is set, `Nothing set yet`
+
+  On a plain line, the part before the arrow is light blue and the rest white; on a greyed-out line it is a
+  greyed blue and the rest grey; on a failed line the whole line is red. Every line ends with
+  ` · <n> s ago`, ` · <n> m ago`, ` · <n> h ago` or ` · <n> d ago`, since it was last set (a capture's
+  volume counts; the `none` line counts its newest slot).
+  Each group heading is bold on a dark blue band (`#1C2733`) across the column, with space above it.
+- **Filters** come as up to four rows, each a label, its swatches left to right with their codes, and
+  ` · <n> s ago` for its newest. A row is left out until one of its swatches is set; an unset swatch in a
+  shown row is hollow with a grey code. Hovering a swatch shows its source, filter, property and hex (no
+  age, so the tooltip doesn't change every second).
+
+  | Row | Codes → sources | Shown while |
+  |---|---|---|
+  | `Layout` | `In` `Border: Colorable Inner`, `Out` `Border: Colorable Outer`, `Txt` `!Scene: All Colorable`, on `Color Correction` | `!Layout: Colorables` is up |
+  | `Fade` | the same three with ` (Transitionary)` | `!Layout: Colorables (Transitionary)` is up, during a colour change's fade |
+  | `Highlights` | `AG` AheadGained, `AL` AheadLost, `BG` BehindGained, `BL` BehindLost, `Au` Gold: the `Livesplit: Splits List Highlights <kind>` sources, on `Color Correction 2` | the left panel's `Splits List Highlights` group is up |
+  | `Previous` | `Run`, `Seg`, `Au`: `Livesplit: Previous Run`, `Segment`, `Gold`, on `Color Correction` | the left panel's `Splits Previous Values` group is up |
+
+  When the bot last hid a row's group in every scene it showed or hid it in, the row's label and codes are
+  grey, and each swatch's tooltip says the group is hidden; the swatches keep their colours. A left-panel
+  group matches under either prefix (`_LP: `, `_LPC: `) and in any copy (`LeftPanel.GroupName`,
+  `Numbered`). A group the bot hasn't shown or hidden yet this run counts as shown. The source and group
+  names come from `LayoutColoring` and `SplitColors`, which set them.
+
+  The Inner and Outer Attachments (and their twins) share their main source's swatch, listed in its
+  tooltip, while their colour matches. Any filter not shown in a row, including an attachment of another
+  colour, is listed under the rows as `<source> · <filter> · <property> → #rrggbb`, with a small swatch,
+  sorted by source. Colours go to OBS as `0xAABBGGRR` integers (`ColorUtil.ToOBS`); `ObsInputs.ColorHex`
+  turns them back.
+- **Failures:** when OBS refused the last set (a source that doesn't exist, say), the whole line shows the
+  value it tried, then ` · failed: <OBS's message>`, in red; a refused swatch gets a red edge and code, with
+  the message in its tooltip. A refused `none` slot keeps its own red line. The next successful set clears
+  it. The caller still logs its own `Couldn't set …` line as before.
+
+| Line | Hex |
+|---|---|
+| Title | `#CCCCCC` |
+| Group heading, bold | `#7FB2E5` on `#1C2733` |
+| Source name (before the arrow), row label | `#B9D6F2` |
+| The same on a greyed-out line: the `none` line's kinds, a text or image not showing, a hidden row's label | `#6F8296` |
+| Value and age, swatch code | `#EEEEEE` |
+| The rest of a greyed-out line (the `none` line, a text or image not showing in `Basic Stream Layout`), a row's age, a hidden row's codes, an unset swatch's code | `#888888` |
+| Swatch edge | `#666666` |
+| Failed source, a refused swatch's edge and code | `#EE4444` (the `Error` red) |
 
 ## The log
 

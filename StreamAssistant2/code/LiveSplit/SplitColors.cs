@@ -3,17 +3,21 @@ namespace StreamAssistant2 {
 		const string SCHEME_SET = "gameschemes";
 		const string FALLBACK = "none";
 		const string PROPERTY = "color_multiply";
-		const string HIGHLIGHT_FILTER = "Color Correction 2";
-		const string PREVIOUS_FILTER = "Color Correction";
-		const string PREVIOUS_RUN = "Livesplit: Previous Run";
-		const string PREVIOUS_SEGMENT = "Livesplit: Previous Segment";
-		const string PREVIOUS_GOLD = "Livesplit: Previous Gold";
+		internal const string HIGHLIGHT_FILTER = "Color Correction 2";
+		internal const string PREVIOUS_FILTER = "Color Correction";
+		internal const string PREVIOUS_RUN = "Livesplit: Previous Run";
+		internal const string PREVIOUS_SEGMENT = "Livesplit: Previous Segment";
+		internal const string PREVIOUS_GOLD = "Livesplit: Previous Gold";
+		// The left-panel groups that hold the highlights and the previous split's differences
+		internal const string HIGHLIGHT_GROUP = "Splits List Highlights";
+		internal const string PREVIOUS_GROUP = "Splits Previous Values";
 		const string NONE = "None";
 		const string POSITIVE = "LabelPositive";
 		const string NEGATIVE = "LabelNegative";
 		const string GOLD = "LabelGold";
 
-		static readonly (string Source, string Key)[] _highlights = [
+		// The split list highlight sources and the split colour each takes
+		internal static readonly (string Source, string Key)[] Highlights = [
 			("Livesplit: Splits List Highlights Gold", "ListGold"),
 			("Livesplit: Splits List Highlights AheadGained", "ListGainedAhead"),
 			("Livesplit: Splits List Highlights AheadLost", "ListLostAhead"),
@@ -106,7 +110,7 @@ namespace StreamAssistant2 {
 		/// The split list highlights' filter colours; a highlight whose key has no colour is left out.
 		/// </summary>
 		internal static List<FilterColor> HighlightFilters(IReadOnlyDictionary<string, string> colors) {
-			return _highlights.Select(h => ToFilter(h.Source, HIGHLIGHT_FILTER, h.Key, colors)).OfType<FilterColor>().ToList();
+			return Highlights.Select(h => ToFilter(h.Source, HIGHLIGHT_FILTER, h.Key, colors)).OfType<FilterColor>().ToList();
 		}
 
 		/// <summary>

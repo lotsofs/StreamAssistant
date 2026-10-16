@@ -53,6 +53,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `SDB1` | `FireForget.Run` (from `GameSidebar.OnObsConnected`) | Setting the dynamic sidebar again after an OBS connect threw | the sidebar keeps what OBS had until the next index change or game setup |
 | `MON1` | `FireForget.Run` (from `MoneyGoal.Credit`) | Adding a tip to the money goal threw, usually the database | that tip isn't counted |
 | `MON2` | `FireForget.Run` (from `MoneyGoal.TrySetGoal`, `Reset`) | `!moneygoal` or `!resetmoney` threw, usually the database | goal or total unchanged |
+| `OBI1` | `ObsInputs.WatchShowingAsync` | Working out which image and text sources are showing in `Basic Stream Layout` threw (a scene or group OBS won't list is skipped quietly) | next check 2 s later |
 | `MON3` | `FireForget.Run` (from `MoneyGoal.OnObsConnected`) | Reading the money goal to rewrite its OBS text after a connect threw | the text keeps what OBS had until the next tip or command |
 | `LSW1` | `SplitWatcher.OnChanged` | Handling a change to LiveSplit's split index threw | that change is missed; the next one is read as usual |
 | `LSW2` | `SplitWatcher` (the watcher's `Error` event) | The `FileSystemWatcher` failed, e.g. its buffer overflowed; the message is logged | events may be missed |
@@ -173,7 +174,7 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 | `Game: Window Capture 0`–`2` | `GameCapture` | window capture sources, retargeted per game |
 | `Audio 5: App Capture 0`–`2` | `GameCapture` | application audio capture, fallback, retargeted per game |
 | `!Scene: Games 16x9`, `!Scene: Games 5x4` (any `!Scene: Games <aspect>` item of `Basic Stream Layout`) | `GameCapture`, `GameScene` | scenes holding those nine capture sources, framed per aspect; unused ones are hidden in each |
-| `Basic Stream Layout` | `GameScene`, `GameCapture` | the stream scene whose `!Scene: Layout <aspect>` and `!Scene: Games <aspect>` items are found by name; of each kind, the game's aspect's one is shown and the others hidden |
+| `Basic Stream Layout` | `GameScene`, `GameCapture`, `ObsInputs` | the stream scene whose `!Scene: Layout <aspect>` and `!Scene: Games <aspect>` items are found by name; of each kind, the game's aspect's one is shown and the others hidden. The dashboard greys the images and texts not showing in it |
 | `!Scene: Left Panel`, `!Scene: Left Panel Colored` | `LeftPanel` | the two scenes whose top-level groups the rotation shows and hides: `_LP: <name>` in `!Scene: Left Panel`, `_LPC: <name>` in the coloured one; `<name> <n>` groups are copies of `<name>` |
 | `!Scene: Left Panel` as an item in `!Scene: Left Panel Colored` | `LeftPanel` | a reference copy for editing; hidden when a rotation starts |
 | the text sources named in `leftpanel.json` (`Livesplit: …`) | `LeftPanel` | settings `text` and `file` |
@@ -246,6 +247,7 @@ Every other input with audio (window captures for chat, S Keys, Winamp, LiveSpli
 | 60 min; warnings at 5, 3, 2, 1 min before | `Ads` | assumed ad cadence |
 | 5 s | `TwitchUptime.MIN_GAP` | least time between uptime requests; a poll inside it waits out the rest |
 | 60 s | `ChatHandler.COOLDOWN` | a user gets the same FAQ command answered at most this often |
+| 2 s | `ObsInputs.SHOWING_POLL` | how often the dashboard lists `Basic Stream Layout`, its nested scenes and groups, to see which image and text sources are showing |
 | 60 s | `TwitchHelixApi` | HTTP timeout (EventSub's separate client keeps the default) |
 
 ### Thresholds
