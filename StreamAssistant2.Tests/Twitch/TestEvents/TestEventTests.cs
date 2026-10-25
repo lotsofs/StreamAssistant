@@ -99,6 +99,16 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal("hi there", v.Text("msg"));
 		}
 
+		[Theory]
+		[InlineData("4.20 wassaaa", "wassaaa")]
+		[InlineData("4.20 hello there", "hello there")]
+		[InlineData("4.20 msg hi", "hi")]
+		public void TextFirst_PositionalUnlessTheFirstWordIsAKeyword(string argument, string msg) {
+			Values v = TestArgs.Parse(argument, [new DecimalParam("amount", 5m, 0.01m, 100m)], [new TextParam("msg")])!;
+			Assert.Equal(4.20m, v.Decimal("amount"));
+			Assert.Equal(msg, v.Text("msg"));
+		}
+
 		[Fact]
 		public void Usage_ShowsBothForms() {
 			string usage = TestArgs.Usage("bomb", Required, Optional);

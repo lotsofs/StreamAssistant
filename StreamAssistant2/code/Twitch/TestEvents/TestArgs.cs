@@ -4,7 +4,7 @@ namespace StreamAssistant2 {
 	/// <summary>
 	/// Parses a test script's arguments. Required parameters come first, in order. The optional ones
 	/// follow either as keywords ("late missing 2 msg hi there") or positionally ("true 2 hi there");
-	/// positional is chosen when the first optional word is a boolean or a number.
+	/// positional is chosen unless the first optional word names an optional parameter.
 	/// </summary>
 	internal static class TestArgs {
 		internal abstract record Param(string Name);
@@ -44,7 +44,9 @@ namespace StreamAssistant2 {
 				return values;
 			}
 
-			if (bool.TryParse(words[i], out _) || TryDecimal(words[i], out _)) {
+			Param? Named(string word) => optional.FirstOrDefault(o => o.Name.Equals(word, StringComparison.OrdinalIgnoreCase));
+
+			if (Named(words[i]) == null) {
 				foreach (Param p in optional) {
 					if (i == words.Length) {
 						break;
@@ -57,7 +59,7 @@ namespace StreamAssistant2 {
 			}
 
 			while (i < words.Length) {
-				Param? p = optional.FirstOrDefault(o => o.Name.Equals(words[i], StringComparison.OrdinalIgnoreCase));
+				Param? p = Named(words[i]);
 				if (p == null) {
 					return null;
 				}

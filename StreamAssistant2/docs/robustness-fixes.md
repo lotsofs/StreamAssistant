@@ -223,32 +223,3 @@ the split interrupted. Only SWAT4 has `Previous` panels today.
 
 **Docs when done:** delete this section and the TODO row; [obs.md](obs.md#the-panel-file) and
 [obs.md § Split colours](obs.md#split-colours).
-
----
-
-## TPM — A test script's message can't be given positionally
-
-`!test tip 4.20 wassaaa` logged only `Usage: !test tip <amount> [msg <text…>] | !test tip <amount> <msg>`
-and sent nothing; the second form in that line is what was typed. Seen live 2026-10-14 15:17; the cause
-below is read from the code.
-
-`TestArgs.Parse` reads the optional arguments positionally only when the first of them is a number or a
-boolean, as [twitch.md § The test harness](twitch.md#the-test-harness) says. Otherwise it reads each word
-as a keyword, and `wassaaa` names no parameter, so the parse fails. `tip`'s only optional argument is its
-message, so `!test tip <amount> <msg>` works only for a message starting with a number, `true` or `false`;
-`!test tip 4.20 msg wassaaa` works. `cheer` fails the same way on `!test cheer 100 hello`, but there the
-positional order puts the `anon` flag first, so `!test cheer 100 false hello` is the documented form.
-
-### Plan
-
-In `Parse`, choose keyword mode when the first optional word names one of the script's optional
-parameters (any case), and positional mode otherwise. Only `tip` parses differently: every other
-script's first optional parameter is a number or a flag, which fails on a word that is neither, as it
-does now. A tip message whose first word is `msg` still needs the keyword (`!test tip 4.20 msg msg …`).
-Update `TestArgs`' summary comment to the new rule, and add `TestEventTests` cases for a tip-shaped
-script: `4.20 wassaaa`, `4.20 hello there` and `4.20 msg hi`.
-
-**Verify:** the tests, then `!test tip 4.20 wassaaa` in chat.
-
-**Docs when done:** delete this section and the TODO row; the rule for choosing positional in
-[twitch.md § The test harness](twitch.md#the-test-harness).

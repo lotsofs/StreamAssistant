@@ -9,7 +9,7 @@ raise it.
 
 ## Any time, with the bot running and OBS open
 
-- **41.** `!test tip 4.20 msg hello there`: the anthem plays, chat shows `💸 testtipper tipped 4.20 EUR 💸`, and about 6 s later TTS says "testtipper donated 4.20 EUR: hello there" (`!test tip 4.20 wassaaa`, without `msg`, gave only the usage line on 2026-10-14: TPM; the form here, with `msg`, should work)
+- **41.** `!test tip 4.20 hello there` (no `msg` keyword): the anthem plays, chat shows `💸 testtipper tipped 4.20 EUR 💸`, and about 6 s later TTS says "testtipper donated 4.20 EUR: hello there"
 - **42.** Emulate a tip from the StreamElements activity feed: note whether `SE notification: channel.tips` appears at all (the docs don't say whether emulated tips reach this topic)
 - **82.** `!changecapture KTANE`: `Capture setup: KTANE (461492)` and the capture lines; no chat line, and the background, colour and left panel stay
 - **89.** `!changepanel GTASA`: the two `Splits Current` panels in a row (Current Mission, then Current Split) use different copies in OBS: the second appears with its own values, with no flash of the first's

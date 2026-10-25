@@ -345,8 +345,9 @@ loops) catch their own exceptions.
 The optional ones follow either as keywords, in any order (`!test resub tier 2 gift msg hi`), or
 positionally in the order listed, with `true`/`false` for flags (`!test resub 20 5 2 false true hi`).
 Decimal arguments are written with a dot whatever the machine's culture.
-Positional is chosen when the first optional word is a boolean or a number; trailing values can be left
-off. A text argument takes the rest of the line. A bad argument logs the script's usage (both forms) on
+Positional is chosen unless the first optional word names an optional parameter; trailing values can be
+left off. A text argument takes the rest of the line, so a `tip` message can follow the amount directly
+(`!test tip 4.20 hello`), but one starting with the word `msg` needs the keyword (`!test tip 4.20 msg msg …`). A bad argument logs the script's usage (both forms) on
 `EventSubConfusion` and sends nothing. A first word that isn't a script is treated as a replay file name; if no file matches either, the list of scripts is logged.
 
 **Gift bomb** ([TestGiftBomb.cs](../code/Twitch/TestEvents/TestGiftBomb.cs)): one `community_sub_gift`
