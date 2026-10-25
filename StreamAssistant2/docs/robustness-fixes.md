@@ -15,34 +15,6 @@ TODO.md, and log it in [DONE.md](DONE.md), per the conventions there.
 
 ---
 
-## TRS — Train left on screen after the bot closes mid-train
-
-`ChannelPoints.RunTrainAsync` shows `Image: Train` in `!Scene: Basics Colored`, waits 62 s, then hides it
-and points it back at `Empty.png`. The hide only happens if the bot is still running: closing the bot
-during those 62 s leaves the train visible in OBS until someone hides it by hand. Seen by the owner;
-not reproduced by a test.
-
-### Plan
-
-1. On bot start, once OBS is connected, hide `Image: Train` and point it at `Empty.png`, the same two calls
-   as the end of `RunTrainAsync`. Use `ObsConnection.WhenConnected`, as the boot game setup does, so it
-   runs however late OBS connects, once per boot. Pull the two calls into one method in `ChannelPoints`
-   (`ClearTrain`) shared by `RunTrainAsync` and the boot step, and log it on `SceneChanges`
-   (`Train cleared`) only when the source was actually showing, if that is cheap to check
-   (`GetSceneItemEnabled`); otherwise always clear quietly.
-2. Starting it from `Program.StartBotAsync` beside `Games.OnBootAsync` keeps the boot steps in one place.
-3. A train started before OBS connects (`!train` in the first seconds) must not be cleared by the boot
-   step: skip the clear if `_trainOnTracks` is set.
-4. Optional: also clear on shutdown in `Program.Main` after `app.Run`, best effort. Not enough on its own,
-   since a crash or a killed process skips it, which is why the boot clear is the fix.
-
-**Verify:** `!train`, close the bot within 62 s, the train stays up; F5: it disappears as soon as the bot
-connects to OBS. A unit test can cover the "skip while a train runs" decision if it's pulled into a pure
-function; the OBS calls themselves are a live check (add to [live-checks.md](live-checks.md)).
-
-**Docs when done:** delete this section and the TODO row; [obs.md § Train](obs.md#train) (the boot
-clear), [architecture.md](architecture.md) startup order.
-
 ## ESR — EventSub reconnect path unverified
 
 Twitch sends `session_reconnect` about once a day, around 19:00 to 19:40 local time. The bot used to abort

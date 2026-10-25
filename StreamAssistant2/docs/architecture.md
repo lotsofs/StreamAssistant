@@ -75,7 +75,8 @@ service registry.
       is already live.
    Any exception logs `Error PRG1` and the bot stays half-started.
 6. Closing the window ends `Application.Run`. `Main` then posts `🍂 Shutting Down` to chat, logs
-   `SHUTDOWN!` and calls `DisableBot()` (OBS disconnect, IRC disconnect, EventSub and StreamElements cancel). The chat
+   `SHUTDOWN!`, hides a train still running (`ChannelPoints.OnShutdown`, [obs.md § Train](obs.md#train)) and
+   calls `DisableBot()` (OBS disconnect, IRC disconnect, EventSub and StreamElements cancel). The chat
    post is fire-and-forget and the IRC socket is closed straight after, so that message can be lost.
    Read, not reproduced.
 

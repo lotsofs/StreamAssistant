@@ -24,6 +24,7 @@ raise it.
 - **123.** Before creating `Text: Money Goal` in OBS (or with it renamed), its line is red with OBS's error; once it exists, the next write turns it white. Close OBS: the title reads `OBS sources (OBS not connected)` and the values stay listed
 - **127.** `!changepanel SWAT4`, through List On to List Off: the OBS sources column lists `SL - Names 1`, `SL - Highlight 1` and `SL - Header Left 1`, and no `2` or `3` of them, while the values move between copies 2 and 3, each panel with its own `SL - Upcoming`
 - **128.** `!changepanel GTA3`, after one full loop: `Splits: Run Delta`'s right-hand column shows the run's upcoming times, as `Finished at` does, not `Golds Delta`'s
+- **134.** `!train`, then stop the debugger within 62 s: the train stays up. F5: right after `Connected to OBS` the log shows `Leftover train cleared` and the train is gone. A later F5 with no train up logs no such line
 
 ## With LiveSplit running SWAT4 splits
 
@@ -51,6 +52,7 @@ raise it.
 - **67.** `!stoppaneltimer` mid-rotation: the log shows `Left panel rotation stopped` and the current panel stays up past its time. Close and reopen OBS: no `Left panel: …` line after `Connected to OBS` (`Left panel rotation stopped` seen 2026-10-12; the panel staying up and the OBS restart are still to see)
 - **98.** While SWAT4's panels run: after `Connected to OBS` the split list highlights are coloured again
 - **109.** Mid-run in LiveSplit, having split while OBS was closed: right after `Connected to OBS` both sidebar images show the current mission's
+- **136.** `!train`, close OBS, wait out the 62 s, reopen it: after `Connected to OBS` the train is gone, with `Leftover train cleared` if OBS had kept it showing. Reopening OBS within the 62 s instead logs no such line, and the train goes when its time is up
 
 ## F5 with OBS closed
 
@@ -68,6 +70,7 @@ raise it.
 ## Closing the bot by its window (not the debugger)
 
 - **45.** No `💥 SE Disconnected` in chat
+- **135.** `!train`, then close the window within 62 s: the train goes at once, with no `Error TRN3`
 
 ## At local midnight
 

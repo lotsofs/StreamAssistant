@@ -146,6 +146,20 @@ it is set is dropped with a chat line instead. A train that starts logs `Choo ch
 channel. `RunTrainAsync` starts with `await Task.Yield()`, so its
 blocking OBS calls run on the thread pool, not on the IRC or EventSub read loop that started it.
 
+The hide at the end runs only if the bot and OBS are both still up 62 s later. Two more clears catch the
+rest, sharing its two calls (`ClearTrain`):
+
+- **On every OBS connect** (`ChannelPoints.OnObsConnected`, from `ObsConnection`'s `Connected` handler, off
+  its thread; `Error TRN2` if it throws). Unless a train is running, it claims the flag, lists
+  `!Scene: Basics Colored`, and hides `Image: Train` if OBS shows it, logging `Leftover train cleared` on
+  `SceneChanges`. A hidden train, or a scene OBS won't list, leaves it doing nothing. The first connect after
+  a start catches a bot that stopped mid-train, and a later one catches OBS reopened after the train's time ran
+  out (OBS keeps the visibility it had when it closed). A train requested during the check is refused as a
+  second train.
+- **At shutdown** (`ChannelPoints.OnShutdown`, from `Program.Main` before `DisableBot()`): a train still
+  running is hidden at once (`Error TRN3` if OBS refuses). A killed process or a stopped debugger skips this,
+  which is why the connect clear is there.
+
 ## Money goal
 
 [MoneyGoal.cs](../code/Money/MoneyGoal.cs) keeps a running total of tips toward a goal, in EUR, and shows

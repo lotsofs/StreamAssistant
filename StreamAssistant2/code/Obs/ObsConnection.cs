@@ -57,6 +57,7 @@ namespace StreamAssistant2 {
 			LeftPanel.OnObsConnected();
 			GameSidebar.OnObsConnected();
 			MoneyGoal.OnObsConnected();
+			ChannelPoints.OnObsConnected();
 		}
 
 		static void OnDisconnected(object? sender, ObsDisconnectionInfo e) {

@@ -38,6 +38,8 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `GMS_live` | `FireForget.Run` (from `ObsConnection.OnStreamStateChanged`) | The go-live game setup threw, including a failed Helix channel-info call | no game setup this stream start |
 | `TEV1` | `FireForget.Run` (from `TestEventRunner.Run`) | Feeding a `!test` script's events into the handler threw | rest of that test not sent |
 | `TRN1` | `FireForget.Run` (from `ChannelPoints.TryStartTrain`) | The train threw (OBS calls no-op when disconnected, so rarely) | train skipped |
+| `TRN2` | `FireForget.Run` (from `ChannelPoints.OnObsConnected`) | Hiding a train left showing, after an OBS connect, threw | the train stays up until hidden by hand or the next connect |
+| `TRN3` | `ChannelPoints.OnShutdown` (from `Program.Main`) | Hiding a running train at shutdown threw | the train stays up until the next start |
 | `SUB1` | `Subscriptions.HandleCommunitySubGiftNotif` | The gift-bomb announcement threw (the only handler with its own catch) | no announcement |
 | `SUB2` | `FireForget.Run` (from `Subscriptions.HandleSubGiftNotif`) | The check for bomb recipients whose bomb never arrived threw | those recipients go unreported |
 | `CP1` | `ChannelPoints.CloseRedemption` | Helix refused to fulfil or cancel a train or colour redemption (often a 403; see [color.md](color.md)) | redemption left open |

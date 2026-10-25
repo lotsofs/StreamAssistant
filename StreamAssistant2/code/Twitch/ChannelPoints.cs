@@ -18,7 +18,9 @@ namespace StreamAssistant2 {
 		const string REWARD_ID_COLOR_RANDOM = "bc78e213-6818-464d-8d5f-3408e9bd2413";
 		const string REWARD_ID_COLOR_SINGLE = "ad70a9d9-12fa-44dd-a3fb-dde21ebc4ec1";
 		const string REWARD_ID_COLOR_TRIPLE = "30168c08-09f6-4557-ab49-b7eaed212978";
-		
+		const string TRAIN_SCENE = "!Scene: Basics Colored";
+		const string TRAIN_SOURCE = "Image: Train";
+
 		/// <param name="isTest">From !test (a replay): leave the toilet database and the real redemptions alone.</param>
 		internal async static Task ProcessAdd(JsonElement evt, bool isTest = false) {
 			string rewardId = evt.ReadString("reward.id");
@@ -104,14 +106,58 @@ namespace StreamAssistant2 {
 				await Task.Yield();
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, "Choo choo!");
 				int r = Random.Shared.Next(0, 100);
-				Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, $"Train{r}.png"));
-				Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", true);
+				Obs.SetImageSource(TRAIN_SOURCE, Path.Combine(Config.Data.Directories.Trains, $"Train{r}.png"));
+				Obs.SetSourceEnabled(TRAIN_SCENE, TRAIN_SOURCE, true);
 				await Task.Delay(62000);
-				Obs.SetSourceEnabled("!Scene: Basics Colored", "Image: Train", false);
-				Obs.SetImageSource("Image: Train", Path.Combine(Config.Data.Directories.Trains, "Empty.png"));
+				ClearTrain();
 			}
 			finally {
 				_trainOnTracks = 0;
+			}
+		}
+
+		/// <summary>
+		/// Hides the train and points it back at the empty image.
+		/// </summary>
+		static void ClearTrain() {
+			Obs.SetSourceEnabled(TRAIN_SCENE, TRAIN_SOURCE, false);
+			Obs.SetImageSource(TRAIN_SOURCE, Path.Combine(Config.Data.Directories.Trains, "Empty.png"));
+		}
+
+		/// <summary>
+		/// Off OBS's event thread, hides a train OBS shows while none is running, holding the tracks meanwhile.
+		/// </summary>
+		internal static void OnObsConnected() {
+			FireForget.Run("TRN2", "train clear on OBS connect", async () => {
+				await Task.Yield();
+				if (Interlocked.CompareExchange(ref _trainOnTracks, 1, 0) != 0) {
+					return;
+				}
+				try {
+					if (Obs.SceneItems(TRAIN_SCENE, false)?.Any(item => item.Source == TRAIN_SOURCE && item.Enabled) == true) {
+						ClearTrain();
+						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, "Leftover train cleared");
+					}
+				}
+				finally {
+					_trainOnTracks = 0;
+				}
+			});
+		}
+
+		/// <summary>
+		/// Hides a train still running at shutdown; an OBS failure is logged, not thrown.
+		/// </summary>
+		internal static void OnShutdown() {
+			if (_trainOnTracks == 0) {
+				return;
+			}
+			try {
+				ClearTrain();
+			}
+			catch (Exception ex) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error TRN3");
+				ConsoleLogger.LogToFile(ex);
 			}
 		}
 

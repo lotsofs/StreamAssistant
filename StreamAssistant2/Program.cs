@@ -30,6 +30,7 @@ namespace StreamAssistant2
 
 			TwitchIRCManager.SendMessage("🍂 Shutting Down");
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "SHUTDOWN!");
+			ChannelPoints.OnShutdown();
 			DisableBot();
 		}
 
