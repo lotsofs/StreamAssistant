@@ -134,7 +134,7 @@ Both migrations are finished. The UI went WinForms → console → WPF; `Console
 
 | Folder | Holds |
 |---|---|
-| [code/Core/](code/Core/) | config, logging, database |
+| [code/Core/](code/Core/) | config, logging, database, the data-file reload |
 | [code/Audio/](code/Audio/) | alert sounds, TTS, the language filter |
 | [code/Timing/](code/Timing/) | the periodic loops (clock, disk space, uptime) and connection health |
 | [code/Twitch/](code/Twitch/) | IRC, EventSub, Helix, chat and the event handlers; `TestEvents/` for `!test` |
@@ -149,7 +149,7 @@ Both migrations are finished. The UI went WinForms → console → WPF; `Console
 
 Only `Program.cs` stays at the root, and WPF windows and panels (XAML plus code-behind) go in [ui/](ui/). Put a new file in the matching `code/<Area>/` folder and its tests in the same folder of the test project. The folder is lowercase `code/`; on Windows a case-only rename of it has to go through `git mv` (git runs with `core.ignorecase`), and VS Code holds a handle on the folder itself, so move its subfolders rather than renaming it.
 
-No Streamer.Bot-era code is left; [docs/legacy.md](docs/legacy.md) has its history. The chat commands work: the public FAQ commands in `ChatHandler.CheckForCommands` answer in chat (the first match only, at most once a minute per user and command), and the admin commands are in `CheckForAdminCommands` (`!test <script>`, `!train`, and the colour commands `!changecolor`, `!changecolors`, `!changecolorrandom`, which mirror the three colour rewards, `!changegame` / `!changecategory`, which switch the bot's category locally and run the game setup, `!changepanel` / `!changecapture`, which run only the left-panel or only the capture-source part of it, `!stoppaneltimer` / `!startpaneltimer`, which stop and restart the left-panel rotation, `!nextpanelitem`, which moves it on to the next panel now, and `!moneygoal <amount>` / `!resetmoney`, which set the money goal and reset its total).
+No Streamer.Bot-era code is left; [docs/legacy.md](docs/legacy.md) has its history. The chat commands work: the public FAQ commands in `ChatHandler.CheckForCommands` answer in chat (the first match only, at most once a minute per user and command), and the admin commands are in `CheckForAdminCommands` (`!test <script>`, `!train`, and the colour commands `!changecolor`, `!changecolors`, `!changecolorrandom`, which mirror the three colour rewards, `!changegame` / `!changecategory`, which switch the bot's category locally and run the game setup, `!changepanel` / `!changecapture`, which run only the left-panel or only the capture-source part of it, `!stoppaneltimer` / `!startpaneltimer`, which stop and restart the left-panel rotation, `!nextpanelitem`, which moves it on to the next panel now, `!reloaddata`, which reloads the colour data, `games.json` and `leftpanel.json` and runs the current category's game setup again, and `!moneygoal <amount>` / `!resetmoney`, which set the money goal and reset its total).
 
 ## External dependencies at runtime
 

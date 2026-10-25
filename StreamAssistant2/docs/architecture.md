@@ -52,7 +52,8 @@ service registry.
    synchronization context and run its continuations on the UI thread.
 5. `StartBotAsync`, in order:
    1. Logs `STARTED!`, so it is the first line of each run in the log.
-   2. `Coloring.Load()`: colour tables and schemes from disk ([color.md](color.md)).
+   2. `Coloring.Load()`: colour tables and schemes from disk ([color.md](color.md#loading)). Never
+      throws: a file it can't load logs `Error CLR1`, and the rest load.
    3. `Games.Load()`: `<BotInput>\games.json`, the game behind each Twitch category. Never throws.
    4. `LeftPanel.Load()`: `<BotInput>\leftpanel.json`, each game's left-panel panels
       ([obs.md](obs.md#left-panel)). Never throws.
@@ -120,6 +121,7 @@ and shutdown, above) at the root and the window in [ui/](#ui). The test project 
 | [Config.cs](../code/Core/Config.cs) | Loads `paths.json` + `secrets.json` into `Config.Data` | [infrastructure.md](infrastructure.md#config) |
 | [ConsoleLogger.cs](../code/Core/ConsoleLogger.cs) | All logging: dated file + `LineLogged` event | [infrastructure.md](infrastructure.md#logging) |
 | [Database.cs](../code/Core/Database.cs) | SQLite: the toilet rewards' `flushes` and the `money_goal` row | [infrastructure.md](infrastructure.md#database) |
+| [DataFiles.cs](../code/Core/DataFiles.cs) | `!reloaddata`: reloads the colour data, `games.json` and `leftpanel.json`, then redoes the game setup | [twitch.md](twitch.md#admin-commands) |
 
 ### `code/Audio/`
 
@@ -183,7 +185,7 @@ and the lines the dashboard's OBS sources list shows from it ([dashboard.md](das
 [Games.cs](../code/Games/Games.cs): loads `<BotInput>\games.json` (Twitch category id → game name and
 game, window and audio capture executables) and resolves a category to its game, falling back to id `0`. `HandleUpdate` takes
 `channel.update` and calls `Apply`, the per-game setup, when the category changes;
-`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)). `Apply` sets the background, borders, layout and games scenes, sidebar, colour, left panel and capture sources; the capture sources only for a category in `games.json`.
+`OnStreamStartedAsync` calls it when OBS starts streaming ([events.md](events.md#category-change-and-going-live)), and `DataFiles.Reload` after `!reloaddata`. `Apply` sets the background, borders, layout and games scenes, sidebar, colour, left panel and capture sources; the capture sources only for a category in `games.json`.
 
 [GameBackground.cs](../code/Games/GameBackground.cs): `Set(gameName)` points `Image: Background` at the
 game's PNG in `Directories.Backgrounds`, else `Template.png` there, or logs and leaves it when neither exists.

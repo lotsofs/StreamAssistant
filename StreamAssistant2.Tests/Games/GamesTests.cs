@@ -266,6 +266,36 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void Load_WithTheFileGone_KeepsTheGamesLoaded() {
+			string dir = Directory.CreateTempSubdirectory("games-load-").FullName;
+			string saved = Config.Data.Directories.BotInput;
+			double? savedVolume = Games.DefaultVolume;
+			string path = Path.Combine(dir, "games.json");
+			List<string> log = new();
+			void OnLine(ConsoleLogger.ColorType _, string line) { lock (log) log.Add(line); }
+			Config.Data.Directories.BotInput = dir;
+			ConsoleLogger.LineLogged += OnLine;
+			try {
+				File.WriteAllText(path, """{ "1": { "Name": "GTA3" } }""");
+				Games.Load();
+				File.Delete(path);
+				Games.Load();
+				lock (log) {
+					Assert.Contains(log, l => l.Contains("Loaded 1 games"));
+					Assert.Contains(log, l => l.Contains("games.json not found, keeping the 1 games loaded"));
+				}
+			}
+			finally {
+				ConsoleLogger.LineLogged -= OnLine;
+				File.WriteAllText(path, "{}");
+				Games.Load();
+				Games.DefaultVolume = savedVolume;
+				Config.Data.Directories.BotInput = saved;
+				Directory.Delete(dir, true);
+			}
+		}
+
+		[Fact]
 		public void SidebarImage_NoneAtOrBelow_IsTheLowest_AndAnyCaseMatches() {
 			Assert.Equal("GTA3_01.png", GameSidebar.Choose(SidebarFiles, "gta3", -1));
 		}

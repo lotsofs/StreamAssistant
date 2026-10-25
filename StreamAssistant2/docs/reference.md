@@ -47,8 +47,10 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
 | `GMS_cap` | `FireForget.Run` (from `Games.TryChangeCapture`) | `!changecapture` threw outside `RunStep`'s own catch | the capture sources aren't changed |
 | `GMS2` | `Games.RunStep` (from `Games.Apply`, and `!changecapture`) | One game setup step (background, border, scenes, sidebar, colour, left panel or capture sources) threw; the message names the step | that step skipped, the later ones still run |
-| `GMS1` | `Games.Load` | `games.json` couldn't be read or parsed | no games loaded; every category resolves to `None` and leaves the capture sources alone |
-| `LPN1` | `LeftPanel.Load` | `leftpanel.json` couldn't be read or parsed | no left panels loaded |
+| `GMS1` | `Games.Load` | `games.json` couldn't be read or parsed | at startup no games are loaded, so every category resolves to `None` and leaves the capture sources alone; on `!reloaddata` the games loaded before stay |
+| `LPN1` | `LeftPanel.Load` | `leftpanel.json` couldn't be read or parsed | at startup no left panels are loaded; on `!reloaddata` the panels loaded before stay |
+| `CLR1` | `Coloring.ListFiles`, `LoadFailed` (from `ColorTableRegistry.LoadTables`, `ColorSchemeRegistry.LoadSets`) | `can't load <path>: <message>`: a colour table or scheme file couldn't be read or parsed, or its folder couldn't be listed | that file keeps the table or set it held before (none at startup) and the other files load; a folder keeps everything its registry held |
+| `DAT1` | `FireForget.Run` (from `DataFiles.Reload`) | `!reloaddata` threw outside the loaders' and the game setup's own catches | the rest of that reload is skipped |
 | `LPN2` | `LeftPanel.RunAsync` | One OBS call of the left-panel rotation threw (listing a scene, hiding the reference item, setting a text or file, colouring a split filter, showing or hiding a group); the message says which | the rest of that step still runs |
 | `LPN3` | `FireForget.Run` (from `LeftPanel.Start`) | The rotation threw outside its own handling | that rotation stops until the next `Start` |
 | `LPN4` | `LeftPanel.OnObsConnected` (from `ObsConnection`'s `Connected` handler) | Restarting the rotation on an OBS connect threw | the rotation isn't restarted; leftovers from before the connect may stay up |
@@ -99,6 +101,9 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `No left panel rotation to move on`, `Only one left panel, nothing to move on to` | `!nextpanelitem` with no rotation (or a stopped one), or with one panel and no previous split |
 | `Left panel rotation stopped` | `!stoppaneltimer`; the current panel stays up, and OBS reconnects don't restart it |
 | `No left panel rotation to stop`, `No left panel to start` | `!stoppaneltimer` or `!startpaneltimer` with no game's rotation to act on |
+| `Loaded <n> colour tables and <n> scheme sets` | the colour data loaded, at startup or on `!reloaddata`; beside `Loaded <n> games, …` and `Loaded left panels for …` |
+| `games.json not found, per-game setup off`, `leftpanel.json not found, left panel off` | the file is missing at startup |
+| `games.json not found, keeping the <n> games loaded`, `leftpanel.json not found, keeping the left panels loaded` | the file is missing on `!reloaddata`; what was loaded stays |
 | `leftpanel.json: skipped <name>, …` | an entry naming another that leads to no panels (missing, or a loop), or a value that is neither panels nor a name |
 | `Unhandled chat notice event` | a `channel.chat.notification` `notice_type` with no case |
 | `Twitch: stream online (<started_at>)` | Twitch marked the channel live (`stream.online`); `started_at` is Twitch's start time, UTC |

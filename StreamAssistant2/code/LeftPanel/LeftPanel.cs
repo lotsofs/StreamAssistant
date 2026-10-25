@@ -158,13 +158,14 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Loads leftpanel.json from BotInput; a missing or broken file leaves no panels.
+		/// Loads leftpanel.json from BotInput; a missing or broken file keeps the panels loaded before, if any.
 		/// </summary>
 		internal static void Load() {
 			try {
 				string path = Path.Combine(Config.Data.Directories.BotInput, PANELS_FILE);
 				if (!File.Exists(path)) {
-					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"{PANELS_FILE} not found, left panel off");
+					string kept = _sets.Count > 0 ? "keeping the left panels loaded" : "left panel off";
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"{PANELS_FILE} not found, {kept}");
 					return;
 				}
 				_sets = Parse(File.ReadAllText(path));
@@ -416,14 +417,21 @@ namespace StreamAssistant2 {
 		/// </summary>
 		internal static void OnObsConnected() {
 			try {
-				string? game = _game;
-				if (game != null && !_stopped) {
-					Start(game);
-				}
+				Restart();
 			}
 			catch (Exception ex) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Error, "Error LPN4");
 				ConsoleLogger.LogToFile(ex);
+			}
+		}
+
+		/// <summary>
+		/// Starts the last game's rotation again, from its first panel, unless it was stopped.
+		/// </summary>
+		internal static void Restart() {
+			string? game = _game;
+			if (game != null && !_stopped) {
+				Start(game);
 			}
 		}
 

@@ -1052,6 +1052,24 @@ namespace StreamAssistant2.Tests {
 			Assert.Equal(1, Count("No left panel to start"));
 			Assert.Equal(0, Count("Left panel:"));
 		}
+
+		[Fact]
+		public void Restart_StartsTheRotationAgain_UnlessStopped() {
+			LeftPanel.Start("GTA3");
+			LeftPanel.Restart();
+			Assert.Equal(2, Count("Left panel: GTA3"));
+			LeftPanel.Stop();
+			LeftPanel.Restart();
+			Assert.Equal(2, Count("Left panel: GTA3"));
+		}
+
+		[Fact]
+		public void Load_WithTheFileGone_KeepsThePanelsLoaded() {
+			File.Delete(Path.Combine(_dir, "leftpanel.json"));
+			LeftPanel.Load();
+			Assert.True(LeftPanel.HasPanels("GTA3"));
+			Assert.Equal(1, Count("leftpanel.json not found, keeping the left panels loaded"));
+		}
 	}
 
 	/// <summary>

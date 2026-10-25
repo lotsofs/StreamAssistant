@@ -7,6 +7,7 @@ logged here, only in git history.
 
 | Date | Code | Area | Change | Why / how |
 |---|---|---|---|---|
+| 2026-10-25 | RLD | All | Add `!reloaddata`: reload the colour, games and left-panel files without a restart, then redo the game setup | The data files were read only at startup, and the colour registries were refilled in place, with one broken file throwing. They now swap in whole loads, and a broken file keeps its old data and logs `Error CLR1`. Builds warning-free and the tests pass; not yet seen live (LIV 137–139). |
 | 2026-10-25 | TRS | OBS | Hide a train left showing when OBS connects, and a running one at shutdown | The hide ran only if the bot was still up 62 s later, so closing it mid-train left the train on screen. Each OBS connect now hides a train OBS shows while none runs, and closing the window hides a running one. Builds warning-free, tests pass; not yet seen live (LIV 134–136). |
 | 2026-10-25 | — | Docs | Set up the DONE log and the changelog | Finished work had no record but git history. The log starts with this session's work, and the changelog waits for release 1. |
 | 2026-10-25 | — | Docs | Move CLAUDE.md's test list and dashboard detail to their docs, and add the single-test and running-bot commands | Both passages repeated development.md and dashboard.md and went stale. The test classes the table missed got rows. Links checked. |

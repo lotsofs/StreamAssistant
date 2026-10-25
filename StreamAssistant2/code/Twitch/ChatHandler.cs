@@ -159,6 +159,9 @@
 				case "!changecapture":
 					Games.TryChangeCapture(argument);
 					break;
+				case "!reloaddata":
+					DataFiles.Reload();
+					break;
 				case "!moneygoal":
 					MoneyGoal.TrySetGoal(argument);
 					break;

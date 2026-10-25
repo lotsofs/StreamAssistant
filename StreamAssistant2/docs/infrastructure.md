@@ -30,8 +30,9 @@ text format, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
    values are then empty and tips are off.
 
 `BotInput` also holds **`games.json`** and **`leftpanel.json`**, which aren't config: `Games.Load()` and
-`LeftPanel.Load()` read them later in startup ([architecture.md](architecture.md#codeobs),
-[obs.md](obs.md#left-panel)). A missing file only logs, and turns off per-game setup or the left panel.
+`LeftPanel.Load()` read them later in startup, and again on `!reloaddata`, with the colour data
+([architecture.md](architecture.md#codeobs), [obs.md](obs.md#left-panel)). A missing file only logs,
+and turns off per-game setup or the left panel; on a reload it keeps what was loaded.
 
 JSON is read with `System.Text.Json` and `PropertyNameCaseInsensitive`, so `socketPassword` and
 `SocketPassword` are the same. Unknown properties are ignored; the example's `twitchTestNames` block

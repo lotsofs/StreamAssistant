@@ -24,25 +24,52 @@ namespace StreamAssistant2 {
 			public string Text { get; set; } = "";
 		}
 
-		public static readonly Dictionary<string, ThemeSet> Sets = new(ColorNameComparer.Instance);
+		public static Dictionary<string, ThemeSet> Sets { get; private set; } = new(ColorNameComparer.Instance);
 
 		public sealed record ColorSchemeData (string SetName, string CategoryName, string SchemeName, Scheme Scheme);
 
+		/// <summary>
+		/// Loads every scheme file into new sets, swapped in at once; a file that can't be loaded logs and keeps its set
+		/// from before, and a folder that can't be listed keeps them all.
+		/// </summary>
 		public static void LoadSets() {
-			Sets.Clear();
-			foreach (string file in Directory.EnumerateFiles(Config.Data.Directories.ColorSchemes, "*.json")) {
+			string[]? files = Coloring.ListFiles(Config.Data.Directories.ColorSchemes);
+			if (files == null) {
+				return;
+			}
+			Dictionary<string, ThemeSet> old = Sets;
+			Dictionary<string, ThemeSet> sets = new(ColorNameComparer.Instance);
+			foreach (string file in files) {
 				string name = Path.GetFileNameWithoutExtension(file);
-				JObject root = JObject.Parse(File.ReadAllText(file));
-				foreach (var (where, dropped, kept) in DropDuplicateNames(root)) {
-					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Colour scheme {name}{where}: skipped \"{dropped}\", same name as \"{kept}\"");
+				try {
+					if (LoadSet(file, name) is ThemeSet set) {
+						sets[name] = set;
+					}
 				}
-				var ts = root.ToObject<ThemeSet>();
-				if (ts != null) {
-					NormalizeHex(name, ts);
-					CheckSignSchemes(name, ts);
-					Sets[name] = ts;
+				catch (Exception ex) {
+					Coloring.LoadFailed(file, ex);
+					if (old.TryGetValue(name, out ThemeSet? kept)) {
+						sets[name] = kept;
+					}
 				}
 			}
+			Sets = sets;
+		}
+
+		/// <summary>
+		/// One scheme file, logging what it drops; null for a file that holds null.
+		/// </summary>
+		static ThemeSet? LoadSet(string file, string name) {
+			JObject root = JObject.Parse(File.ReadAllText(file));
+			foreach (var (where, dropped, kept) in DropDuplicateNames(root)) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Colour scheme {name}{where}: skipped \"{dropped}\", same name as \"{kept}\"");
+			}
+			var ts = root.ToObject<ThemeSet>();
+			if (ts != null) {
+				NormalizeHex(name, ts);
+				CheckSignSchemes(name, ts);
+			}
+			return ts;
 		}
 
 		/// <summary>

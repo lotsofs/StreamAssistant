@@ -345,7 +345,8 @@ rotation with a previous-split panel ([Splits from LiveSplit](#splits-from-lives
 
 ### The panel file
 
-[LeftPanel.cs](../code/LeftPanel/LeftPanel.cs) loads `<BotInput>\leftpanel.json` at startup, after `games.json`.
+[LeftPanel.cs](../code/LeftPanel/LeftPanel.cs) loads `<BotInput>\leftpanel.json` at startup, after `games.json`,
+and again on `!reloaddata` ([twitch.md](twitch.md#admin-commands)).
 The file is keyed by `games.json` `Name` (any case), plus a `default` entry for a game without its own:
 
 ```json
@@ -415,8 +416,9 @@ The file is keyed by `games.json` `Name` (any case), plus a `default` entry for 
 `None` game, which has no entry, so it gets `default`.
 
 Loading logs `Loaded left panels for <n> games and a default` (or `, no default`). A missing file logs
-`leftpanel.json not found, left panel off`. A file that can't be read or parsed logs `Error LPN1` and
-leaves no panels. `Parse` and `Lookup` are tested, and a real-data test checks that every key in the real
+`leftpanel.json not found, left panel off`, or, with panels already loaded (on a reload),
+`leftpanel.json not found, keeping the left panels loaded`. A file that can't be read or parsed logs
+`Error LPN1` and keeps the panels loaded before, if any. `Parse` and `Lookup` are tested, and a real-data test checks that every key in the real
 file is a `games.json` name or `default`, that every name entry leads to panels, and that no panel is
 skipped. Another checks the panels' copy sources ([Copies](#copies)).
 

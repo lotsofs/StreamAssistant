@@ -171,5 +171,98 @@ namespace StreamAssistant2.Tests {
 				empty.Delete();
 			}
 		}
+
+		[Fact]
+		public void Reload_ABrokenFileKeepsWhatItHeld_AndTheOthersReload() {
+			DirectoryInfo dir = CopyFixtures();
+			string colors = Path.Combine(dir.FullName, "Colors");
+			string schemes = Path.Combine(dir.FullName, "ColorSchemes");
+			try {
+				ColorData.Load(colors, schemes);
+				File.WriteAllText(Path.Combine(colors, "crayola.json"), """{ "Navy Blue": """);
+				File.WriteAllText(Path.Combine(schemes, "gameschemes.json"), """{ "Categories": { , """);
+				File.WriteAllText(Path.Combine(colors, "basiccolors.json"), """{ "Red": "#FF0000", "Teal": "#008080" }""");
+				File.WriteAllText(Path.Combine(schemes, "countryschemes.json"), """{ "Categories": { "Chad": { "ColorSchemes": { "TD": { "Inner": "#002664", "Outer": "#FECB00", "Text": "#C60C30" } }, "Default": "TD" } } }""");
+				File.Delete(Path.Combine(colors, "loosetest.json"));
+
+				List<string> log = Logged(Coloring.Load);
+
+				Assert.Equal(2, ColorTableRegistry.Tables["crayola"].Entries.Count);
+				Assert.True(ColorSchemeRegistry.TryGetScheme("gameschemes gtavc weapon", out var weapon));
+				Assert.Equal("#112233", weapon!.Scheme.Inner);
+				Assert.Equal(["Red", "Teal"], ColorTableRegistry.Tables["basiccolors"].Entries.Keys.Order().ToList());
+				Assert.True(ColorSchemeRegistry.TryGetScheme("chad", out _));
+				Assert.False(ColorSchemeRegistry.TryGetScheme("albania", out _));
+				Assert.False(ColorTableRegistry.Tables.ContainsKey("loosetest"));
+				Assert.Contains(log, l => l.Contains($"Error CLR1: can't load {Path.Combine(colors, "crayola.json")}: "));
+				Assert.Contains(log, l => l.Contains($"Error CLR1: can't load {Path.Combine(schemes, "gameschemes.json")}: "));
+				Assert.Contains(log, l => l.Contains("Loaded 3 colour tables and 2 scheme sets"));
+				// The random pick follows the reload too.
+				for (int i = 0; i < 200; i++) {
+					Assert.NotEqual("loosetest", ColorTableRegistry.GetRandomColor().Source);
+				}
+			}
+			finally {
+				ColorData.LoadFixtures();
+				dir.Delete(true);
+			}
+		}
+
+		[Fact]
+		public void Load_ABrokenNewFileIsLeftOut_AndTheRestLoad() {
+			DirectoryInfo dir = CopyFixtures();
+			string colors = Path.Combine(dir.FullName, "Colors");
+			try {
+				File.WriteAllText(Path.Combine(colors, "broken.json"), "{ nope");
+				List<string> log = Logged(() => ColorData.Load(colors, Path.Combine(dir.FullName, "ColorSchemes")));
+				Assert.False(ColorTableRegistry.Tables.ContainsKey("broken"));
+				Assert.Equal(4, ColorTableRegistry.Tables["basiccolors"].Entries.Count);
+				Assert.Contains(log, l => l.Contains($"Error CLR1: can't load {Path.Combine(colors, "broken.json")}: "));
+			}
+			finally {
+				ColorData.LoadFixtures();
+				dir.Delete(true);
+			}
+		}
+
+		[Fact]
+		public void Load_AFolderThatCantBeListedKeepsEverything() {
+			string missing = Path.Combine(Path.GetTempPath(), "colors-missing-" + Guid.NewGuid().ToString("N"));
+			try {
+				List<string> log = Logged(() => ColorData.Load(missing, missing));
+				Assert.Equal(2, ColorTableRegistry.Tables["crayola"].Entries.Count);
+				Assert.True(ColorSchemeRegistry.TryGetScheme("gtavc", out _));
+				Assert.Equal(2, log.Count(l => l.Contains($"Error CLR1: can't load {missing}: ")));
+			}
+			finally {
+				ColorData.LoadFixtures();
+			}
+		}
+
+		// The fixture folders, copied under a new temporary folder.
+		static DirectoryInfo CopyFixtures() {
+			DirectoryInfo dir = Directory.CreateTempSubdirectory("colors-reload-");
+			foreach (string folder in new[] { "Colors", "ColorSchemes" }) {
+				string to = Directory.CreateDirectory(Path.Combine(dir.FullName, folder)).FullName;
+				foreach (string file in Directory.GetFiles(ColorData.Fixture(folder))) {
+					File.Copy(file, Path.Combine(to, Path.GetFileName(file)));
+				}
+			}
+			return dir;
+		}
+
+		// The lines logged while the action runs.
+		static List<string> Logged(Action action) {
+			List<string> log = new();
+			void OnLine(ConsoleLogger.ColorType _, string line) { lock (log) log.Add(line); }
+			ConsoleLogger.LineLogged += OnLine;
+			try {
+				action();
+			}
+			finally {
+				ConsoleLogger.LineLogged -= OnLine;
+			}
+			lock (log) return log.ToList();
+		}
 	}
 }

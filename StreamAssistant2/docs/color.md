@@ -56,7 +56,7 @@ OBS animation. Requests are queued, not run directly, so they never overlap.
 
 | File | Holds |
 |---|---|
-| [Coloring.cs](../code/Color/Coloring.cs) | The `ColorEntry` record, `Load()` (both registries), `GetRandomColor()` |
+| [Coloring.cs](../code/Color/Coloring.cs) | The `ColorEntry` record, `Load()` (both registries), `GetRandomColor()`, and the folder listing and `CLR1` line both registries use |
 | [SingleColorParser.cs](../code/Color/SingleColorParser.cs) | One colour from text: hex, `rgb()`, `hsv()`, bare `r,g,b`, named, system, `random` |
 | [TripleColorParser.cs](../code/Color/TripleColorParser.cs) | Splits text into up to three colours by the separator-weight rule |
 | [ColorTableRegistry.cs](../code/Color/ColorTableRegistry.cs) | Loads every colour table and looks colour names up across them |
@@ -128,8 +128,18 @@ Rules for the data:
 ## Loading
 
 `Coloring.Load()` is the first step of the bot's startup in `Program.cs`, run once the window has
-loaded so its lines show there. Loading logs on `Important` whenever it drops something. The
-possible lines:
+loaded so its lines show there. `!reloaddata` runs it again ([twitch.md](twitch.md#admin-commands)).
+It ends with `Loaded <n> colour tables and <n> scheme sets` on `Notification`.
+
+Each registry builds its tables or sets in a new dictionary and swaps it in with one assignment.
+That way a colour lookup during a reload sees either the old data or the new, never half of each.
+`ColorTableRegistry` keeps its tables and the random pick list in one record, so they swap
+together. A file that can't be read or parsed logs `Error CLR1: can't load <file>: <message>` and
+keeps the table or set it held before (none on its first load); the other files still load. A
+folder that can't be listed (missing, say) logs `CLR1` too, and keeps everything that registry
+held. So a broken file at startup doesn't stop the bot. A file deleted since the last load drops out.
+
+Loading logs on `Important` whenever it drops something from a file it could read. The possible lines:
 
 ```
 Colour table <source>: skipped "<name>", "<value>" is not a hex colour
@@ -154,7 +164,7 @@ get-only: Newtonsoft fills the existing instance through the getter, which is wh
 1. the `random` keyword, in any case. It comes first so no colour name can shadow it, not even
    loosely: a table entry `Rándom` would otherwise fold to `random`. The colour is picked uniformly
    from every entry of every loaded table, or is a random `#rrggbb` (source `random rgb`) if no tables
-   are loaded at all. The pick list is built once in `LoadTables`.
+   are loaded at all. The pick list is built with the tables, at each load.
    The random reward and `!changecolorrandom` use the same pick.
 2. `#RRGGBB`
 3. `rgb(...)`
@@ -253,7 +263,11 @@ literal-hex input path lowercases both the colour and its displayed name. Keep n
 - **Open bugs:** a newly found bug can get a test for the correct behaviour straight away, marked
   `Skip = "<code>: …"`; fixing the bug then means deleting the `Skip`.
 - **Keep fixtures valid and collision-free.** An invalid or colliding entry makes the loader call
-  `ConsoleLogger`, which writes to the real log directory.
+  `ConsoleLogger`, which writes to the real log directory. (Every load logs its `Loaded …` line
+  anyway.)
+- **Reloading:** `RegistryTests` copies the fixtures to a temporary folder and breaks, edits or deletes
+  files there, to test a reload: a broken file keeps its earlier contents, the others reload, and a
+  folder that can't be listed keeps everything.
 - **Internals:** the main csproj has `InternalsVisibleTo StreamAssistant2.Tests`, so tests can set
   `Config.Data.Directories` and call `ColorSchemeRegistry.DropDuplicateNames`.
 

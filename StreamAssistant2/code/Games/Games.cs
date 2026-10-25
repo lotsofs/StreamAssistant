@@ -49,13 +49,14 @@ namespace StreamAssistant2 {
 		internal static Func<Task<string?>> FetchCategoryId = TwitchHelixApi.GetChannelCategoryIdAsync;
 
 		/// <summary>
-		/// Loads games.json from BotInput; a missing or broken file leaves the list empty.
+		/// Loads games.json from BotInput; a missing or broken file keeps the games loaded before, if any.
 		/// </summary>
 		internal static void Load() {
 			try {
 				string path = Path.Combine(Config.Data.Directories.BotInput, GAMES_FILE);
 				if (!File.Exists(path)) {
-					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"{GAMES_FILE} not found, per-game setup off");
+					string kept = _games.Count > 0 ? $"keeping the {_games.Count} games loaded" : "per-game setup off";
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"{GAMES_FILE} not found, {kept}");
 					return;
 				}
 				string json = File.ReadAllText(path);

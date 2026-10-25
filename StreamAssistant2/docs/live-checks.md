@@ -25,6 +25,8 @@ raise it.
 - **127.** `!changepanel SWAT4`, through List On to List Off: the OBS sources column lists `SL - Names 1`, `SL - Highlight 1` and `SL - Header Left 1`, and no `2` or `3` of them, while the values move between copies 2 and 3, each panel with its own `SL - Upcoming`
 - **128.** `!changepanel GTA3`, after one full loop: `Splits: Run Delta`'s right-hand column shows the run's upcoming times, as `Finished at` does, not `Golds Delta`'s
 - **134.** `!train`, then stop the debugger within 62 s: the train stays up. F5: right after `Connected to OBS` the log shows `Leftover train cleared` and the train is gone. A later F5 with no train up logs no such line
+- **137.** Change a panel's `Seconds` in `leftpanel.json`, then `!reloaddata`: the log shows `Loaded <n> colour tables and <n> scheme sets`, `Loaded <n> games, …`, `Loaded left panels for …`, then `Game setup: <game> (<id>)` with its steps, and the rotation starts over from its first panel, which now stays up for the new length
+- **138.** Change a scheme's colours in a scheme file, `!reloaddata`, then `!changecolor <that scheme>`: the layout takes the new colours
 
 ## With LiveSplit running SWAT4 splits
 
@@ -66,6 +68,7 @@ raise it.
 - **48.** Off-stream, raise `SPAM_GB_THRESHOLD` in `DiskSpace.cs` above A:'s free space and F5: at the next whole minute the warning beep plays (a real alert came 2026-10-11 22:40 at 1.4 GB free: chat line and TTS, no `Error DSK1`; only the beep isn't in the log, so the next real alert also settles it)
 - **85.** Give a game's `leftpanel.json` entry a group OBS lacks and F5: once OBS is connected, exactly the column's lines with such a group are red (the panel up keeps its `>` and timer), matching the `has groups OBS doesn't` log line; the `_LP:` and `_LPC:` groups that do exist show and hide in OBS
 - **91.** Put an `_LP:` group in the coloured scene, or an `_LPC:` group in the plain one: the bot never shows or hides it
+- **139.** Add a stray comma to a scheme file, then `!reloaddata`: the log shows `Error CLR1: can't load <file>: …`, the other files load, and `!changecolor` still finds that file's schemes as they were. Remove the comma and `!reloaddata` again: no `Error CLR1`
 
 ## Closing the bot by its window (not the debugger)
 
