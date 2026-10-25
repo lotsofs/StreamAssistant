@@ -24,11 +24,17 @@ namespace StreamAssistant2 {
 				throw new FileNotFoundException($"Created {secretsPath} from {SECRETS_TEMPLATE}. Fill in the real values and start again.");
 			}
 			ConfigModel secrets = Read(secretsPath);
+			if (secrets.TwitchAuth.Login.Length == 0) {
+				throw new InvalidDataException($"{secretsPath} has no twitchAuth login. Fill in the broadcaster's login and start again.");
+			}
+			secrets.TwitchAuth.Login = secrets.TwitchAuth.Login.ToLowerInvariant();
+			secrets.TwitchBot.Login = secrets.TwitchBot.Login.ToLowerInvariant();
 
 			Data = new ConfigModel {
 				Directories = paths.Directories,
 				Obs = secrets.Obs,
 				TwitchAuth = secrets.TwitchAuth,
+				TwitchBot = secrets.TwitchBot,
 				TwitchIds = secrets.TwitchIds,
 				StreamElements = secrets.StreamElements,
 			};
@@ -48,6 +54,7 @@ namespace StreamAssistant2 {
 		// secrets.json
 		public ObsSocketConfig Obs { get; set; } = new();
 		public TwitchAuthConfig TwitchAuth { get; set; } = new();
+		public TwitchAuthConfig TwitchBot { get; set; } = new();
 		public TwitchIdConfig TwitchIds { get; set; } = new();
 		public StreamElementsConfig StreamElements { get; set; } = new();
 	}
@@ -69,6 +76,7 @@ namespace StreamAssistant2 {
 	}
 
 	public class TwitchAuthConfig {
+		public string Login { get; set; } = "";
 		public string AccessToken { get; set; } = "";
 		public string RefreshToken { get; set; } = "";
 		public string ClientId { get; set; } = "";

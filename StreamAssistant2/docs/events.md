@@ -169,7 +169,7 @@ On `channel.ad_break.begin`:
 | Minutes after the break | Chat message |
 |---|---|
 | 55 | `Obligatory ad in 5 minutes :(` |
-| 57 | one of three random "please follow / subscribe / use your Prime sub" messages (`sssDino …`), with a 1 in 100 extra `@LotsOfS Stop making me beg …` |
+| 57 | one of three random "please follow / subscribe / use your Prime sub" messages (`sssDino …`), with a 1 in 100 extra `@<broadcaster login> Stop making me beg …` |
 | 58 | `Obligatory ad in 2 minutes :( :( :(` |
 | 59 | `Obligatory ad coming right up. Maybe snooze it if something interesting is about to happen.` |
 

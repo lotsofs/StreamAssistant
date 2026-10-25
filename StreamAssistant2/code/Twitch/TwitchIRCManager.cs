@@ -18,8 +18,8 @@ namespace StreamAssistant2 {
 		static Task? _listenTask;
 
 		static string _oauth = "";
-		static string _username = "lotsofs";
-		static string _channel = "#lotsofs";
+		static string _username = "";
+		static string _channel = "";
 
 		static DateTime _lastPingTime = DateTime.MinValue;
 
@@ -32,10 +32,23 @@ namespace StreamAssistant2 {
 
 		internal static event Action<string>? OnMessage;
 
+		// Picks the chat account and the broadcaster's channel, then starts the connection loop
 		internal static void Connect() {
-			_oauth = Config.Data.TwitchAuth.AccessToken;
+			TwitchAuthConfig broadcaster = Config.Data.TwitchAuth;
+			TwitchAuthConfig account = ChatAccount(Config.Data.TwitchBot, broadcaster);
+			if (account == broadcaster) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Chat: no twitchBot login or accessToken in secrets.json, chatting as {broadcaster.Login}");
+			}
+			_username = account.Login;
+			_oauth = account.AccessToken;
+			_channel = "#" + broadcaster.Login;
 			_cts = new CancellationTokenSource();
 			_ = Task.Run(() => StartConnectionLoop(_cts.Token));
+		}
+
+		// The bot account when its login and token are set, else the broadcaster
+		internal static TwitchAuthConfig ChatAccount(TwitchAuthConfig bot, TwitchAuthConfig broadcaster) {
+			return bot.Login.Length > 0 && bot.AccessToken.Length > 0 ? bot : broadcaster;
 		}
 
 		static async Task StartConnectionLoop(CancellationToken token) {

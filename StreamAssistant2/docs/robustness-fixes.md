@@ -8,12 +8,54 @@ there, along with the conventions these codes follow. This file holds the detail
 
 **Dependencies between plans**
 
-None at present: each item is independent.
+- **CFG** turns hardcoded values into settings. Work done before it that adds constants (NCK's interval
+  and colours) adds to its list; work done after it should add settings instead.
+- **NCK** and **TOK** both need the bot account's user id and send `twitchBot.clientId`; TOK's validate
+  call returns the user id, so whichever comes second can reuse it.
 
 Each plan ends with the docs to touch. When an item is finished, delete its section here and its row in
 TODO.md, and log it in [DONE.md](DONE.md), per the conventions there.
 
 ---
+
+## TOK — Refresh the Twitch tokens at runtime
+
+`secrets.json` holds two Twitch accounts in the same shape (`login`, `accessToken`, `refreshToken`,
+`clientId`): `twitchAuth`, the broadcaster, whose token EventSub and Helix use, and `twitchBot`, whose
+token IRC uses. Nothing reads either `refreshToken`, or `twitchBot`'s `clientId`. Each access token is
+used until it stops working, and the expected symptoms are in
+[twitch.md § Credentials and identity](twitch.md#credentials-and-identity): IRC retrying every 3 s
+(`Error 1` / `Error TIRC2`) for the bot's token, and EventSub restarting every 3 s on a 401
+(`Error TES1`) for the broadcaster's, with the redemption PATCH failing too. The fix today is to replace
+the token in `secrets.json` by hand and restart the bot. Read only; no expiry has been seen.
+
+### Plan
+
+1. Find out where the tokens come from. The `clientId` names the app: a confidential client needs its
+   client secret to refresh (it would join `secrets.json`); a public client refreshes with the client id
+   alone, and each refresh token works once; a token-generator site has its own refresh endpoint. That
+   decides the refresh call.
+2. Validate each token at startup and then hourly, as Twitch asks: `GET https://id.twitch.tv/oauth2/validate`
+   with `Authorization: OAuth <token>` returns `login`, `scopes` and `expires_in`. Log the time left, and
+   warn when the login doesn't match the block's or a scope is missing (`chat:read`, `chat:edit` for the bot).
+3. Refresh a token before it expires, and on a 401 from EventSub or Helix or an IRC `Login authentication
+   failed` notice: `POST https://id.twitch.tv/oauth2/token` with `grant_type=refresh_token` and the refresh
+   token (plus what step 1 found). Use the new token without a restart: IRC reconnects with it, and
+   EventSub and Helix send it from their next request.
+4. Write the new access and refresh tokens back to `secrets.json`, changing only those two values, so a
+   restart uses them. Never log them.
+5. Keep the decisions pure and tested: whether a refresh is due, parsing the validate and token responses,
+   and the rewrite of the two values.
+
+**Verify:** F5 logs the time left on both tokens. Lower the refresh threshold to force a refresh: the
+new token is used (IRC reconnects as `botsofs`, EventSub resubscribes or carries on) and `secrets.json`
+holds it afterwards.
+
+**Docs when done:** delete this section and the TODO row; update the credentials table, the expiry
+paragraph and the TOK links in [twitch.md](twitch.md#credentials-and-identity),
+[infrastructure.md § Config](infrastructure.md#config) (the bot now writes `secrets.json`), the
+"never refreshed at runtime" sentence in CLAUDE.md, and [reference.md](reference.md) for new log lines,
+error codes and URLs.
 
 ## ESR — EventSub reconnect path unverified
 
@@ -103,38 +145,6 @@ asks for a non-default keepalive, and there is no reason to (raising it only slo
 **Docs when done:** delete this section and the TODO row; drop "the IRC one hasn't yet" from the bullet
 in [gotchas.md](gotchas.md#twitch-and-helix).
 
-## BOT — Chat as the bot account, not lotsofs
-
-The bot connects to IRC with the broadcaster's own token (`NICK lotsofs`, hardcoded in
-`TwitchIRCManager`), so everything it says in chat appears as `lotsofs`. It should speak as a separate
-bot account (presumably `botsofs`, already an admin login in `ChatHandler.HandlePrivMsg`). Read only;
-not built.
-
-Only chat moves. Channel-point redemptions, bits, ad schedule and the redemption PATCH need the
-broadcaster's token, so EventSub and Helix keep it.
-
-### Plan
-
-1. `secrets.json`: a second token block for the bot account (access token, and its login), alongside
-   `twitchAuth`. Add it to `secrets.json.example` and the `Config` model; get a token with
-   `chat:read` and `chat:edit` for the bot account.
-2. `TwitchIRCManager`: `PASS` the bot token and `NICK` the bot login; keep `JOIN #lotsofs`.
-3. Decide whether `channel.chat.notification`'s `user_id` (`TwitchIds.UserId`) stays the broadcaster
-   or becomes the bot (which would then need `user:read:chat` on a token EventSub uses; simplest to
-   leave it).
-4. Messages typed from `lotsofs` are now read by the bot like anyone else's: check `ChatterList`
-   (`"YOOO BRO"` for `lotsofs`) and whether the bot account should be skipped there.
-5. Make the bot account a moderator (or VIP) in the channel so its messages aren't rate-limited or
-   held.
-
-**Verify:** after an F5 start, the connect line and a chat message from the bot show the bot login;
-an EventSub event and a colour redemption still work.
-
-**Docs when done:** delete this section and the TODO row; update [twitch.md](twitch.md#credentials-and-identity)
-(credentials table and "speaks in chat as `lotsofs`"), the admin-login line in
-[gotchas.md](gotchas.md#twitch-and-helix), the secrets list in CLAUDE.md, and the hardcoded values in
-[reference.md](reference.md).
-
 ---
 
 ## TSS — Tests that share static state run in parallel
@@ -195,6 +205,100 @@ Delete `disabled` and `none` from `countryschemes.json`, keeping `gameschemes`' 
 tests pass.
 
 **Docs when done:** delete this section and the TODO row.
+
+## NCK — Change the chat name colour every 60 seconds
+
+Wanted: the bot's name in chat changes colour every 60 seconds. Not built.
+
+Twitch no longer takes `/color` over IRC, so it goes through Helix's Update User Chat Color:
+`PUT https://api.twitch.tv/helix/chat/color?user_id=<id>&color=<color>`, with that account's own token
+and the scope `user:manage:chat_color` (the URL and scope are from memory of Twitch's API reference;
+confirm them before building). Any account can use the named colours: `blue`, `blue_violet`,
+`cadet_blue`, `chocolate`, `coral`, `dodger_blue`, `firebrick`, `golden_rod`, `green`, `hot_pink`,
+`orange_red`, `red`, `sea_green`, `spring_green` and `yellow_green`. A hex colour needs Turbo or Prime
+on the account. A new colour shows on messages sent after the change, so viewers only see it when the
+bot speaks.
+
+### Decisions
+
+- **Whose name:** the bot account's (`botsofs`), presumably.
+- **Which colours:** a random named colour, a cycle through them, or the layout's current colour (hex,
+  so only with Turbo or Prime on that account).
+- **When:** always, or only while live.
+
+### Plan
+
+1. Get the bot a new token with `user:manage:chat_color` added to `chat:read` and `chat:edit`. The
+   call sends `twitchBot.clientId` as `Client-Id`, which must be the app the token was issued to. It
+   also needs the bot's user id, which `secrets.json` lacks. Look it up once at startup, through
+   `GET https://id.twitch.tv/oauth2/validate` (its `user_id`) or `GET /helix/users?login=<login>`.
+2. Add a `NickColor` loop, started from `Program.StartBotAsync` and written like `Clock`. Every 60 s it
+   picks the next colour with a pure, tested function and sends it. A failure logs a new `Error` code,
+   and the loop carries on. The call goes in `TwitchHelixApi` and uses the bot's token, not the
+   broadcaster's.
+3. Make the interval and the colour list constants, or settings if CFG is done first.
+
+**Verify:** F5. The log shows each change, and bot lines a minute or more apart (`!changecolorrandom`'s,
+say) come in different colours.
+
+**Docs when done:** delete this section and the TODO row. Then update:
+- [twitch.md](twitch.md#credentials-and-identity): the scope, the bot's user id and the Helix call
+- the loop lists in [infrastructure.md](infrastructure.md), [architecture.md](architecture.md) and
+  CLAUDE.md's Scheduling paragraph
+- [reference.md](reference.md): the URL, the interval and the error code
+- the test row in [development.md](development.md#unit-tests)
+
+## CFG — Make the owner's hardcoded values settings
+
+Wanted: every value that is the owner's choice, rather than part of a protocol, becomes a setting, so
+that changing it needs no rebuild. Not built. Today these are constants spread through the code. Most of
+them are listed in [reference.md § Hardcoded values](reference.md#hardcoded-values):
+- the alert sounds folder and the watched drive
+- the channel-point reward GUIDs
+- the OBS scene, source and filter names
+- the timings and thresholds
+- the TTS voice
+- the money goal's default and currency
+
+Some of the owner's values are already in files: the directories in `paths.json`, the accounts in
+`secrets.json`, and `games.json`, `leftpanel.json` and the colour data.
+
+### Decisions
+
+- **Where they live:** a new `settings.json` in `BotInput`, beside `games.json`, which isn't secret and
+  is the owner's to edit; `paths.json`, which is per-machine and in the project folder; or split by kind.
+- **What stays a constant:** protocol values, such as the Twitch, StreamElements and obs-websocket
+  addresses, the IRC port, and the timeouts matched to Twitch's own pings and keepalives. Also undecided:
+  the delays matched to a sound's length, and the chat texts (FAQ answers, ad nags, train and flush lines).
+- **Reloading:** whether `!reloaddata` reloads them, or a restart is needed.
+- **A broken file:** stop startup with a message box, as with `secrets.json`, or log the problem and run
+  on the defaults.
+
+### Plan
+
+1. Take an inventory. Go through reference.md's hardcoded tables, and grep `const` and `static readonly`
+   in `code/`. Sort what turns up into settings and constants, following the decisions, and list them
+   here.
+2. Add a settings model and loader beside `Config`, with defaults equal to today's values so that a
+   missing file or key changes nothing. Track an example file.
+3. Move the values over one area at a time (rewards, OBS names, timings, thresholds, paths, the rest),
+   with the tests passing after each move, so that each can be committed on its own. Tests that set an
+   `internal` value keep working or set the setting instead.
+4. As each value moves, take it out of reference.md's hardcoded tables and put it in a settings table.
+
+**Verify:**
+- Builds warning-free and the tests pass.
+- F5 with no settings file behaves as before.
+- Changing one value of each kind in the file (an OBS name, a timing, a reward id) takes effect after
+  F5 (or `!reloaddata`, if it reloads them).
+
+**Docs when done:** delete this section and the TODO row. Then update:
+- [reference.md § Hardcoded values](reference.md#hardcoded-values), which becomes the settings reference
+  plus the constants that are left
+- [infrastructure.md § Config](infrastructure.md#config)
+- CLAUDE.md: the "hardcoded throughout by design" sentence and the config files
+- the opening of [architecture.md](architecture.md)
+- every doc that names a moved constant ([obs.md](obs.md), [gotchas.md](gotchas.md), …)
 
 ---
 

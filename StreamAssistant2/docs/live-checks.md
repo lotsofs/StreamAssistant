@@ -13,7 +13,7 @@ raise it.
 - **42.** Emulate a tip from the StreamElements activity feed: note whether `SE notification: channel.tips` appears at all (the docs don't say whether emulated tips reach this topic)
 - **82.** `!changecapture KTANE`: `Capture setup: KTANE (461492)` and the capture lines; no chat line, and the background, colour and left panel stay
 - **89.** `!changepanel GTASA`: the two `Splits Current` panels in a row (Current Mission, then Current Split) use different copies in OBS: the second appears with its own values, with no flash of the first's
-- **114.** From an account other than `lotsofs` or `botsofs`: `!skeys` logs `FAQ !skeys for <user>` and chat gets `@<user> The program used to show…` once; `!skeys` again within a minute logs `FAQ !skeys for <user>: on cooldown` and chat gets nothing; `Why are you KILLING hostages` gets the `!civilians` answer
+- **114.** From any account, `lotsofs` included: `!skeys` logs `FAQ !skeys for <user>` and chat gets `@<user> The program used to show…` once; `!skeys` again within a minute logs `FAQ !skeys for <user>: on cooldown` and chat gets nothing; `Why are you KILLING hostages` gets the `!civilians` answer
 - **115.** Create a text source `Text: Money Goal` in OBS and F5: right after `Connected to OBS` it reads `0 / 999 EUR`, with no `Couldn't set Text: Money Goal` or `Error MON3`
 - **116.** `!moneygoal 500`: the log shows `Money goal set to 500 EUR, now 0 / 500 EUR` and OBS follows; `!moneygoal abc` logs `Not a money goal: "abc" (try !moneygoal 500)` and changes nothing
 - **117.** `!test tip 4.20 msg hello`: the tip alert runs, the log shows `Test tip: not counted toward the money goal`, and the OBS text stays as it was
@@ -27,6 +27,8 @@ raise it.
 - **134.** `!train`, then stop the debugger within 62 s: the train stays up. F5: right after `Connected to OBS` the log shows `Leftover train cleared` and the train is gone. A later F5 with no train up logs no such line
 - **137.** Change a panel's `Seconds` in `leftpanel.json`, then `!reloaddata`: the log shows `Loaded <n> colour tables and <n> scheme sets`, `Loaded <n> games, …`, `Loaded left panels for …`, then `Game setup: <game> (<id>)` with its steps, and the rotation starts over from its first panel, which now stays up for the new length
 - **138.** Change a scheme's colours in a scheme file, `!reloaddata`, then `!changecolor <that scheme>`: the layout takes the new colours
+- **141.** F5 with `twitchBot` filled in and `botsofs` a moderator: no `Chat: no twitchBot…` line, and `🟣 Connected` comes from `botsofs`; `!changecolorrandom` typed as `lotsofs` still runs, its `Changing to color …` coming from `botsofs`; a real colour redemption still works and is marked fulfilled; your own first message still gets `YOOO BRO`, and `Text: Stream Uptime` still updates
+- **142.** `!test online`: the log shows `Twitch: stream online (…)` as before
 
 ## With LiveSplit running SWAT4 splits
 
@@ -68,6 +70,8 @@ raise it.
 - **48.** Off-stream, raise `SPAM_GB_THRESHOLD` in `DiskSpace.cs` above A:'s free space and F5: at the next whole minute the warning beep plays (a real alert came 2026-10-11 22:40 at 1.4 GB free: chat line and TTS, no `Error DSK1`; only the beep isn't in the log, so the next real alert also settles it)
 - **85.** Give a game's `leftpanel.json` entry a group OBS lacks and F5: once OBS is connected, exactly the column's lines with such a group are red (the panel up keeps its `>` and timer), matching the `has groups OBS doesn't` log line; the `_LP:` and `_LPC:` groups that do exist show and hide in OBS
 - **91.** Put an `_LP:` group in the coloured scene, or an `_LPC:` group in the plain one: the bot never shows or hides it
+- **140.** Move the `twitchBot` block out of `Bot Input\secrets.json` and F5: the log shows `Chat: no twitchBot login or accessToken in secrets.json, chatting as lotsofs`, and `🟣 Connected` comes from `lotsofs`
+- **143.** Empty `twitchAuth`'s `login` and F5: a message box says `secrets.json` has no `twitchAuth` login, and the bot doesn't start
 - **139.** Add a stray comma to a scheme file, then `!reloaddata`: the log shows `Error CLR1: can't load <file>: …`, the other files load, and `!changecolor` still finds that file's schemes as they were. Remove the comma and `!reloaddata` again: no `Error CLR1`
 
 ## Closing the bot by its window (not the debugger)

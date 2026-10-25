@@ -27,7 +27,7 @@ namespace StreamAssistant2 {
 				count = _set.Count;
 			}
 			TwitchIRCManager.SendMessage(string.Format("Test {0}", count));
-			if (name == "lotsofs") {
+			if (name == Config.Data.TwitchAuth.Login) {
 				TwitchIRCManager.SendMessage("YOOO BRO");
 			}
 			return true;

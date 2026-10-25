@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace StreamAssistant2 {
 	internal static class TwitchUptime {
-		const string URL_UPTIME = @"https://decapi.me/twitch/uptime/lotsofs";
+		const string URL_UPTIME = @"https://decapi.me/twitch/uptime/";
 		const string SOURCE = "Text: Stream Uptime";
 
 		static readonly TimeSpan MIN_GAP = TimeSpan.FromSeconds(5);
@@ -63,7 +63,7 @@ namespace StreamAssistant2 {
 			string formattedUptime;
 			HttpResponseMessage response;
 			try {
-				response = await _httpClient.GetAsync(URL_UPTIME);
+				response = await _httpClient.GetAsync(URL_UPTIME + Config.Data.TwitchAuth.Login);
 				
 				var statusCode = response.StatusCode;
 				if (response.IsSuccessStatusCode) {

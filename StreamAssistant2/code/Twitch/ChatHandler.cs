@@ -109,15 +109,19 @@
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ChatIncoming, $"{username}: {chatContent}");
 
 			ChatterList.AddChatter(username);
-			if (username == "lotsofs" || username == "botsofs") {
-				CheckForAdminCommands(chatContent);
+			if (IsAdmin(username) && CheckForAdminCommands(chatContent)) {
+				return;
 			}
-			else {
-				CheckForCommands(chatContent, username);
-			}
+			CheckForCommands(chatContent, username);
 		}
 
-		static void CheckForAdminCommands(string text) {
+		// The broadcaster's or the bot account's login
+		static bool IsAdmin(string username) {
+			return username.Length > 0 && (username == Config.Data.TwitchAuth.Login || username == Config.Data.TwitchBot.Login);
+		}
+
+		// Runs the admin command the text starts with; false if it isn't one
+		internal static bool CheckForAdminCommands(string text) {
 			// "!command the rest" → command and its argument; the argument may be empty.
 			int spaceIndex = text.IndexOf(' ');
 			string command = spaceIndex < 0 ? text : text[..spaceIndex];
@@ -168,7 +172,10 @@
 				case "!resetmoney":
 					MoneyGoal.Reset();
 					break;
+				default:
+					return false;
 			}
+			return true;
 		}
 
 		// Answers the first FAQ command the message matches, unless the user had it within the cooldown

@@ -87,6 +87,7 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `Money goal: +<amount> EUR from <user>, now <total> / <goal> EUR` | a tip was counted; on `Important`, with `counted as … EUR`, when it came in another currency |
 | `Test tip: not counted toward the money goal` | a `!test tip` ran the alert without counting |
 | `FAQ <command> for <user>` / `…: on cooldown` | a chat line matched an FAQ command: answered, or not because that user had it within 60 s |
+| `Chat: no twitchBot login or accessToken in secrets.json, chatting as <broadcaster>` | no bot-account credentials; IRC logs in with the broadcaster's |
 | `StreamElements: no channelId or jwt in secrets.json, tips are off` | no `streamElements` credentials; the bot runs without tips |
 | `StreamElements stopped: fix streamElements in secrets.json and restart the bot` | StreamElements refused the JWT (after `Error SES3`) |
 | `Tip <id> already alerted, skipped` | the same tip arrived twice |
@@ -119,15 +120,16 @@ Single-user software, so these are constants in code rather than settings.
 
 | Value | Where |
 |---|---|
-| Channel `#lotsofs`, IRC nick `lotsofs` | `TwitchIRCManager` |
 | IRC host `irc.chat.twitch.tv:6667` | `TwitchIRCManager` |
 | EventSub `wss://eventsub.wss.twitch.tv/ws`; subscribe URL `https://api.twitch.tv/helix/eventsub/subscriptions` | `TwitchEventSub` |
 | Helix redemption URL `https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions` | `TwitchHelixApi` |
 | StreamElements Astro `wss://astro.streamelements.com`, topic `channel.tips` | `StreamElementsSocket` |
 | OBS `ws://127.0.0.1:4455` | `ObsConnection` |
-| Uptime `https://decapi.me/twitch/uptime/lotsofs` | `TwitchUptime` |
-| Admin logins `lotsofs`, `botsofs` | `ChatHandler.HandlePrivMsg` |
+| Uptime `https://decapi.me/twitch/uptime/`, followed by the broadcaster's login | `TwitchUptime` |
 | TTS voice `Microsoft Catherine` | `TextToSpeech` |
+
+The broadcaster's and the bot account's logins (the channel, the admins) aren't constants: they come from
+`secrets.json` ([twitch.md](twitch.md#credentials-and-identity)).
 
 ### Paths
 

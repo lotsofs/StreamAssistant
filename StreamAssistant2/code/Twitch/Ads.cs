@@ -75,7 +75,7 @@ namespace StreamAssistant2 {
 			}
 			r = Random.Shared.Next(100);
 			if (r == 0) {
-				TwitchIRCManager.SendMessage("@LotsOfS Stop making me beg for shit >(");
+				TwitchIRCManager.SendMessage($"@{Config.Data.TwitchAuth.Login} Stop making me beg for shit >(");
 			}
 		}
 

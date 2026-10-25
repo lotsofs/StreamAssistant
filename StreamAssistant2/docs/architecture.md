@@ -10,8 +10,9 @@ Everything here was read from the code. Where a behaviour was also run, it says 
 A single-user Windows desktop program (WPF, `net8.0-windows`, `WinExe`) that sits beside OBS while the
 channel `lotsofs` streams. It listens to Twitch (and to StreamElements, for tips), and reacts by speaking, playing sounds, posting in chat,
 recolouring the OBS layout and recording a little state. There is no server, no installer and no
-second user, so channel names, OBS source names, reward GUIDs, drive letters and resource paths are
-hardcoded on purpose ([reference.md](reference.md) lists them).
+second user, so OBS source names, reward GUIDs, drive letters and resource paths are hardcoded on
+purpose ([reference.md](reference.md) lists them). The broadcaster's and the bot account's logins come
+from `secrets.json`.
 
 ```
                          ┌────────────────────────────────────────────┐
@@ -265,8 +266,8 @@ right a column of the OBS sources the bot has set and the left-panel column). Se
 
 **A chat message.** IRC line → `TwitchIRCManager.ListenLoop` → `OnMessage` →
 `ChatHandler.ProcessMessage` → `HandlePrivMsg` → log it, `ChatterList.AddChatter`, then admin commands
-(for `lotsofs`/`botsofs`) or the public FAQ commands (everyone else), which answer in chat through
-`TwitchIRCManager.SendMessage`.
+(for the broadcaster and the bot account, `lotsofs`/`botsofs`), and for anything that isn't one the public
+FAQ commands, which answer in chat through `TwitchIRCManager.SendMessage`.
 
 **A channel-point redemption.** EventSub `notification` →
 `TwitchEventHandler.Handle` → `ChannelPoints.ProcessAdd` → switch on reward id → sound, database,

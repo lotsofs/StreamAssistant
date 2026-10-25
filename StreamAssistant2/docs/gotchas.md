@@ -5,7 +5,7 @@ full explanation is. Skim this before making a change you think is small.
 
 ## Code that goes live
 
-- **`TwitchIRCManager.SendMessage` posts to the real channel, as `lotsofs`.** So does anything that
+- **`TwitchIRCManager.SendMessage` posts to the real channel, as the bot account (`botsofs`).** So does anything that
   calls it: `LayoutColoring` (also drives OBS), `TestEventRunner`, `ChatterList`, the connect and
   disconnect notices. Scratch programs and tests must not reach them. ([development.md](development.md))
 - **`!test <script>` runs the real handlers**: sounds play, TTS speaks, chat messages go out.
@@ -18,8 +18,10 @@ full explanation is. Skim this before making a change you think is small.
 - **The colour announcement is posted when the request is queued**, nine seconds per request ahead of it
   before anything changes, and also when OBS is closed and nothing will change.
   ([obs.md](obs.md#layout-recolouring))
-- **Admin status is just the login `lotsofs` or `botsofs`.** The bot is logged in as `lotsofs` itself.
-  ([twitch.md](twitch.md#chat-handling))
+- **Admin status is just the login: the broadcaster's or the bot account's, from `secrets.json`
+  (`lotsofs`, `botsofs`).** The bot is logged in as `botsofs` (as the broadcaster without `twitchBot`),
+  and never sees its own messages.
+  ([twitch.md](twitch.md#chat-handling), [credentials](twitch.md#credentials-and-identity))
 
 ## Concurrency
 
@@ -65,8 +67,9 @@ full explanation is. Skim this before making a change you think is small.
   `StreamElements stopped`); the rest of the bot carries on. ([streamelements.md](streamelements.md#session-lifecycle))
 - **IRC tags are ignored.** The bot knows nothing about badges, moderators or display names.
 - **`channel.follow` is subscribed but not handled**, so every follow logs a "not handled" line.
-- **The FAQ commands never answer `lotsofs` or `botsofs`**, so try them from another account. Each
-  answers a user at most once a minute, and a message gets only the first that matches.
+- **The FAQ commands answer the broadcaster too**, natural-language questions included, so your own
+  chat can trigger them. Each answers a user at most once a minute, and a message gets only the first
+  that matches.
   ([twitch.md](twitch.md#public-commands))
 - **A silent connection is recycled, not just shown red**: IRC after 7 minutes, EventSub after 20 s.
   The EventSub one has been seen live; the IRC one hasn't yet. ([TODO.md](TODO.md), item DCD)

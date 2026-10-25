@@ -23,11 +23,15 @@ text format, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
    `paths.json.example` when missing.
 2. Reads **`secrets.json`** from `Directories.BotInput`, which is outside this repository. If the file
    is missing, `Load()` copies the tracked `secrets.json.example` there and throws a
-   `FileNotFoundException` telling the user to fill it in; `Main` shows that as a message box.
-3. Merges them into `Config.Data` (`Directories` from the first, `Obs`, `TwitchAuth`, `TwitchIds`,
-   `StreamElements` from the second). `streamElements` holds `channelId` and `jwt` for tips
-   ([streamelements.md](streamelements.md#credentials)). A file without that block still loads; the
-   values are then empty and tips are off.
+   `FileNotFoundException` telling the user to fill it in; `Main` shows that as a message box. It does
+   the same, with an `InvalidDataException`, when `twitchAuth` has no `login`.
+3. Merges them into `Config.Data` (`Directories` from the first, `Obs`, `TwitchAuth`, `TwitchBot`,
+   `TwitchIds`, `StreamElements` from the second), with both logins lowercased. `twitchAuth` and
+   `twitchBot` share a shape (`login`, `accessToken`, `refreshToken`, `clientId`): the broadcaster and
+   the account chat goes through ([twitch.md](twitch.md#credentials-and-identity)). Without `twitchBot`,
+   chat goes as the broadcaster. `streamElements` holds `channelId` and `jwt` for tips
+   ([streamelements.md](streamelements.md#credentials)). A file without either block still loads; the
+   values are then empty, and tips are off.
 
 `BotInput` also holds **`games.json`** and **`leftpanel.json`**, which aren't config: `Games.Load()` and
 `LeftPanel.Load()` read them later in startup, and again on `!reloaddata`, with the colour data
@@ -40,7 +44,7 @@ has no matching property and is never read.
 
 `Config.Data` starts as an empty `ConfigModel` before `Load`, which is what lets tests assign
 `Config.Data.Directories.Colors` directly. Never print or log anything from `Obs`, `TwitchAuth`,
-`TwitchIds` or `StreamElements`.
+`TwitchBot`, `TwitchIds` or `StreamElements`.
 
 ## Logging
 
@@ -271,7 +275,7 @@ recomputed every pass, so nothing drifts, and a sleep or clock change costs at m
 ## Uptime
 
 [TwitchUptime.cs](../code/Timing/TwitchUptime.cs), started by `TwitchUptime.Start()`, asks
-`https://decapi.me/twitch/uptime/lotsofs` (a third-party scraper, used instead of Helix) how long the stream
+`https://decapi.me/twitch/uptime/<broadcaster login>` (a third-party scraper, used instead of Helix) how long the stream
 has been live, and writes the answer to the OBS text source `Text: Stream Uptime`.
 
 - The loop calls `UptimeCheck()`, then waits `SecondsUntilNextMinute` or until woken, whichever comes

@@ -12,26 +12,39 @@ Read from the code; nothing here was run against Twitch.
 
 | Setting | Used for |
 |---|---|
-| `TwitchAuth.AccessToken` | IRC `PASS oauth:<token>`, and the `Authorization: Bearer` header for both EventSub and Helix |
+| `TwitchAuth.Login` | The broadcaster's login (`lotsofs`): the IRC channel, an admin, the chatter who gets `YOOO BRO`, the decapi uptime URL, the `!test online` / `offline` events, the ad nag's `@` mention. Required: `Config.Load` stops without it |
+| `TwitchAuth.AccessToken` | The broadcaster's token: the `Authorization: Bearer` header for both EventSub and Helix |
 | `TwitchAuth.ClientId` | The `Client-Id` header on every REST call |
-| `TwitchAuth.RefreshToken` | Present in the file and the model, **never read**. Tokens are not refreshed at runtime |
+| `TwitchBot.Login` | The bot account's login (`botsofs`): IRC `NICK`, and an admin |
+| `TwitchBot.AccessToken` | The bot account's token: IRC `PASS oauth:<token>` |
+| `TwitchAuth.RefreshToken`, `TwitchBot.RefreshToken`, `TwitchBot.ClientId` | Present in the file and the model, **never read**. Tokens are not refreshed at runtime ([TOK](robustness-fixes.md#tok--refresh-the-twitch-tokens-at-runtime)) |
 | `TwitchIds.BroadcasterId` | Channel the subscriptions and redemption updates apply to |
 | `TwitchIds.ModeratorId` | `moderator_user_id` for subscriptions that don't use the broadcaster as moderator (none currently) |
 | `TwitchIds.UserId` | `user_id` condition of `channel.chat.notification` |
 | `TwitchIds.TestBroadcasterId` | The channel watched instead when `IS_TEST` is on |
 
-One user token does everything, so the bot speaks in chat **as `lotsofs`** (`NICK lotsofs`,
-`JOIN #lotsofs`; both hardcoded in `TwitchIRCManager`). Twitch's IRC doesn't echo a connection's own
-messages back, so the bot never sees what it says.
+`Config.Load` lowercases both logins. Chat goes through a separate bot account: the bot speaks in chat
+**as `botsofs`**, the `twitchBot` login, and joins the broadcaster's channel, `#lotsofs`.
+`TwitchIRCManager.ChatAccount` picks the account. When `twitchBot` lacks a login or token, IRC logs in as
+the broadcaster with the broadcaster's token instead, and `Connect` logs `Chat: no twitchBot login or
+accessToken in secrets.json, chatting as <broadcaster>` on `Important`. Twitch's IRC doesn't echo a
+connection's own messages back, so the bot never sees what it says. It does see what the broadcaster
+types, from any other client.
 
-When the token expires, nothing renews it. Expected symptoms, inferred rather than observed: IRC gets a
-login-failure notice and the socket closes, so the connect loop retries every 3 s forever
-(`Error 1` / `Error TIRC2`); EventSub's subscribe POST returns 401, which throws
-`Subscription failed (401)` and restarts the session every 3 s (`Error TES1`).
+The bot account should be a moderator in the channel (`/mod botsofs`), so chat settings meant for
+viewers don't hold its messages: slow mode, followers- or subscriber-only chat, and blocked links (the
+FAQ answers carry URLs). A moderator may also send 100 messages per 30 s rather than 20.
 
-The token needs scopes for chat read/write, channel-point redemption read **and** manage (the PATCH),
-bits, ad schedule, followers and user chat read. That list comes from Twitch's documentation for the
-subscription types used, not from inspecting the stored token.
+When a token expires, nothing renews it ([TOK](robustness-fixes.md#tok--refresh-the-twitch-tokens-at-runtime)); the two expire independently. Expected symptoms, inferred
+rather than observed: with the bot's token, IRC gets a login-failure notice and the socket closes, so the
+connect loop retries every 3 s forever (`Error 1` / `Error TIRC2`); with the broadcaster's, EventSub's
+subscribe POST returns 401, which throws `Subscription failed (401)` and restarts the session every 3 s
+(`Error TES1`).
+
+The bot's token needs `chat:read` and `chat:edit`, nothing else. The broadcaster's needs channel-point
+redemption read **and** manage (the PATCH), bits, ad schedule, followers and user chat read (`user:read:chat`,
+for `channel.chat.notification`). That list comes from Twitch's documentation for the subscription types
+used, not from inspecting the stored token.
 
 **Helix rewards ownership.** Updating a redemption's status only works for rewards created by the same
 client id. See [color.md](color.md) for the colour rewards and why they were recreated through the API.
@@ -41,8 +54,9 @@ client id. See [color.md](color.md) for the colour rewards and why they were rec
 [TwitchIRCManager.cs](../code/Twitch/TwitchIRCManager.cs) is a `TcpClient` to `irc.chat.twitch.tv:6667`
 (plain text, no TLS).
 
-**Connect** (`ConnectOnce`): send `PASS`, `NICK`, then `CAP REQ :twitch.tv/tags twitch.tv/commands
-twitch.tv/membership`, then `JOIN #lotsofs`, then post `🟣 Connected` to chat. The TCP connect gives up
+**Connect** (`ConnectOnce`): send `PASS` and `NICK` (the bot account, see
+[Credentials and identity](#credentials-and-identity)), then `CAP REQ :twitch.tv/tags twitch.tv/commands
+twitch.tv/membership`, then `JOIN #<broadcaster>` (`#lotsofs`), then post `🟣 Connected` to chat. The TCP connect gives up
 after `ConnectTimeout` (15 s) with a `TimeoutException`, so a hung connect is retried like a failed one.
 
 **Loop** (`StartConnectionLoop`): connect, then await `ListenLoop`. Any exception logs `Error 1`, waits
@@ -62,9 +76,9 @@ recycles the connection. A connection that dies without closing therefore turns 
 about the same moment.
 
 **Writing**: `SendMessage(string)` is fire-and-forget. `SendMessageAsync` returns silently if the writer
-is null (not connected yet), writes `PRIVMSG #lotsofs :<text>`, and logs `> <text>` on `ChatOutgoing`.
+is null (not connected yet), writes `PRIVMSG #<broadcaster> :<text>`, and logs `> <text>` on `ChatOutgoing`.
 A write failure logs `Error TIRC3` (via `FireForget.Run`). There is no rate limiting, no length limiting (Twitch drops messages over
-500 characters) and no queue, so bursts of `SendMessage` calls (a gift bomb sends one per recipient) go
+500 characters) and no queue, so bursts of `SendMessage` calls go
 out as fast as they are called.
 
 **Disconnect**: cancels the token and closes the client. The connect loop's `Task.Delay(…, token)` then
@@ -99,11 +113,13 @@ arrive as `PRIVMSG` text wrapped in `\u0001ACTION …\u0001` and aren't special-
 
 `HandlePrivMsg` logs `<user>: <text>` on `ChatIncoming`, calls `ChatterList.AddChatter(user)`, then:
 
-- **admins** (`username == "lotsofs" || "botsofs"`): `CheckForAdminCommands`
+- **admins** (`IsAdmin`: the `twitchAuth` or `twitchBot` login, `lotsofs` or `botsofs`): `CheckForAdminCommands`,
+  which returns whether the message was an admin command. If it wasn't, it goes on to `CheckForCommands`
+  like anyone's.
 - **everyone else**: `CheckForCommands`
 
-Admins never reach the public commands, and nobody else reaches the admin ones. The check is on the
-lowercased login only, not on badges.
+So admins get the public commands too, including the natural-language questions, and nobody else
+reaches the admin ones. The check is on the lowercased login only, not on badges.
 
 ### Admin commands
 
@@ -145,7 +161,7 @@ and other commands aren't held up. The cooldowns last until the bot restarts. Te
 ### ChatterList
 
 `ChatterList.AddChatter` keeps every login it has seen this run and **posts `Test <n>` to chat the first
-time each one speaks**. That is intended: `Test <n>` is the real wording. The streamer's (`lotsofs`)
+time each one speaks**. That is intended: `Test <n>` is the real wording. The broadcaster's (`twitchAuth` login, `lotsofs`)
 first message also gets `YOOO BRO`. It returns whether the login
 was new. `Reset()` clears it and logs `Chatter list reset @ <n>`; it runs when OBS starts
 streaming ([obs.md](obs.md#connection)), on obs-websocket's thread, so the logins are a `HashSet` under a
@@ -336,8 +352,8 @@ loops) catch their own exceptions.
 | `bomb` | `<gifts> [late] [missing <k>] [anon] [tier <1-3>]` | a gift bomb, below. `bomb 1` is a single random community gift, which Twitch sends as a bomb of one |
 | `cheer` | `<bits> [anon] [msg <text…>]` | a `channel.cheer` |
 | `raid` | `[viewers <n>]` (default 10) | a chat `raid` notification from `TestRaider` (login `testraider`) |
-| `online` | none | a `stream.online` from `lotsofs`, `started_at` now |
-| `offline` | none | a `stream.offline` from `lotsofs` |
+| `online` | none | a `stream.online` from the broadcaster (`twitchAuth` login), `started_at` now |
+| `offline` | none | a `stream.offline` from the broadcaster |
 | `tip` | `<amount> [msg <text…>]` | a StreamElements `channel.tips` from `testtipper` in EUR, under a fresh `_id`; `amount` takes a dot (`4.20`), 0.01 to 100000 |
 | `replay` | `<file>` | a real EventSub or StreamElements event saved in `AssistantLogs\EventSubs\`, below |
 

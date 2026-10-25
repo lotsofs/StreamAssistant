@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A personal Twitch stream-automation bot for the channel `lotsofs`. It talks to Twitch IRC and EventSub directly (over raw TCP / WebSocket, no Twitch SDK), takes tips from StreamElements over a third WebSocket, drives OBS over obs-websocket, speaks notifications via SAPI TTS, plays alert sounds, and persists a little state in SQLite. Single-user software: channel names, OBS source names, channel-point reward GUIDs, drive letters, and resource paths are hardcoded throughout by design.
+A personal Twitch stream-automation bot for the channel `lotsofs`. It talks to Twitch IRC and EventSub directly (over raw TCP / WebSocket, no Twitch SDK), takes tips from StreamElements over a third WebSocket, drives OBS over obs-websocket, speaks notifications via SAPI TTS, plays alert sounds, and persists a little state in SQLite. Single-user software: OBS source names, channel-point reward GUIDs, drive letters, and resource paths are hardcoded throughout by design. The broadcaster's and the bot account's logins come from `secrets.json`.
 
 ## Docs
 
@@ -35,7 +35,7 @@ Conventions that keep the index trustworthy:
 
 - Codes are three letters, stable for the life of the item, and unique across *all* files, so one code always means one thing while it exists. A code may be reused once its item is gone.
 - **Adding or removing an item means editing both places** — the index row in `docs/TODO.md` *and* the detail section in its doc. They are the one permitted duplication; keep them in step.
-- A finished item **moves to the log**: delete its index row and detail section, and add its row to `docs/DONE.md`, in the same change. A partly done item is rewritten to say what is left, and the done part is logged as `CODE (partial)`. No "done" notes in the index or detail docs: they describe only what is still true. Finished work that never had a code gets a row too.
+- A finished item **moves to the log**: delete its index row and detail section, and add its row to `docs/DONE.md`, in the same change. A partly done item is rewritten to say what is left, and the done part is logged as `CODE (partial)`. No "done" notes in the index or detail docs: they describe only what is still true. Finished work that never had a code gets a row too, unless it only changes documentation.
 - Items state whether a behaviour was **reproduced** by running the real compiled assembly, or only read. Don't promote a read-only observation to "reproduced" without running it.
 
 [../CHANGELOG.md](../CHANGELOG.md), at the repository root, is the changelog for the person running the bot, separate from `docs/DONE.md`. Release 1 isn't out yet, so until then its `Unreleased` says only "First release" with a short description; don't add entries. Once release 1 is out, record user-visible changes under `Unreleased`.
@@ -70,7 +70,7 @@ Tests are xUnit, in `../StreamAssistant2.Tests`: a sibling folder, so the bot's 
 Configuration is split across two files, both read by [Config.cs](code/Core/Config.cs):
 
 - **`paths.json`**, in the project folder: the `directories` block (`BotInput`, `BotOutput`, `Trains`, `Colors`, `ColorSchemes`, `Backgrounds`, `LivesplitGenerated`, `Layout`, `Sidebar`). It isn't secret, just machine-specific, so it is gitignored and a `BeforeBuild` target creates it from the tracked `paths.json.example` when missing.
-- **`secrets.json`**, in `Directories.BotInput` (`D:\Repositories\Stream-Resources\Bot Input`), *outside* this repository: `obs`, `twitchAuth`, `twitchIds`, `streamElements` (`channelId` and `jwt`; without them tips are off and the rest runs) and `twitchTestNames`. On first start, if it's missing, `Config.Load()` copies the tracked `secrets.json.example` there and stops with a message asking for the real values. `Stream-Resources` is its own git repo, so that file must be ignored there. Never read or print its values; check for "set or empty" if needed.
+- **`secrets.json`**, in `Directories.BotInput` (`D:\Repositories\Stream-Resources\Bot Input`), *outside* this repository: `obs`, `twitchAuth` (the broadcaster's `login`, required, and token), `twitchBot` (the same fields for the bot account chat goes through; without its `login` and `accessToken` chat goes as the broadcaster), `twitchIds`, `streamElements` (`channelId` and `jwt`; without them tips are off and the rest runs) and `twitchTestNames`. On first start, if it's missing, `Config.Load()` copies the tracked `secrets.json.example` there and stops with a message asking for the real values. `Stream-Resources` is its own git repo, so that file must be ignored there. Never read or print its values; check for "set or empty" if needed.
 
 The project's `.gitignore` covers `paths.json` and `secrets.json`; nothing copies either into the build output.
 

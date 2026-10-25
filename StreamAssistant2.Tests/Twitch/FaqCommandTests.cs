@@ -46,6 +46,15 @@ namespace StreamAssistant2.Tests {
 			}
 		}
 
+		// An admin's FAQ command falls through to the FAQ
+		[Fact]
+		public void EachName_IsNotAnAdminCommand() {
+			foreach (ChatCommand cmd in ChatHandler._commands) {
+				Assert.False(ChatHandler.CheckForAdminCommands(cmd.Name));
+			}
+			Assert.False(ChatHandler.CheckForAdminCommands("why shoot civilians"));
+		}
+
 		[Fact]
 		public void TwoCommandsInOneLine_EarlierInTheListWins() {
 			Assert.Equal("!skeys", ChatHandler.FindCommand("!sssa and !skeys")?.Name);
