@@ -272,6 +272,26 @@ namespace StreamAssistant2.Tests {
 				}
 			}
 		}
+
+		static readonly string[] RealFamilies = ["Splits Current", "Splits List Labels", "Splits List Values"];
+
+		static string Unnumbered(string name) => LeftPanel.Numbered(name) is (string base_, int _) ? base_ : name;
+
+		// Nothing carries over to a fresh copy, so panels moving the same families must each set every source those copies need.
+		[RealLeftPanelFact]
+		public void RealFile_PanelsMovingTheSameFamilies_SetTheSameSources() {
+			var sets = LeftPanel.Parse(File.ReadAllText(Path.Combine(ColorData.RealBotInput!, "leftpanel.json")));
+			foreach (PanelSet set in sets.Values.Distinct()) {
+				var moving = set.Panels.Concat(set.Previous)
+					.Select(p => (Panel: p, Families: string.Join(", ", p.Show.Select(Unnumbered).Where(RealFamilies.Contains).Distinct().Order())))
+					.Where(p => p.Families.Length > 0);
+				foreach (var group in moving.GroupBy(p => p.Families)) {
+					var sources = group.Select(p => (p.Panel.Name, Sources: string.Join(", ", p.Panel.Text.Keys.Concat(p.Panel.File.Keys).Select(Unnumbered).Distinct().Order()))).ToList();
+					Assert.All(sources, s => Assert.True(s.Sources == sources[0].Sources,
+						$"{set.Entry}: {s.Name} sets {s.Sources}, but {sources[0].Name} sets {sources[0].Sources} for {group.Key}"));
+				}
+			}
+		}
 	}
 
 	public class LeftPanelRotationTests : IDisposable {
@@ -290,6 +310,7 @@ namespace StreamAssistant2.Tests {
 		int _stopAfterWaits = 1;
 		int _waits;
 		Func<bool> _ready = () => true;
+		Func<List<string>?> _inputs = () => null;
 		string? _failingSource;
 
 		public LeftPanelRotationTests() {
@@ -332,6 +353,7 @@ namespace StreamAssistant2.Tests {
 				return Task.CompletedTask;
 			}) {
 			SetFilter = (source, filter, property, color) => _calls.Add($"filter {source} | {filter} | {property} = {color}"),
+			InputNames = () => _inputs(),
 		};
 
 		readonly List<(int?, int?)> _shown = new();
@@ -366,13 +388,31 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
-		public async Task Steps_MoveToTheOtherCopies_WithRememberedValues_WaitEachPanelsSeconds_AndWrap() {
+		public async Task WithOBSsInputs_OnlySourcesWithNumberedCopies_TakeTheCopysNumber() {
+			_inputs = () => ["Header 1", "Header 2", "Current 1", "Current 2", "Shared", "Full: Blue"];
+			Panel first = new(["Labels", "Values"], new() { ["Header"] = "Finished at" }, new() { ["Current"] = @"D:\a.txt", ["Shared"] = @"D:\s.txt" }, 50);
+			await Run(new PanelSet(["Basics"], [first, P(50, "Key Count")]));
+			Assert.Equal(["text Header 1 = Finished at", @"file Current 1 = D:\a.txt", @"file Shared = D:\s.txt"], _calls.Where(c => c.StartsWith("text ") || c.StartsWith("file ")));
+		}
+
+		[Fact]
+		public async Task InputsThatCantBeListed_AreLogged_AndEverySourceTakesTheCopysNumber() {
+			_inputs = () => throw new InvalidOperationException("boom");
+			Panel first = new(["Labels", "Values"], new(), new() { ["Shared"] = @"D:\s.txt" }, 50);
+			await Run(new PanelSet(["Basics"], [first, P(50, "Key Count")]));
+			Assert.Single(Lines("Error LPN2: left panel listing OBS's inputs failed: boom"));
+			Assert.Contains(@"file Shared 1 = D:\s.txt", _calls);
+			Assert.Contains(Show("Labels 1"), _calls);
+		}
+
+		[Fact]
+		public async Task Steps_MoveToTheOtherCopies_SettingOnlyTheirOwnValues_WaitEachPanelsSeconds_AndWrap() {
 			_stopAfterWaits = 4;
 			Panel finishedAt = new(["Labels", "Values"], new() { ["Names"] = "n" }, new() { ["Current"] = "a" }, 50);
 			Panel runDelta = new(["Labels", "Values"], new(), new() { ["Current"] = "b" }, 30);
 			await Run(new PanelSet(["Basics"], [finishedAt, runDelta, P(1)]));
 			Assert.Equal(["wait 50", "wait 30", "wait 1", "wait 50"], _calls.Where(c => c.StartsWith("wait")));
-			Assert.Equal(["file Current 2 = b", "text Names 2 = n", Show("Labels 2"), Show("Values 2"), Hide("Labels 1"), Hide("Values 1")], Between("wait 50", "wait 30"));
+			Assert.Equal(["file Current 2 = b", Show("Labels 2"), Show("Values 2"), Hide("Labels 1"), Hide("Values 1")], Between("wait 50", "wait 30"));
 			Assert.Equal([Hide("Labels 2"), Hide("Values 2")], Between("wait 30", "wait 1"));
 			Assert.Equal(["text Names 1 = n", "file Current 1 = a", Show("Labels 1"), Show("Values 1")], Between("wait 1", "wait 50"));
 			Assert.Equal(2, _calls.Count(c => c.StartsWith("list")));
@@ -385,7 +425,18 @@ namespace StreamAssistant2.Tests {
 			Panel finishedAt = new(["Labels", "Values"], new() { ["Names"] = "n" }, new() { ["Current"] = "a" }, 50);
 			Panel runDelta = new(["Labels", "Values"], new(), new() { ["Current"] = "b" }, 30) { Keep = ["Labels"] };
 			await Run(new PanelSet(["Basics"], [finishedAt, runDelta]));
-			Assert.Equal(["file Current 2 = b", "text Names 2 = n", Show("Values 2"), Hide("Values 1")], Between("wait 50", "wait 30"));
+			Assert.Equal(["file Current 2 = b", Show("Values 2"), Hide("Values 1")], Between("wait 50", "wait 30"));
+		}
+
+		[Fact]
+		public async Task SplitDuringAPanelThatKeepsAFamily_BringsTheKeptCopyBack_Untouched() {
+			_splitAtWaits.Add(2);
+			_stopAfterWaits = 6;
+			Panel finishedAt = new(["Labels", "Values"], new() { ["Names"] = "n" }, new() { ["Current"] = "a" }, 50);
+			Panel runDelta = new(["Values"], new(), new() { ["Current"] = "b" }, 30) { Keep = ["Labels"] };
+			await Run(WithPrevious([finishedAt, runDelta]));
+			Assert.Equal(["wait 50", "wait 30", "wait 2", "wait 25", "wait 2", "wait 30"], Waits());
+			Assert.Equal(["file Current 2 = b", Show("Labels 1"), Show("Values 2")], _calls.Skip(_calls.LastIndexOf("wait 2") + 1).SkipLast(1));
 		}
 
 		[Fact]
@@ -536,8 +587,8 @@ namespace StreamAssistant2.Tests {
 			await LeftPanel.RunAsync("SWAT4", new PanelSet(["Basics"], [P(50, "Key Count"), P(30)]), Calls(), _cts.Token, colors: SplitColorMap);
 			Assert.Equal([
 				$"list {SCENE}", $"list {COLORED}", $"hide {SCENE} | {COLORED}",
-				Filter("Livesplit: Splits List Highlights Gold", "Color Correction 2", "#ffc800"),
-				Filter("Livesplit: Splits List Highlights AheadGained", "Color Correction 2", "#000086"),
+				Filter("Livesplit: SL Highlights Gold", "Color Correction 2", "#ffc800"),
+				Filter("Livesplit: SL Highlights AheadGained", "Color Correction 2", "#000086"),
 				Show("Basics"),
 			], _calls.Take(6));
 			Assert.Equal(2, Filters().Count);
@@ -650,12 +701,12 @@ namespace StreamAssistant2.Tests {
 			return new(groups, families, false);
 		}
 
-		readonly Dictionary<(string Base, string Key), LeftPanel.CopyValue> _remembered = new();
+		readonly Dictionary<string, int> _last = new();
 
 		static Panel Make(string[] show, Dictionary<string, string>? text = null, Dictionary<string, string>? file = null) => new(show.ToList(), text ?? new(), file ?? new(), 10);
 
 		(HashSet<string> Wanted, List<(string Source, string Key, string Value)> Settings) Plan(Panel? panel, IReadOnlyCollection<string>? up, params string[] always) {
-			return LeftPanel.Plan(Layout, always, panel, up, _remembered);
+			return LeftPanel.Plan(Layout, always, panel, up, _last);
 		}
 
 		static readonly string[] Lists = ["Splits List Labels", "Splits List Values"];
@@ -668,18 +719,11 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
-		public void TheFamiliesMoveTogether_ToTheLowestCopyHiddenInEach_RememberedValuesComingAlong() {
+		public void TheFamiliesMoveTogether_ToTheLowestCopyHiddenInEach_SettingOnlyThePanelsOwnValues() {
 			Plan(Make(Lists, text: new() { ["Livesplit: SL - Names"] = "n" }, file: new() { ["Livesplit: SL - Current"] = "a" }), null);
 			var (wanted, settings) = Plan(Make(Lists, file: new() { ["Livesplit: SL - Current"] = "b" }), ["Splits Basics", "Splits List Labels 1", "Splits List Values 1"], "Splits Basics");
 			Assert.Equal(["Splits Basics", "Splits List Labels 2", "Splits List Values 2"], wanted);
-			Assert.Equal([("Livesplit: SL - Current 2", "file", "b"), ("Livesplit: SL - Names 2", "text", "n")], settings);
-		}
-
-		[Fact]
-		public void RememberedValues_StayWithTheFamiliesTheyWereSetWith() {
-			Plan(Make(["Splits Current"], text: new() { ["Livesplit: Current Index 1"] = "5" }), null);
-			var (_, settings) = Plan(Make(Lists, file: new() { ["Livesplit: SL - Current 1"] = "a" }), ["Splits Current 1"]);
-			Assert.Equal([("Livesplit: SL - Current 1", "file", "a")], settings);
+			Assert.Equal([("Livesplit: SL - Current 2", "file", "b")], settings);
 		}
 
 		[Theory]
@@ -689,6 +733,21 @@ namespace StreamAssistant2.Tests {
 			var (wanted, settings) = Plan(Make(["Splits Current"], text: new() { ["Livesplit: Current Index"] = "5" }), [$"Splits Current {up}"]);
 			Assert.Equal([$"Splits Current {next}"], wanted);
 			Assert.Equal([($"Livesplit: Current Index {next}", "text", "5")], settings);
+		}
+
+		[Fact]
+		public void WithKnownCopySources_OnlyThoseTakeTheCopysNumber_AndAnyOtherIsSetAsWritten() {
+			LeftPanel.Layout layout = Layout with { CopySources = ["Livesplit: SL - Names", "Livesplit: SL - Current"] };
+			Panel panel = Make(Lists, text: new() { ["Livesplit: SL - Names"] = "n" },
+				file: new() { ["Livesplit: SL - Current 3"] = "c", ["Livesplit: SL Highlights AheadGained"] = "h", ["Foo 3"] = "f" });
+			var (wanted, settings) = LeftPanel.Plan(layout, [], panel, null, _last);
+			Assert.Equal(["Splits List Labels 1", "Splits List Values 1"], wanted);
+			Assert.Equal([
+				("Livesplit: SL - Names 1", "text", "n"),
+				("Livesplit: SL - Current 1", "file", "c"),
+				("Livesplit: SL Highlights AheadGained", "file", "h"),
+				("Foo 3", "file", "f"),
+			], settings);
 		}
 
 		[Fact]
@@ -713,15 +772,22 @@ namespace StreamAssistant2.Tests {
 		static readonly string[] KeepLabels = ["Splits List Labels"];
 
 		[Fact]
-		public void AKeptFamilyThatsUp_StaysOnItsCopy_TheOthersMove_AndCopySourcesTakeTheirNumber() {
+		public void AKeptFamilyThatsUp_StaysOnItsCopy_TheOthersMove_AndCopySourcesTakeTheirNumber_AndNothingIsWrittenToTheKeptOne() {
 			Plan(Make(Lists, text: new() { ["Livesplit: SL - Names"] = "n" }, file: new() { ["Livesplit: SL - Current"] = "a" }), null);
 			var (wanted, settings) = Plan(Make(Lists, file: new() { ["Livesplit: SL - Current"] = "b" }) with { Keep = [.. KeepLabels] }, ["Splits List Labels 1", "Splits List Values 1"]);
 			Assert.Equal(["Splits List Labels 1", "Splits List Values 2"], wanted);
-			Assert.Equal([("Livesplit: SL - Current 2", "file", "b"), ("Livesplit: SL - Names 2", "text", "n")], settings);
+			Assert.Equal([("Livesplit: SL - Current 2", "file", "b")], settings);
 		}
 
 		[Fact]
-		public void AKeptFamilyThatIsntUp_MovesAsUsual() {
+		public void AKeptFamilyThatIsntUp_ComesBackOnTheCopyLastShown_AndTheOthersAvoidIt() {
+			Plan(Make(Lists), ["Splits List Labels 1", "Splits List Values 1"]);
+			var (wanted, _) = Plan(Make(["Splits List Values"]) with { Keep = [.. KeepLabels] }, ["Splits Basics"]);
+			Assert.Equal(["Splits List Labels 2", "Splits List Values 1"], wanted);
+		}
+
+		[Fact]
+		public void AKeptFamilyNeverShown_MovesAsUsual() {
 			var (wanted, _) = Plan(Make(Lists) with { Keep = [.. KeepLabels] }, ["Splits List Values 1"]);
 			Assert.Equal(["Splits List Labels 2", "Splits List Values 2"], wanted);
 		}
@@ -752,14 +818,14 @@ namespace StreamAssistant2.Tests {
 			var (wanted, settings) = Plan(Make(["Nope", "Splits Key Count"], text: new() { ["Livesplit: Other 2"] = "y", ["Livesplit: Plain"] = "z" }), null, "Splits Basics");
 			Assert.Equal(["Splits Basics", "Splits Key Count"], wanted);
 			Assert.Equal([("Livesplit: Other 2", "text", "y"), ("Livesplit: Plain", "text", "z")], settings);
-			Assert.Empty(_remembered);
+			Assert.Empty(_last);
 		}
 
 		[Fact]
-		public void WithCopies_UnnumberedSourcesGetTheCopysNumber_AndAreRemembered() {
+		public void WithCopies_UnnumberedSourcesGetTheCopysNumber_AndTheCopyIsRecorded() {
 			var (_, settings) = Plan(Make(["Splits Current"], text: new() { ["Livesplit: Current Name"] = "x" }), ["Splits Current 1"]);
 			Assert.Equal([("Livesplit: Current Name 2", "text", "x")], settings);
-			Assert.Equal("x", _remembered[("Livesplit: Current Name", "text")].Value);
+			Assert.Equal(2, _last["Splits Current"]);
 		}
 
 		[Theory]

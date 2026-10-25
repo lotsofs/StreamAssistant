@@ -3,8 +3,9 @@
 Things built and unit-tested but not yet seen working in the real bot, OBS and Twitch. Indexed in
 [TODO.md](TODO.md) as LIV. Checks are grouped by when they can be done. Each keeps its number for good, so
 `LIV 41` names one; a new check takes the next number after the highest and goes in the group for when it
-can be done. Delete a check when it checks out; when none are left, delete this file and the LIV row. If
-something fails, note it here and raise it.
+can be done. Delete a check when it checks out, and log it in [DONE.md](DONE.md) as `LIV <n>`. When none
+are left, delete this file and the LIV row, and log LIV as finished. If something fails, note it here and
+raise it.
 
 ## Any time, with the bot running and OBS open
 
@@ -17,10 +18,12 @@ something fails, note it here and raise it.
 - **116.** `!moneygoal 500`: the log shows `Money goal set to 500 EUR, now 0 / 500 EUR` and OBS follows; `!moneygoal abc` logs `Not a money goal: "abc" (try !moneygoal 500)` and changes nothing
 - **117.** `!test tip 4.20 msg hello`: the tip alert runs, the log shows `Test tip: not counted toward the money goal`, and the OBS text stays as it was
 - **118.** `!resetmoney` logs `Money total reset (was … EUR), now 0 / <goal> EUR` and OBS follows; then F5: the goal and total are as you left them
-- **120.** F5 with OBS open: once the game setup has run, the window opens at 1600 × 900 and the OBS sources column (between the log and the left panel) shows bold blue headings on a dark band that stand out from the lighter blue source names before each arrow, `Captures` with each used slot's executable and volume and the unused ones on one grey `Audio capture …; Game capture …; Window capture … → none` line, and `Images` with the background, borders and sidebar file names, newest first. A name too long for one line, such as `Border: Colorable Outer (Transitionary)`, is shortened to fit (`… (T)`, then `… O (T)`), and stays on one line. Hovering an image line shows its full name and path, and the tooltip stays open while the ages tick. The groups read `Captures`, `Filters`, `Text`, `Images`. Within 2 s, the images and texts not showing in `Basic Stream Layout` are grey (left-panel texts of panels not up among them), whichever scene is live (the fade borders `(Transitionary)`, `Image: Train` between trains, left-panel files of panels not up), and the rest white
+- **120.** F5 with OBS open: once the game setup has run, the window opens at 1600 × 900 and the OBS sources column (between the log and the left panel) shows bold blue headings on a dark band that stand out from the lighter blue source names before each arrow, `Captures` with each used slot's executable and volume and the unused ones on one grey `Audio capture …; Game capture …; Window capture … → none` line, and `Images` with the background, borders and sidebar file names, sorted by source name. A name too long for one line, such as `Border: Colorable Outer (Transitionary)`, is shortened to fit (`… (T)`, then `… O (T)`), and stays on one line. Hovering an image line shows its full name and path, and the tooltip stays open while the ages tick. The groups read `Captures`, `Filters`, `Images`, `Text`, and a newly set source slots in by name rather than at the top. Within 2 s, the images and texts not showing in `Basic Stream Layout` are grey (left-panel texts of panels not up among them), whichever scene is live (the fade borders `(Transitionary)`, `Image: Train` between trains, left-panel files of panels not up), and the rest white
 - **121.** The `Text` group has `Text: Time Of Day` and `Text: Stream Uptime` with their texts in quotes, their ages climbing and going back to `0 s ago` about each minute, and `Text: Money Goal`; with a game's left panel running, its LiveSplit `.txt` sources are under `Text` by file name (not under `Images`), with the full path on hover
 - **122.** `!changecolorrandom`: `Filters` shows the `Layout` and `Fade` rows (`In` `Out` `Txt`), each swatch matching what OBS shows, with no attachment lines under them, each row ending `· <n> s ago`; hovering a swatch shows its source and hex, and stays open. `Fade`'s label and codes are white only during the fade and grey after it, and `Layout`'s go grey for the few seconds the real group is hidden. With SWAT4's panels running, the `Highlights` row (`AG` `AL` `BG` `BL` `Au`) appears, grey while no panel shows `Splits List Highlights`, and after a split the `Previous` row (`Run` `Seg` `Au`), white during the previous-split panel and grey after
 - **123.** Before creating `Text: Money Goal` in OBS (or with it renamed), its line is red with OBS's error; once it exists, the next write turns it white. Close OBS: the title reads `OBS sources (OBS not connected)` and the values stay listed
+- **127.** `!changepanel SWAT4`, through List On to List Off: the OBS sources column lists `SL - Names 1`, `SL - Highlight 1` and `SL - Header Left 1`, and no `2` or `3` of them, while the values move between copies 2 and 3, each panel with its own `SL - Upcoming`
+- **128.** `!changepanel GTA3`, after one full loop: `Splits: Run Delta`'s right-hand column shows the run's upcoming times, as `Finished at` does, not `Golds Delta`'s
 
 ## With LiveSplit running SWAT4 splits
 
@@ -28,7 +31,18 @@ something fails, note it here and raise it.
 - **110.** A SWAT4 split while ahead: `Split sign <sign>: layout colour SWAT4 BlueTeam`, the layout fades to blue, and nothing is posted to chat; while behind it goes `RedTeam`, on a gold `Element` (seen 2026-10-14 15:43: `LostBehind` gave `RedTeam`; ahead and gold, and that nothing went to chat, are still to see)
 - **111.** A second split with the same trend doesn't fade again; a reset (or starting a new run) fades back to `Menu` (seen 2026-10-14 15:43: sign `NotApplicable` gave `Menu`; the same-trend split is still to see)
 - **112.** `!changegame SWAT4` mid-run while ahead: the setup's chat line is `Changing to color SWAT4:BlueTeam …`, not `Menu`
-- **113.** Once the component's 2026-10-15 build is in LiveSplit (SGN): two SWAT4 splits in a row with the same sign (say `LostBehind` twice). The second's previous-split panel comes in as promptly as the first's, within about half a second of the split and not 2 s later
+- **113.** Two SWAT4 splits in a row with the same sign (say `LostBehind` twice). The second's previous-split panel comes in as promptly as the first's, within about half a second of the split and not 2 s later
+- **124.** A SWAT4 split that beats the comparison's segment without being a gold: `PreviousSplit\AllSplits\RealTime\CurrentComparison\Sign.txt` reads `GainedAhead` or `GainedBehind` (not `LostAhead` / `LostBehind`, as LiveSplit's older build wrote on 2026-10-14), and the previous-split panel colours the segment difference `LabelPositive`
+- **129.** A SWAT4 split during one of the Delta panels: after the previous-split panel, the split list comes back with its names and highlight on the copy it had before (`SL - Names 1`), nothing blank, and the interrupted panel's values
+- **130.** SWAT4's sidebar under Output to File release 8: both dynamic sidebar images show `_00` before the run, `_01` once it starts, move on one per split, and go back to `_00` on a reset, both mid-run and after finishing a run
+- **131.** Finishing a SWAT4 run: the last split's previous-split panel comes up, its differences coloured by the `Finished…` sign as by the same sign mid-run (`FinishedLostAhead`: run positive, segment negative), and the layout follows its trend (`Split sign FinishedLostBehind: layout colour SWAT4 RedTeam`)
+- **132.** SWAT4's `Current Split` panel: `Livesplit: Current Index` shows `1` on the first split (`Number.txt`), and the run and segment times are the current comparison's
+- **133.** SWAT4's `List On`: the split list's gold and ahead/behind highlights fill and are coloured, with no `Error LPN2` for `Livesplit: SL Highlights …` (they're set by name, not as `… 1`); after a split, `Previous split` shows the previous split's name, the splits remaining, and its run, segment and gold differences
+
+## With LiveSplit running GTASA or Portal 2 splits
+
+- **125.** GTASA's `100% Splitspam.lss` and `!changepanel GTASA`: `Current Mission` shows a mission (such as `In the Beginning`) out of 181, and `Per mission: Run Delta` lists missions, the same level as under LiveSplit's older build; neither is blank
+- **126.** Portal 2's `Coop Splitspam.lss` and `!changepanel Portal2`: the `Per map` panels list the chapters and maps (45 lines), not blank, and `Per map: Golds Delta` shows values (Output to File release 8 writes golds at every level). With `Coop.lss`, which has no two-dash splits, the `Per map` panels read a level LiveSplit doesn't write for it and are blank, as they were under the older build
 
 ## Closing and reopening OBS while the bot runs
 

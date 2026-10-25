@@ -124,13 +124,13 @@ namespace StreamAssistant2.Tests {
 				"Game: Game Capture 0 → gta3.exe · 12 s ago",
 				"Filters",
 				"Some Source · Blur · size → 12 · 12 s ago",
-				"Text",
-				"Text: Time Of Day → \"2026-10-16 12:00\" · 12 s ago",
 				"Images",
 				"Image: Background → GTA3.png · 12 s ago",
 				"Image: Train → Train1.png · 12 s ago",
+				"Text",
+				"Text: Time Of Day → \"2026-10-16 12:00\" · 12 s ago",
 			], lines.Select(l => l.Text));
-			Assert.Equal([LineKind.Title, LineKind.Heading, LineKind.Item, LineKind.Heading, LineKind.Item, LineKind.Heading, LineKind.Item, LineKind.Heading, LineKind.Item, LineKind.Item],
+			Assert.Equal([LineKind.Title, LineKind.Heading, LineKind.Item, LineKind.Heading, LineKind.Item, LineKind.Heading, LineKind.Item, LineKind.Item, LineKind.Heading, LineKind.Item],
 				lines.Select(l => l.Kind));
 		}
 
@@ -238,11 +238,11 @@ namespace StreamAssistant2.Tests {
 		[Fact]
 		public void StatusLines_HighlightsAndPreviousRows_InTheirOrder() {
 			List<Entry> entries = [
-				Filter("Livesplit: Splits List Highlights Gold", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#ffd700"),
-				Filter("Livesplit: Splits List Highlights AheadGained", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#00cc00"),
-				Filter("Livesplit: Splits List Highlights AheadLost", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#66cc66"),
-				Filter("Livesplit: Splits List Highlights BehindGained", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#cc6666"),
-				Filter("Livesplit: Splits List Highlights BehindLost", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#cc0000"),
+				Filter("Livesplit: SL Highlights Gold", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#ffd700"),
+				Filter("Livesplit: SL Highlights AheadGained", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#00cc00"),
+				Filter("Livesplit: SL Highlights AheadLost", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#66cc66"),
+				Filter("Livesplit: SL Highlights BehindGained", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#cc6666"),
+				Filter("Livesplit: SL Highlights BehindLost", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#cc0000"),
 				Filter(SplitColors.PREVIOUS_GOLD, SplitColors.PREVIOUS_FILTER, "color_multiply", "#ffffff"),
 				Filter(SplitColors.PREVIOUS_SEGMENT, SplitColors.PREVIOUS_FILTER, "color_multiply", "#00ff00"),
 				Filter(SplitColors.PREVIOUS_RUN, SplitColors.PREVIOUS_FILTER, "color_multiply", "#ff0000"),
@@ -415,22 +415,22 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
-		public void StatusLines_ImagesAndTexts_NewestFirst() {
+		public void StatusLines_ImagesAndTexts_ByName_NotByAge() {
 			List<Entry> entries = [
-				new("Image: Background", "file", Kind.Image, @"C:\GTA3.png", T0),
-				new("Image: Train", "file", Kind.Image, @"C:\Train1.png", T0.AddSeconds(5)),
-				new("Text: Money Goal", "text", Kind.Text, "0 / 999 EUR", T0.AddSeconds(2)),
-				new("Text: Time Of Day", "text", Kind.Text, "12:00", T0.AddSeconds(8)),
+				new("Image: Train", "file", Kind.Image, @"C:\Train1.png", T0),
+				new("Image: Background", "file", Kind.Image, @"C:\GTA3.png", T0.AddSeconds(5)),
+				new("Text: Time Of Day", "text", Kind.Text, "12:00", T0.AddSeconds(2)),
+				new("Text: Money Goal", "text", Kind.Text, "0 / 999 EUR", T0.AddSeconds(8)),
 			];
 			var lines = ObsInputs.StatusLines(entries, true, T0.AddSeconds(10));
 			Assert.Equal([
 				"OBS sources",
-				"Text",
-				"Text: Time Of Day → \"12:00\" · 2 s ago",
-				"Text: Money Goal → \"0 / 999 EUR\" · 8 s ago",
 				"Images",
-				"Image: Train → Train1.png · 5 s ago",
-				"Image: Background → GTA3.png · 10 s ago",
+				"Image: Background → GTA3.png · 5 s ago",
+				"Image: Train → Train1.png · 10 s ago",
+				"Text",
+				"Text: Money Goal → \"0 / 999 EUR\" · 2 s ago",
+				"Text: Time Of Day → \"12:00\" · 8 s ago",
 			], lines.Select(l => l.Text));
 		}
 

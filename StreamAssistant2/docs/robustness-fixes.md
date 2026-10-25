@@ -11,7 +11,7 @@ there, along with the conventions these codes follow. This file holds the detail
 None at present: each item is independent.
 
 Each plan ends with the docs to touch. When an item is finished, delete its section here and its row in
-TODO.md, per the conventions there.
+TODO.md, and log it in [DONE.md](DONE.md), per the conventions there.
 
 ---
 
@@ -165,47 +165,6 @@ an EventSub event and a colour redemption still work.
 
 ---
 
-## SGN — LiveSplit never writes `GainedAhead` / `GainedBehind` during a run
-
-Your component, `LiveSplit.OutputToFile` (`D:\Repositories\LiveSplit.OutputToFile`), writes the previous
-split's sign to `PreviousSplit\<level>\<method>\Sign.txt`. In the build in LiveSplit's `Components` folder
-(`LiveSplit.OutputToFile.dll`, dated 2026-07-02), the branch for a run in progress goes:
-
-1. no run delta → `NotApplicable`
-2. a gold (or no gold before) → `GoldAhead` / `GoldBehind`
-3. no segment delta → `Ahead` / `Behind`
-4. anything else → `LostAhead` / `LostBehind`
-
-It has no case for a segment that beat its PB without being a gold, so such a split is written as `Lost…`.
-The end-of-run branch does have it (`PBGained` / `NoPBGained`). The bot's split colours
-([obs.md](obs.md#split-colours)) then colour that segment difference `LabelNegative` instead of
-`LabelPositive`, on stream. **Seen live** on 2026-10-14 at 15:47, in a SWAT4 run.
-`PreviousSplit\AllSplits\RealTime\` held `Sign.txt` `LostAhead` with `SegmentDifference.txt` `-40.03` (and
-`RunDifference.txt` `-40.03`, `GoldDifference.txt` `+7.2`), so the previous-split panel showed the
-40-second gain in red. The layout colour by sign isn't affected: it goes by the run's side, and `LostAhead`
-is still Ahead.
-
-The component's source has the case since its commit `eff130c` (2026-10-15), now in
-`SplitFiles.WriteSplitTimes`. That build isn't deployed yet: the DLL in LiveSplit was still the 2026-07-02
-one on 2026-10-15.
-
-### Plan
-
-1. Copy the component's build (`bin\Debug\LiveSplit.OutputToFile.dll`) into LiveSplit's `Components`
-   folder, with LiveSplit closed (owner). It also brings the component's other 2026-10-15 changes: files
-   skipped when unchanged and written on a background thread, which the bot's split watcher allows for
-   ([obs.md](obs.md#splits-from-livesplit), LIV 113).
-2. Nothing changes in the bot: `SplitColors.SignKeys` already maps `GainedAhead` and `GainedBehind`.
-
-**Verify:** in a practice run, beat a segment's PB without a gold. `Sign.txt` reads `GainedAhead` or
-`GainedBehind`, and on SWAT4 the bot colours the previous split's segment difference `LabelPositive`.
-
-**Docs when done:** delete this section and the TODO row, and the LiveSplit note at the end of
-[obs.md § Split colours](obs.md#split-colours). In [obs.md § Splits from LiveSplit](obs.md#splits-from-livesplit),
-drop the sentence about the build in LiveSplit rewriting every file.
-
----
-
 ## TSS — Tests that share static state run in parallel
 
 xUnit runs test collections in parallel, and some classes in different collections share static state:
@@ -242,50 +201,6 @@ if they name the collection's members.
 
 ---
 
-## PGD — Portal2's per-map gold panel reads files LiveSplit never writes
-
-Portal2's `Per map: Golds Delta` panel in `leftpanel.json` points `Livesplit: SL - Current` and `Upcoming`
-at `SplitList\SansSubsplits_Level1\RealTime\Delta_Gold.txt` and `Time_Gold_Upcoming.txt`. The component
-writes gold files only for its last level, `AllSplits` ("Golds are not supported for subsplits" in
-`OutputToFileComponent.cs`), so neither file exists and the values column is empty for the panel's 50 s.
-The panel came over from Streamer.Bot's `scenes.json` as it was. Found by checking the file against the disk
-(2026-10-12) and the component's source; not seen live.
-
-### Plan
-
-The owner picks one:
-
-- Drop the panel.
-- Make it an all-splits gold panel: `AllSplits` names, highlight and gold files, placed after Portal2's
-  `All splits: Finished at` (which sets the `AllSplits` labels) with `"Keep": ["Splits List Labels"]`.
-- Have the component write per-level golds. A level's "gold" would have to be defined (the sum of its
-  splits' golds isn't one), so this is the most work.
-
-**Verify:** the scratch cross-check of `leftpanel.json` against the disk finds no missing files; live, the
-panel shows values.
-
-**Docs when done:** delete this section and the TODO row, and the known-gap paragraph in
-[obs.md § Where the data came from](obs.md#where-the-data-came-from).
-
----
-
-## PBL — `PBLost` leaves the segment difference uncoloured
-
-`SplitColors.SignKeys` ports Streamer.Bot's sign table as it was. For `PBLost` (the run's last split, a PB,
-but that segment lost time) the old table gives the segment `None`. `NoPBLost` gives `LabelNegative`, and
-`PBGained` gives `LabelPositive`, so `PBLost` looks like a slip. Read only.
-
-### Plan
-
-If the owner agrees: `"pblost" => (POSITIVE, NEGATIVE, NONE)` in `SignKeys`, the `PBLost` row in
-`SplitColorsTests`, and the table in [obs.md § Split colours](obs.md#split-colours) (which also drops its
-note about it).
-
-**Verify:** the tests.
-
-**Docs when done:** delete this section and the TODO row.
-
----
 
 ## DSB — Unused `disabled` colour category
 

@@ -133,8 +133,8 @@ Single-user software, so these are constants in code rather than settings.
 | `Borders_Inner_<aspect>.png` and `Borders_Outer_<aspect>.png` in `Layout` (only `16x9` has them), else `Borders_Inner.png` and `Borders_Outer.png` there | `GameBorder` |
 | `16x9`, the aspect a game has without an `Aspect` in `games.json` | `GameBorder`, `GameScene` |
 | `games.json` and `leftpanel.json` in `BotInput` | `Games`, `LeftPanel` |
-| `CurrentSplit\AllSplits\Index.txt`, and `RunTime.txt` and `Sign.txt` in `PreviousSplit\AllSplits\RealTime\`, in `LivesplitGenerated` | `SplitWatcher` |
-| a `PreviousSplit\<level>\RealTime\Sign.txt`, named by an entry's `Sign` in `leftpanel.json` | `LeftPanel` |
+| `Number.txt` and `Completed.txt` in `CurrentSplit\AllSplits\`, `PreviousSplit\AllSplits\RealTime\RunTime.txt` and `PreviousSplit\AllSplits\RealTime\CurrentComparison\Sign.txt`, in `LivesplitGenerated` | `SplitWatcher` |
+| a `PreviousSplit\<level>\RealTime\CurrentComparison\Sign.txt`, named by an entry's `Sign` in `leftpanel.json` | `LeftPanel` |
 | `gameschemes.json` in `ColorSchemes`, its categories' `SplitColors`, with `none` as the fallback | `SplitColors` |
 | `AssistantLogs` and `AssistantLogs\EventSubs` under `BotOutput`, `streamAssistant.db` under `BotOutput` | `ConsoleLogger`, `TestReplay` (reads `EventSubs`, including StreamElements' `se.…` files), `Database` |
 
@@ -178,7 +178,7 @@ Scene, source and filter names in OBS are plain strings. Renaming one in OBS sil
 | `!Scene: Left Panel`, `!Scene: Left Panel Colored` | `LeftPanel` | the two scenes whose top-level groups the rotation shows and hides: `_LP: <name>` in `!Scene: Left Panel`, `_LPC: <name>` in the coloured one; `<name> <n>` groups are copies of `<name>` |
 | `!Scene: Left Panel` as an item in `!Scene: Left Panel Colored` | `LeftPanel` | a reference copy for editing; hidden when a rotation starts |
 | the text sources named in `leftpanel.json` (`Livesplit: …`) | `LeftPanel` | settings `text` and `file` |
-| `Livesplit: Splits List Highlights Gold`, `AheadGained`, `AheadLost`, `BehindGained`, `BehindLost` | `SplitColors` | in `_LPC: Splits List Highlights`; filter `Color Correction 2`, property `color_multiply`, set when a rotation starts |
+| `Livesplit: SL Highlights Gold`, `AheadGained`, `AheadLost`, `BehindGained`, `BehindLost` | `SplitColors` | in `_LPC: Splits List Highlights`; filter `Color Correction 2`, property `color_multiply`, set when a rotation starts |
 | `Livesplit: Previous Run`, `Livesplit: Previous Segment`, `Livesplit: Previous Gold` | `SplitColors` | in `_LPC: Splits Previous Values`; filter `Color Correction`, property `color_multiply`, set on each previous-split panel |
 
 ### OBS volumes

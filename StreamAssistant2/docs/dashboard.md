@@ -132,19 +132,19 @@ what it last set it to.
     (`GameCapture.SlotGroups`): `Audio capture 1, 2; Game capture 1, 2; Window capture 0, 1, 2 → none · 12 s ago`.
     The numbers are the sources' own, from 0
   - `Filters`: rows of swatches with short codes, then any other filter (see below)
-  - `Text`: the most recently set first. A text set directly shows in quotes, `<source> → "<text>"`, line
-    breaks as ` ⏎ `. A text source reading its text from a file (the left panel's LiveSplit texts) shows the
-    file's name, `<source> → SegmentTime.txt`, shortened and hovered like an image's. Both come in through
-    `SetInputSetting`, as the `text` and `file` keys; a `file` counts as an image only for an image type
-    (`.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tga`, `.webp`, `.jxr`, `.psd`; `ObsInputs.KindOf`), any other
-    as a text. A text last found not showing in `Basic Stream Layout` is grey, like an image
-  - `Images`: `<source> → <file name>`, the most recently set first. When a line wouldn't fit on one line,
-    the source name is shortened word by word from the last, each word to its first letter with its brackets
-    and punctuation (`ObsInputs.Abbreviate`): `Border: Colorable Outer (Transitionary)` becomes
+  - `Images`: `<source> → <file name>`, sorted by source. When a line wouldn't fit on one line, the source
+    name is shortened word by word from the last, each word to its first letter with its brackets and
+    punctuation (`ObsInputs.Abbreviate`): `Border: Colorable Outer (Transitionary)` becomes
     `Border: Colorable Outer (T)`, then `Border: Colorable O (T)`, and so on, until it fits. Room for an age of
     ` · 59 s ago` is always kept, so the name doesn't change as the age grows. Hovering the line shows the
     full name and path. An image last found not showing in `Basic Stream Layout` is grey, and its tooltip
     says so; one not checked yet stays white
+  - `Text`: sorted by source. A text set directly shows in quotes, `<source> → "<text>"`, line breaks as
+    ` ⏎ `. A text source reading its text from a file (the left panel's LiveSplit texts) shows the file's
+    name, `<source> → SegmentTime.txt`, shortened and hovered like an image's. Both come in through
+    `SetInputSetting`, as the `text` and `file` keys; a `file` counts as an image only for an image type
+    (`.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tga`, `.webp`, `.jxr`, `.psd`; `ObsInputs.KindOf`), any other
+    as a text. A text last found not showing in `Basic Stream Layout` is grey, like an image
   - `Other`: any other setting, `<source> · <setting> → <value>`, and a volume on a source with no capture
     line, sorted by source
   - before anything is set, `Nothing set yet`
@@ -163,7 +163,7 @@ what it last set it to.
   |---|---|---|
   | `Layout` | `In` `Border: Colorable Inner`, `Out` `Border: Colorable Outer`, `Txt` `!Scene: All Colorable`, on `Color Correction` | `!Layout: Colorables` is up |
   | `Fade` | the same three with ` (Transitionary)` | `!Layout: Colorables (Transitionary)` is up, during a colour change's fade |
-  | `Highlights` | `AG` AheadGained, `AL` AheadLost, `BG` BehindGained, `BL` BehindLost, `Au` Gold: the `Livesplit: Splits List Highlights <kind>` sources, on `Color Correction 2` | the left panel's `Splits List Highlights` group is up |
+  | `Highlights` | `AG` AheadGained, `AL` AheadLost, `BG` BehindGained, `BL` BehindLost, `Au` Gold: the `Livesplit: SL Highlights <kind>` sources, on `Color Correction 2` | the left panel's `Splits List Highlights` group is up |
   | `Previous` | `Run`, `Seg`, `Au`: `Livesplit: Previous Run`, `Segment`, `Gold`, on `Color Correction` | the left panel's `Splits Previous Values` group is up |
 
   When the bot last hid a row's group in every scene it showed or hid it in, the row's label and codes are

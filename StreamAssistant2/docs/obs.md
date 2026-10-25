@@ -249,11 +249,12 @@ rejections themselves, with a clearer `Couldn't set …: …` warning.
   - **By split sign.** A category with `SignSchemes` ([color.md](color.md#data-files)) follows LiveSplit's
     previous-split sign. SWAT4 does: `BlueTeam` when ahead, `RedTeam` when behind, `Element` for a gold,
     `Menu` (its `Default`) otherwise.
-  - The sign is the one over all splits in real time, `PreviousSplit\AllSplits\RealTime\Sign.txt`. Its trend
-    comes from `SplitColors.Trend` (tested):
-    - any gold sign (`GoldAhead` too) is Gold;
-    - otherwise the run's side: `…Ahead` and `PB…` are Ahead, `…Behind` and `NoPB…` are Behind;
-    - `NotApplicable`, `Gained`, `Lost` and the like have no trend.
+  - The sign is the one over all splits in real time against LiveSplit's current comparison,
+    `PreviousSplit\AllSplits\RealTime\CurrentComparison\Sign.txt`. Its trend comes from `SplitColors.Trend`
+    (tested), with a finish's `Finished…` taken like the same sign during the run:
+    - `GoldAhead` and `GoldBehind` are Gold;
+    - otherwise the run's side: `…Ahead` is Ahead, `…Behind` is Behind;
+    - `NotApplicable` and anything else have no trend.
   - `Set` takes the scheme for the sign as it is then, so a SWAT4 setup mid-run goes straight to that.
   - After every change of the split index, once the sign has been rewritten (or 0.5 s have passed, for a
     sign that didn't change), the split watcher calls `GameColor.OnSign`. That covers splits, skips, undos, resets and starting a run, so a reset goes back
@@ -373,10 +374,10 @@ The file is keyed by `games.json` `Name` (any case), plus a `default` entry for 
   - So a panel with a family can't set a source shared by all copies (`Livesplit: Current Labels`), or one
     in another group it shows. Set those in OBS, or in a panel without a family.
 - `Keep` is optional: more groups to show, as they are. A family listed there stays on the copy that's up,
-  rather than moving to a fresh one ([Copies](#copies)). A plain group is shown just as if it were in `Show`;
-  plain groups never move anyway, since a step only shows and hides what differs from the step before. So a
-  group belongs in one of the two lists, not both. Names are cleaned up like `Show`'s, and missing ones are
-  reported and flagged the same way.
+  rather than moving to a fresh one, and nothing is written to it ([Copies](#copies)). A plain group is
+  shown just as if it were in `Show`; plain groups never move anyway, since a step only shows and hides what
+  differs from the step before. So a group belongs in one of the two lists, not both. Names are cleaned up
+  like `Show`'s, and missing ones are reported and flagged the same way.
 - A panel without a positive `Seconds` is skipped. A panel with an empty `Show` is a pause: only the
   `Always` groups stay up.
 - `Name` is optional and only for the dashboard: what the left-panel column calls the panel instead of listing
@@ -386,8 +387,9 @@ The file is keyed by `games.json` `Name` (any case), plus a `default` entry for 
   `Sellout Goals`, `List On`). Single-group panels have no name.
 - `Previous` is optional: the panels to play once after each LiveSplit split, same shape as `Panels`
   ([Splits from LiveSplit](#splits-from-livesplit)). Only SWAT4 has it.
-- `Sign` is optional: the path of one of LiveSplit's `PreviousSplit\<level>\RealTime\Sign.txt` files, which
-  colours the previous split's differences during the `Previous` panels ([Split colours](#split-colours)).
+- `Sign` is optional: the path of one of LiveSplit's `PreviousSplit\<level>\RealTime\CurrentComparison\Sign.txt`
+  files, which colours the previous split's differences during the `Previous` panels
+  ([Split colours](#split-colours)).
   It is trimmed, and blank counts as none. Only SWAT4 has it, for `AllSplits`.
 - An entry can be another entry's name instead of its own panels: `"GTA4": "GTA3"` gives GTA4 GTA3's
   panels (any case, and a name can lead on to another name). One that leads nowhere, or round in a loop, is
@@ -402,7 +404,7 @@ Loading logs `Loaded left panels for <n> games and a default` (or `, no default`
 `leftpanel.json not found, left panel off`. A file that can't be read or parsed logs `Error LPN1` and
 leaves no panels. `Parse` and `Lookup` are tested, and a real-data test checks that every key in the real
 file is a `games.json` name or `default`, that every name entry leads to panels, and that no panel is
-skipped.
+skipped. Another checks the panels' copy sources ([Copies](#copies)).
 
 ### The rotation
 
@@ -441,7 +443,7 @@ It runs all the time, not only while streaming.
      `Left panel: <game> has groups OBS doesn't: …`, and then skipped.
 3. **Each step:**
    - It plans the panel (`Plan`, tested): which copy of each family to use (see [Copies](#copies)), and the
-     texts and files to set, including remembered ones.
+     texts and files to set.
    - It sets the panel's `Text` and `File` (`Obs.SetInputSetting` with `text` / `file`).
    - It shows the groups that are wanted but not up, then hides the ones that are up but not wanted
      (`Transition`). Wanted means `Always` plus the panel's groups, with each family as its chosen copy.
@@ -503,7 +505,8 @@ More detail on the edges:
 
 `Transition` and `Missing` are tested. The real `RunAsync` is also tested against fake OBS calls, covering:
 the order of a step (with the copies listed and the reference item hidden), the timings and the wrap, waiting for OBS, one panel and none,
-cancelling, missing groups, a throwing call, a kept family staying up while the others move, splits (with
+cancelling, missing groups, a throwing call, a kept family staying up while the others move and coming back
+on its copy after a split, splits (with
 and without `Previous`, during `Previous`, and for a single panel), and split colours (the highlights on the first step, each `Previous` step's colours
 by its sign, and none without a sign, without colours or with an unreadable sign). `LeftPanelStopTests`
 cover how a stop, a resume, a new `Start` and an OBS connect interact, with panels loaded from a temporary
@@ -518,7 +521,9 @@ copy is an `_LP:` (or `_LPC:`) group named `<family> <number>`: `Splits Current 
 (`Livesplit: Current Index 2`). Sources without a number (`Livesplit: Current Labels`) are shared by every
 copy.
 
-The bot doesn't ask OBS what's inside a copy; it decides from the names alone and remembers what it set.
+The bot doesn't ask OBS what's inside a copy. It decides from the names alone, and sets only what the file
+says. The one thing it asks OBS is the names of its inputs, once per rotation, to tell copy sources from
+shared ones (below).
 
 **Choosing a copy.** `Plan` moves every family a panel shows to a fresh copy, together:
 
@@ -527,61 +532,89 @@ The bot doesn't ask OBS what's inside a copy; it decides from the names alone an
   the old copies hidden. So two panels of the same family in a row (two `Splits Current` panels, or
   `Run Delta` after `Finished at`) always alternate copies, and the viewer never sees values change.
 - If no number is hidden in every family (they're out of step), each family takes its own lowest hidden
-  copy, and copy sources get the first family's number.
+  copy, and copy sources get the first family's number. So the other families' sources land in copies of
+  theirs that aren't the ones shown: one already up changes on screen, one hidden is lost, and the copy
+  shown keeps its old values. With three copies a family, two families moving together always share a
+  hidden number, so this takes three moving at once, which no panel in the file does.
 - **A family in the panel's `Keep` stays on the copy that's up.** The others move as above, avoiding the kept
   copies' numbers when they can, and copy sources get the first moving family's number (the first kept
-  one's when every family is kept). Remembered values for the kept family go onto its hidden copy with that
-  number, out of sight. A kept family that isn't up moves like any other.
+  one's when every family is kept). Nothing is written to the kept copy.
+  - A kept family that isn't up, as after a split's `Previous` panels, comes back on the copy it was last
+    on this rotation, as it was. One not shown yet this rotation moves like any other.
   - This is for a panel whose family looks the same as on the panel before. The split lists' Run, Seg. and
     Golds Delta panels show `Splits List Values` and keep `Splits List Labels`, so only the values column
     swaps.
-  - It isn't checked: a kept family that the panel does change shows the change in place, on screen.
+  - It isn't checked: if the panel sets one of the kept family's sources anyway, it gets the moving
+    families' number, so it lands in a hidden copy of the kept family and isn't seen. With every family
+    kept, it changes on screen.
 - An `Always` family keeps the copy that's up, or takes copy 1.
-- Two copies per family are enough; a third is spare.
+- Each family needs three copies. With two, a family kept on one copy while another moves would leave the
+  next panel that moves both with no copy hidden in each (Labels up on 1, Values on 2).
 
-**Copy sources.** In a panel that shows families, every `Text` and `File` source is a copy source and
-gets the chosen number: `Livesplit: SL - Current` → `Livesplit: SL - Current 2`. A name that already ends in
-a number has it replaced instead (`Livesplit: SL - Current 1` → `Livesplit: SL - Current 2`). In a panel
-without families, sources are set as written.
+**Copy sources.** In a panel that shows families, a `Text` or `File` source that OBS has numbered copies of
+is a copy source and gets the chosen number: `Livesplit: SL - Current` → `Livesplit: SL - Current 2`. A name
+that already ends in a number has it replaced instead (`Livesplit: SL - Current 1` →
+`Livesplit: SL - Current 2`).
+- Which sources have copies comes from OBS's input names, read when the rotation first finds the layout:
+  any input named `<name> <number>` makes `<name>` a copy source.
+- Any other source is set as written, such as `Livesplit: SL Highlights AheadGained`, the one source of its
+  kind, which `List On` sets beside the label copies.
+- When the inputs can't be listed, every source counts as a copy source. A throw logs
+  `Error LPN2: left panel listing OBS's inputs failed: …`.
+- In a panel without families, sources are set as written.
 
-**Remembering.** The bot remembers each copy-source value it sets for the rest of the rotation, by the name
-without a number, with the families that were shown with it. On a later panel, a remembered value the panel
-doesn't set itself is set again on the new copy, but only when every family it was set with is shown again.
-That's how the split list's labels (`Livesplit: SL - Names`, `Header Left`) follow the move to the next copy
-when only the values change, while `Splits Current`'s values are never written into a list's copies. A new
-rotation starts with nothing remembered.
+**Nothing carries over.** A fresh copy gets only the sources its panel sets; one the panel leaves out shows
+whatever that copy held last, often another panel's. So every panel that moves a family sets all of that
+family's sources, and a panel whose family looks the same as the panel before keeps it instead. A real-data
+test checks that the panels in an entry that move the same families set the same sources.
 
 ### Splits from LiveSplit
 
 [SplitWatcher.cs](../code/LiveSplit/SplitWatcher.cs) tells the rotation about splits.
 `Program.StartBotAsync` starts it with the other periodic work.
 
-- It watches `<LivesplitGenerated>\CurrentSplit\AllSplits\Index.txt` with a `FileSystemWatcher`. That
-  folder is a `paths.json` directory, and LiveSplit's text output writes this file.
-- The file holds the current split's 0-based index, and `-1` when no run is going. `AllSplits` is the list
-  the previous-split texts read (`PreviousSplit\AllSplits\…`).
-- On every change it reads the index, retrying for about 100 ms while LiveSplit holds the file. A read that
-  fails or isn't a number is ignored, so a half-written file doesn't count.
+- It watches `Number.txt` and `Completed.txt` in `<LivesplitGenerated>\CurrentSplit\AllSplits` with one
+  `FileSystemWatcher`. That folder is a `paths.json` directory, and LiveSplit's text output (Output to File,
+  release 8 since 2026-10-22) writes these files. `AllSplits` is the list the previous-split texts read
+  (`PreviousSplit\AllSplits\…`).
+- `Number.txt` holds the current split's number from 1, and `-` when there is none: before the start and
+  after the finish. `Completed.txt` holds how many splits are done, skipped ones included: 0 before the start,
+  all of them after the finish.
+- On every change of either, it reads both, retrying for about 100 ms while LiveSplit holds one, and turns
+  them into the split index with `Index` (tested):
+  - the number − 1 during a run;
+  - with `-` for the number, the count after the finish, or -1 before a run (a count of 0).
+
+  So the index means what release 7's `Index.txt` held. A number that is neither a number nor `-` (a
+  half-written file), or a count that isn't a number when it's needed, makes the read count for nothing.
+- It needs both files:
+  - `Number.txt` alone goes from the last number to `-` both at the finish and at a reset on the last split.
+    It also stays `-` through a reset after a finish, so release 8 doesn't rewrite it then.
+  - `Completed.txt` alone reads 0 both before the start and on the first split.
+- Release 8 queues `Completed.txt` before `Number.txt`, so a read between the two writes sees the new count
+  with the old number. Read in the component, not seen: during a run the old number still gives the old
+  index, and at the finish the old number gives the last split until it turns `-`. So no read gives an index
+  the run never had.
 - It compares the index with the last one read. Any change is passed on to the sidebar
   ([Per-game setup](#per-game-setup)), and `CurrentIndex` holds the last one read. A rise of exactly one, to 1
   or more, is a split or a skip. Starting a run (-1 → 0), a reset, an undo or a repeat are neither.
 - **A skip is told apart by the previous split's time.** Your component (`LiveSplit.OutputToFile`) writes
-  `PreviousSplit\AllSplits\RealTime\RunTime.txt` after `Index.txt`, as the previous split's live real-time
-  time. A split always has one. A skipped split has none, and the component writes that as `-`.
+  `PreviousSplit\AllSplits\RealTime\RunTime.txt` after the index files, as the previous split's live
+  real-time time. A split always has one. A skipped split has none, and the component writes that as `-`.
   - So after any change of the index, `AfterIndexChangeAsync` waits, off the watcher's thread, until
-    `PreviousSplit\AllSplits\RealTime\Sign.txt` has been written since `Index.txt`. It checks every 50 ms,
-    for up to 0.5 s.
-  - The component writes each level's sign after its times, real time before game time, and `AllSplits` is
-    its last level. So once that sign is fresh, the run time is too, and so is every real-time sign the
-    `Previous` panels colour by.
-  - The component's source, since 2026-10-15, skips a file whose contents haven't changed, and writes the
-    files on a background thread, in the order it queued them. So a sign that repeats (`LostBehind` twice
-    in a row) is never rewritten, and the wait runs out. That's why it is only 0.5 s: a split's files are
-    all written within about 40 ms, so by then an old sign is the current one. Reproduced headless on
-    2026-10-15: on two repeated `LostBehind` splits, `Sign.txt` kept the earlier split's time. A changed
-    sign was written within 1 ms of `Index.txt`. The build in LiveSplit still rewrites every file on every
-    split, so there the sign is always fresh
-    ([SGN](robustness-fixes.md#sgn--livesplit-never-writes-gainedahead--gainedbehind-during-a-run)).
+    `PreviousSplit\AllSplits\RealTime\CurrentComparison\Sign.txt` has been written since the later of the
+    two index files. It checks every 50 ms, for up to 0.5 s.
+  - The component writes each level's sign after its times, real time before game time, the current
+    comparison before any other, and `AllSplits` is its last level. So once that sign is fresh, the run time
+    is too, and so is every real-time sign the `Previous` panels colour by.
+  - The component skips a file whose contents haven't changed, and writes the files on a background
+    thread, in the order it queued them. So a sign that repeats (`LostBehind` twice in a row) is never
+    rewritten, and the wait runs out. That's why it is only 0.5 s: a split's files are all written within
+    about 40 ms, so by then an old sign is the current one. Reproduced headless on 2026-10-15, with the
+    component's build before release 8: on two repeated `LostBehind` splits, `Sign.txt` kept the earlier
+    split's time. A changed sign was written within 1 ms of the index file. Not yet seen in LiveSplit itself
+    (LIV 113). Starting a run rewrites only `Number.txt`, and the sign stays `NotApplicable`, so the wait
+    runs out then too.
   - For a rise, it then reads `RunTime.txt`. `-` means a skip, which doesn't show the previous-split panel.
   - Anything else calls `LeftPanel.OnSplit()`. That includes a sign that isn't rewritten in time or a time
     that can't be read, so the panel still shows for those.
@@ -598,8 +631,8 @@ rotation starts with nothing remembered.
     `Error LSW3` when starting it throws, and `Error LSW4: index change failed: …` when the handling after an
     index change throws.
 
-`IsSplit`, `IsSkip` and `ParseIndex` are tested. The watcher itself isn't, since its file events don't arrive on a
-fixed schedule.
+`Index`, `IsSplit`, `IsSkip` and `ParseIndex` are tested. The watcher itself isn't, since its file events don't
+arrive on a fixed schedule.
 
 ### Split colours
 
@@ -619,46 +652,38 @@ is coloured. `Resolve` is tested.
 
 | Source | Key |
 |---|---|
-| `Livesplit: Splits List Highlights Gold` | `ListGold` |
-| `Livesplit: Splits List Highlights AheadGained` | `ListGainedAhead` |
-| `Livesplit: Splits List Highlights AheadLost` | `ListLostAhead` |
-| `Livesplit: Splits List Highlights BehindGained` | `ListGainedBehind` |
-| `Livesplit: Splits List Highlights BehindLost` | `ListLostBehind` |
+| `Livesplit: SL Highlights Gold` | `ListGold` |
+| `Livesplit: SL Highlights AheadGained` | `ListGainedAhead` |
+| `Livesplit: SL Highlights AheadLost` | `ListLostAhead` |
+| `Livesplit: SL Highlights BehindGained` | `ListGainedBehind` |
+| `Livesplit: SL Highlights BehindLost` | `ListLostBehind` |
 
 **The previous split's differences**, at the start of each `Previous` step, when the entry has a `Sign`. The
 step reads the sign file (retrying about 100 ms while LiveSplit holds it). Then it sets the `color_multiply`
-of the `Color Correction` filter on `Livesplit: Previous Run`, `Segment` and `Gold`, by `SignKeys` (tested),
-Streamer.Bot's table as it was:
+of the `Color Correction` filter on `Livesplit: Previous Run`, `Segment` and `Gold`, by `SignKeys` (tested):
 
 | Sign | Run | Segment | Gold |
 |---|---|---|---|
-| `Ahead`, `PB`, `PBLost` | `LabelPositive` | `None` | `None` |
-| `Behind`, `NoPB` | `LabelNegative` | `None` | `None` |
-| `Gained` | `None` | `LabelPositive` | `None` |
-| `Lost` | `None` | `LabelNegative` | `None` |
-| `GainedAhead`, `PBGained` | `LabelPositive` | `LabelPositive` | `None` |
+| `Ahead` | `LabelPositive` | `None` | `None` |
+| `Behind` | `LabelNegative` | `None` | `None` |
+| `GainedAhead` | `LabelPositive` | `LabelPositive` | `None` |
+| `GainedBehind` | `LabelNegative` | `LabelPositive` | `None` |
 | `LostAhead` | `LabelPositive` | `LabelNegative` | `None` |
-| `GainedBehind`, `NoPBGained` | `LabelNegative` | `LabelPositive` | `None` |
-| `LostBehind`, `NoPBLost` | `LabelNegative` | `LabelNegative` | `None` |
-| `Gold` | `None` | `LabelGold` | `LabelGold` |
-| `GoldAhead`, `PBGold` | `LabelPositive` | `LabelGold` | `LabelGold` |
-| `GoldBehind`, `NoPBGold` | `LabelNegative` | `LabelGold` | `LabelGold` |
-| anything else (`NotApplicable`, `Undetermined`, blank) | `None` | `None` | `None` |
+| `LostBehind` | `LabelNegative` | `LabelNegative` | `None` |
+| `GoldAhead` | `LabelPositive` | `LabelGold` | `LabelGold` |
+| `GoldBehind` | `LabelNegative` | `LabelGold` | `LabelGold` |
+| anything else (`NotApplicable`, blank) | `None` | `None` | `None` |
 
-The sign is matched in any case, trimmed. `PBLost` leaves the segment `None`, unlike `NoPBLost`; that is how
-the old table had it ([PBL](robustness-fixes.md#pbl--pblost-leaves-the-segment-difference-uncoloured)).
+The sign is matched in any case, trimmed. At the finish LiveSplit puts `Finished` in front of the sign it
+would write during the run (`FinishedGoldAhead`, `FinishedNotApplicable`), and the table takes it like that
+sign. These are release 8's values. They follow Streamer.Bot's table, which had a value per finish
+(`PBGold`, `NoPBLost`, …), except that `PBLost`, now `FinishedLostAhead`, left the segment `None`.
 
 **Notes.**
 - A key with no colour leaves that source as it is.
 - A sign file that can't be read logs `Left panel: can't read <path>, previous-split colours left as is`.
 - A filter call that throws logs `Error LPN2: left panel colouring <source> failed: …`, like the rotation's
   other OBS calls.
-- **LiveSplit never writes `GainedAhead` or `GainedBehind` during a run.** The build in LiveSplit's
-  `Components` folder (2026-07-02) has no case, in the running branch, for a segment that beat its PB
-  without being a gold. It writes `LostAhead` / `LostBehind` instead, so that segment's difference gets
-  `LabelNegative`. The end-of-run branch has the case (`PBGained` / `NoPBGained`). The component's source
-  has written them since 2026-10-15, but that build isn't in LiveSplit yet
-  ([SGN](robustness-fixes.md#sgn--livesplit-never-writes-gainedahead--gainedbehind-during-a-run)).
 
 ### Where the data came from
 
@@ -705,12 +730,52 @@ right after another that does, without setting any label source itself, now keep
 moved from `Show` to `Keep`, with `Splits List Highlights` where the panel shows it. That's SWAT4's
 `Finished at` through `List Off`, and the other games' Run, Seg. and Golds Delta panels.
 
-Which groups are missing is what the rotation logs and the dashboard column shows in red. One gap is
-known: **Portal2's per-map gold panel reads files LiveSplit doesn't write.** It reads
-`SansSubsplits_Level1\RealTime\Delta_Gold.txt` and `Time_Gold_Upcoming.txt`, but LiveSplit writes gold
-files only for its last split level, `AllSplits`
-([PGD](robustness-fixes.md#pgd--portal2s-per-map-gold-panel-reads-files-livesplit-never-writes)). Checking the
-file against the scene collection file and the disk finds nothing else.
+By 2026-10-17 the component's new build was in LiveSplit. It names each middle subsplit level after the
+depth it leaves out, so what was `SansSubsplits_Level1` (no splits with two or more dashes) is now
+`SansSubsplits_Level2`, and so on up. GTASA's `Current Mission` and `Per mission` panels went from `_Level2`
+to `_Level3`, and Portal2's per-map panels from `_Level1` to `_Level2`, so each shows the level it showed
+before. Checked against the GTASA and Portal 2 split files, whose level counts are the same under both builds;
+not seen live (LIV 125, 126).
+
+Which groups are missing is what the rotation logs and the dashboard column shows in red.
+
+On 2026-10-23 the file moved to the component's release 8 (2026-10-22), which LiveSplit had loaded that day.
+Release 8 empties the files it no longer writes, so the old paths showed blank. The files that compare
+with a comparison moved one folder down, into `CurrentComparison`, which is the comparison selected in
+LiveSplit (it was always the PB before). The level numbers stayed as they were set on 2026-10-17.
+
+| Was | Now |
+|---|---|
+| `CurrentSplit\<level>\Index.txt` (`Current Index`) | `CurrentSplit\<level>\Number.txt`, the split's number from 1, `-` when there is none |
+| `CurrentSplit\<level>\RealTime\RunTime.txt`, `SegmentTime.txt` | `…\RealTime\CurrentComparison\…` |
+| `SplitList\<level>\RealTime\Time_Run_Upcoming.txt`, `Time_Segment_Upcoming.txt`, `Delta_Run.txt`, `Delta_Segment.txt` | `…\RealTime\CurrentComparison\…` |
+| `Run_NoSubsplits`'s `Sign`, `PreviousSplit\AllSplits\RealTime\Sign.txt` | `…\RealTime\CurrentComparison\Sign.txt` |
+
+Names, `Highlight_CurrentSplit`, `Time_Run_Current`, the gold files and `TotalSplits_*` kept their paths.
+Every `Livesplit Generated` path in the file was checked against release 8's file names (the `FILE_…`
+templates in the component's writers). The `AllSplits` ones were also checked against the disk, where each
+held something. The other levels' files weren't on disk, since the splits loaded that day have no subsplits.
+Release 8 also writes the gold files at every level, so Portal2's `Per map: Golds Delta` panel now has
+values. Before, its `SansSubsplits_Level2` gold files were never written. Read in the component, not seen
+(LIV 126).
+
+On 2026-10-25, `Run_NoSubsplits`'s panels took over the files of the sources they show that OBS had kept
+for itself. Release 7's leftovers had been deleted from `Livesplit Generated`, and OBS's missing-files
+prompt had them re-pointed at placeholders.
+- `List On` sets the five `Livesplit: SL Highlights <kind>` sources: `SplitList\AllSplits\RealTime\Highlight_Gold.txt`
+  and the four `…\RealTime\CurrentComparison\Highlight_<kind>.txt`. Being the only sources of their kind,
+  they're set by name, not numbered like the label copies beside them ([Copies](#copies)).
+- `Previous split` sets `Livesplit: Previous Name` (`PreviousSplit\AllSplits\Name.txt`), `Previous Index`
+  (`CurrentSplit\AllSplits\Remaining.txt`, for its "splits remain." label), `Previous Run` and
+  `Previous Segment` (`…\RealTime\CurrentComparison\RunDifference.txt`, `SegmentDifference.txt`) and
+  `Previous Gold` (`…\RealTime\GoldDifference.txt`).
+
+The highlight sources had been renamed from `Livesplit: Splits List Highlights <kind>` the same day; their
+group kept its name.
+
+Also on 2026-10-17, when values stopped carrying over to a fresh copy ([Copies](#copies)), the Run Delta
+panels of `GTA3`, `GTASA`'s `All splits` and `HITMAN`'s `Play session` got their own `SL - Upcoming`, the
+`Time_Run_Upcoming.txt` their Finished at panel uses. They had relied on it carrying over.
 
 The panel rotated once before. In 2022, `SceneManager.cs` (deleted;
 `git show 5f105ef^:StreamAssistant2/SceneManager.cs`) cycled a list of panels per game, and after each
@@ -736,17 +801,21 @@ for coloured ones), and the coloured scene again on 2026-10-13. It wasn't checke
 - `!Scene: Left Panel Colored` holds `_LPC: Splits List Highlights` and `_LPC: Splits Previous Values`,
   plus the whole `!Scene: Left Panel` as an item, for reference while editing. The bot hides that item when a
   rotation starts.
-  - `Splits List Highlights` holds the five `Livesplit: Splits List Highlights <kind>` sources (`Gold`,
-    `AheadGained`, `AheadLost`, `BehindGained`, `BehindLost`). Each reads its
-    `SplitList\AllSplits\RealTime\Highlight_<kind>.txt` and has a `Color Correction 2` filter, which the bot
-    colours, and a `Crop/Pad`.
+  - `Splits List Highlights` holds the five `Livesplit: SL Highlights <kind>` sources (`Gold`,
+    `AheadGained`, `AheadLost`, `BehindGained`, `BehindLost`). Each has a `Color Correction 2` filter, which
+    the bot colours, and a `Crop/Pad`. `List On` sets their files.
   - `Splits Previous Values` holds `Livesplit: Previous Run`, `Segment` and `Gold`, each with a
     `Color Correction` filter, which the bot colours. On 2026-10-13 their `color_multiply` still held
     Streamer.Bot's `%splitColRun%`-style placeholders. It also holds the previous split's name, index and
-    labels.
+    labels. `Previous split` sets the files of all of them but the labels.
+- The LiveSplit sources whose files only OBS sets (checked on 2026-10-25, each reading what LiveSplit writes):
+  `Livesplit: Run ID` (`AttemptCount.txt`), `Livesplit: Timer Run` and `Timer Segment`
+  (`Timers\RealTime\RunTimer.txt`, `SegmentTimer_AllSplits.txt`), all in `Splits Basics`, and
+  `Livesplit: Current Information` (`Text\SpeedGuidesLive.txt`). Every other LiveSplit source is set by its
+  panel before it's shown, so what OBS holds for it doesn't matter.
 - The copies' own sources: `Livesplit: Current …` / `Header Current Split` / `Total Splits` `<n>` in
   `Splits Current <n>`; `Livesplit: SL - Names` / `Highlight` / `Header Left` `<n>` in
   `Splits List Labels <n>`; and `Livesplit: SL - Current` / `Upcoming` / `Header Right` `<n>` in
   `Splits List Values <n>`.
 - The `Livesplit: …` text sources read files that LiveSplit writes under
-  `Stream-Resources\Text\Livesplit Generated\` (last written 2026-07-30).
+  `Stream-Resources\Text\Livesplit Generated\`.

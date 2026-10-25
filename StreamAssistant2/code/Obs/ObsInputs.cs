@@ -249,7 +249,7 @@ namespace StreamAssistant2 {
 			return showing;
 		}
 
-		// The dashboard's lines: a title, then the captures, the filter rows, the texts and images newest first, and the
+		// The dashboard's lines: a title, then the captures, the filter rows, the images and texts by source, and the
 		// rest. A filter row whose group was last hidden is dim, and so is a text or image last found not showing in the
 		// stream layout; the names of sources set to a file (images, and texts read from file) are shortened to fit a line of
 		// width characters
@@ -264,8 +264,8 @@ namespace StreamAssistant2 {
 			Dictionary<string, Entry> volumes = entries.Where(e => e.Kind == Kind.Volume).ToDictionary(e => e.Source);
 			Group(lines, "Captures", CaptureLines(entries.Where(e => e.Kind == Kind.Capture), volumes, nowUtc));
 			Group(lines, "Filters", FilterLines(entries.Where(e => e.Kind == Kind.Filter).ToList(), visible ?? [], nowUtc));
-			Group(lines, "Text", Newest(entries, Kind.Text).Select(e => NotShowing(Line(e, null, nowUtc, width), showing?.GetValueOrDefault(e.Source, true) == false)));
-			Group(lines, "Images", Newest(entries, Kind.Image).Select(e => NotShowing(Line(e, null, nowUtc, width), showing?.GetValueOrDefault(e.Source, true) == false)));
+			Group(lines, "Images", BySource(entries.Where(e => e.Kind == Kind.Image)).Select(e => NotShowing(Line(e, null, nowUtc, width), showing?.GetValueOrDefault(e.Source, true) == false)));
+			Group(lines, "Text", BySource(entries.Where(e => e.Kind == Kind.Text)).Select(e => NotShowing(Line(e, null, nowUtc, width), showing?.GetValueOrDefault(e.Source, true) == false)));
 			Group(lines, "Other", BySource(entries.Where(e => e.Kind == Kind.Other || (e.Kind == Kind.Volume && !captures.Contains(e.Source))))
 				.Select(e => Line(e, null, nowUtc)));
 			return lines;
@@ -293,11 +293,6 @@ namespace StreamAssistant2 {
 		// The entries sorted by source, then setting
 		static IEnumerable<Entry> BySource(IEnumerable<Entry> entries) {
 			return entries.OrderBy(e => e.Source, StringComparer.Ordinal).ThenBy(e => e.Setting, StringComparer.Ordinal);
-		}
-
-		// One kind's entries, the most recently set first
-		static IEnumerable<Entry> Newest(IEnumerable<Entry> entries, Kind kind) {
-			return entries.Where(e => e.Kind == kind).OrderByDescending(e => e.SetUtc).ThenBy(e => e.Source, StringComparer.Ordinal);
 		}
 
 		// Each used capture slot with its volume, then the unused ones together on one dim line; a failed slot stays apart

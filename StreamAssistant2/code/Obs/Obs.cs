@@ -52,6 +52,23 @@ namespace StreamAssistant2 {
 			}
 		}
 
+		/// <summary>
+		/// The names of every input in OBS; null when OBS isn't ready or refuses. Sent as a raw request, like SceneItems.
+		/// </summary>
+		public static List<string>? InputNames() {
+			if (!ObsConnection.IsReady) return null;
+			try {
+				JObject response = _obs.SendRequest("GetInputList", new JObject());
+				if ((response["inputs"] ?? response["responseData"]?["inputs"]) is not JArray inputs) {
+					return null;
+				}
+				return inputs.OfType<JObject>().Select(input => (string?)input["inputName"]).OfType<string>().ToList();
+			}
+			catch (ErrorResponseException) {
+				return null;
+			}
+		}
+
 		public static void SetImageSource(string sourceName, string newFile) {
 			SetInputSetting(sourceName, "file", newFile);
 		}

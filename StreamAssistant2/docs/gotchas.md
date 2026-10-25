@@ -37,9 +37,12 @@ full explanation is. Skim this before making a change you think is small.
 - **There is no scheduler.** Time-based work is a loop in the owning module with its own try/catch.
   ([infrastructure.md](infrastructure.md#periodic-work))
 - **Static state has no locks.** Assume one thread unless you check.
-- **A LiveSplit file's write time doesn't mark every split.** The component (source from 2026-10-15) skips
-  a file whose contents haven't changed and writes the rest on a background thread, so a repeated sign
-  keeps the earlier split's time. ([obs.md](obs.md#splits-from-livesplit))
+- **A LiveSplit file's write time doesn't mark every split.** The component (release 8) skips a file whose
+  contents haven't changed and writes the rest on a background thread, so a repeated sign keeps the
+  earlier split's time. ([obs.md](obs.md#splits-from-livesplit))
+- **A stale LiveSplit path shows blank, not an error.** Release 8 empties every file in its folders that it
+  doesn't write, so a text source or `leftpanel.json` path that a release moved still exists, empty.
+  ([obs.md](obs.md#where-the-data-came-from))
 
 ## Twitch and Helix
 

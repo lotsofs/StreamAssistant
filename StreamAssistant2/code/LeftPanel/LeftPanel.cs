@@ -74,6 +74,11 @@ namespace StreamAssistant2 {
 			/// Setting a colour on a source's filter: the source, the filter, the filter's setting and the OBS colour.
 			/// </summary>
 			internal Action<string, string, string, long> SetFilter { get; init; } = (_, _, _, _) => { };
+
+			/// <summary>
+			/// The names of every input in OBS; null when they can't be listed.
+			/// </summary>
+			internal Func<List<string>?> InputNames { get; init; } = () => null;
 		}
 
 		/// <summary>
@@ -83,13 +88,13 @@ namespace StreamAssistant2 {
 		internal sealed record Layout(
 			Dictionary<string, List<(string Scene, string Item)>> Groups,
 			Dictionary<string, SortedDictionary<int, string>> Families,
-			bool HasReference);
-
-		/// <summary>
-		/// A value the rotation set on a copy source, by the source's name without a number and the setting: the value,
-		/// and the families shown with it.
-		/// </summary>
-		internal sealed record CopyValue(string Value, HashSet<string> Families);
+			bool HasReference) {
+			/// <summary>
+			/// The sources OBS has numbered copies of, without the number ("Livesplit: SL - Names 1" → "Livesplit: SL -
+			/// Names"); null when unknown, which makes every source a panel with families sets a copy source.
+			/// </summary>
+			internal HashSet<string>? CopySources { get; init; }
+		}
 
 		/// <summary>
 		/// What the rotation is showing, for the dashboard: the game, its panels, the loop panel up (or to return to
@@ -122,6 +127,7 @@ namespace StreamAssistant2 {
 		static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
 		static readonly ObsCalls _obsCalls = new(() => ObsConnection.IsReady, Obs.GetSceneItemNames, Obs.SetSourceEnabled, Obs.SetInputSetting, Task.Delay) {
 			SetFilter = (source, filter, property, color) => Obs.SetFilterProperty(source, filter, property, color),
+			InputNames = Obs.InputNames,
 		};
 		static readonly object _stepLock = new();
 		static readonly object _statusLock = new();
@@ -436,7 +442,7 @@ namespace StreamAssistant2 {
 			await Task.Yield();
 			Layout? layout = null;
 			HashSet<string>? up = null;
-			Dictionary<(string Base, string Key), CopyValue> remembered = new();
+			Dictionary<string, int> last = new();
 			int index = 0;
 
 			// Shows one panel, or only Always for null, and reports it; false while OBS isn't ready.
@@ -460,7 +466,7 @@ namespace StreamAssistant2 {
 					if (previous != null && colors != null && set.Sign != null) {
 						ColorPrevious(set.Sign, colors, calls, readText ?? SplitWatcher.ReadText);
 					}
-					var (wanted, settings) = Plan(layout, set.Always, panel, up, remembered);
+					var (wanted, settings) = Plan(layout, set.Always, panel, up, last);
 					var (show, hide) = Transition(up, wanted, layout.Groups.Keys);
 					foreach (var (source, key, value) in settings) {
 						Attempt($"setting the {key} of {source}", () => calls.SetSetting(source, key, value));
@@ -576,15 +582,15 @@ namespace StreamAssistant2 {
 
 		/// <summary>
 		/// What to put up for a panel (null: only Always) with these groups up: the groups wanted, by OBS name, and the
-		/// texts and files to set. A family the panel keeps stays on the copy up; the panel's other families all move to
-		/// the lowest copy number hidden in each of them, avoiding the kept copies' numbers when they can (each to its own
-		/// lowest hidden copy when there's no such number); an Always family keeps the copy up. In a panel with families,
-		/// every source is a copy source: it gets the number of the first family that moves, else of the first kept one
-		/// (in place of any it ends in), and is remembered. Remembered values come along to the new copy when every family
-		/// shown with them is shown again and the panel doesn't set them itself. In a panel without, sources are set as
-		/// written; group names OBS doesn't have are left out.
+		/// texts and files to set. A family the panel keeps stays on the copy up, or, with none up, comes back on the copy
+		/// last records for it; the panel's other families all move to the lowest copy number hidden in each of them,
+		/// avoiding the kept copies' numbers when they can (each to its own lowest hidden copy when there's no such number),
+		/// and last records the copy each moves to; an Always family keeps the copy up. In a panel with families, a copy
+		/// source (one the layout's CopySources has, or any while those are unknown) gets the number of the first family
+		/// that moves, else of the first kept one (in place of any it ends in); other sources, and every source in a panel
+		/// without families, are set as written. Group names OBS doesn't have are left out.
 		/// </summary>
-		internal static (HashSet<string> Wanted, List<(string Source, string Key, string Value)> Settings) Plan(Layout layout, IEnumerable<string> always, Panel? panel, IReadOnlyCollection<string>? up, Dictionary<(string Base, string Key), CopyValue> remembered) {
+		internal static (HashSet<string> Wanted, List<(string Source, string Key, string Value)> Settings) Plan(Layout layout, IEnumerable<string> always, Panel? panel, IReadOnlyCollection<string>? up, Dictionary<string, int> last) {
 			bool IsUp(string group) => up?.Contains(group) == true;
 			HashSet<string> wanted = new();
 			foreach (string name in always) {
@@ -613,9 +619,11 @@ namespace StreamAssistant2 {
 			List<int> kept = new();
 			foreach (string family in families) {
 				SortedDictionary<int, string> copies = layout.Families[family];
-				if (keep.Contains(family) && copies.FirstOrDefault(copy => IsUp(copy.Value)) is { Value: not null } upCopy) {
-					wanted.Add(upCopy.Value);
-					kept.Add(upCopy.Key);
+				int? held = copies.Where(item => IsUp(item.Value)).Select(item => (int?)item.Key).FirstOrDefault()
+					?? (last.TryGetValue(family, out int shown) && copies.ContainsKey(shown) ? shown : null);
+				if (keep.Contains(family) && held is int copy) {
+					wanted.Add(copies[copy]);
+					kept.Add(copy);
 				}
 				else {
 					moving.Add(family);
@@ -631,37 +639,25 @@ namespace StreamAssistant2 {
 					int pick = common is int shared ? shared : copies.Keys.Where(n => !IsUp(copies[n])).DefaultIfEmpty(copies.Keys.First()).First();
 					number ??= pick;
 					wanted.Add(copies[pick]);
+					last[family] = pick;
 				}
 			}
 			number ??= kept.Cast<int?>().FirstOrDefault();
 
-			List<(string Source, string Key, string Value)> settings = new();
-			Dictionary<(string Base, string Key), string> copyValues = new();
-			void Sort(string source, string key, string value) {
-				if (number != null) {
-					copyValues[(Numbered(source) is (string base_, int _) ? base_ : source, key)] = value;
+			// The source itself, or with families a copy source's copy: the number in place of any it ends in.
+			string Target(string source) {
+				string unnumbered = Numbered(source) is (string base_, int _) ? base_ : source;
+				if (number is not int chosen || layout.CopySources?.Contains(unnumbered) == false) {
+					return source;
 				}
-				else {
-					settings.Add((source, key, value));
-				}
+				return $"{unnumbered} {chosen}";
 			}
+			List<(string Source, string Key, string Value)> settings = new();
 			foreach (var (source, text) in panel?.Text ?? []) {
-				Sort(source, "text", text);
+				settings.Add((Target(source), "text", text));
 			}
 			foreach (var (source, file) in panel?.File ?? []) {
-				Sort(source, "file", file);
-			}
-			if (number is int chosen) {
-				HashSet<string> shown = new(families);
-				foreach (var ((base_, key), value) in copyValues) {
-					settings.Add(($"{base_} {chosen}", key, value));
-					remembered[(base_, key)] = new CopyValue(value, shown);
-				}
-				foreach (var ((base_, key), copy) in remembered) {
-					if (!copyValues.ContainsKey((base_, key)) && copy.Families.IsSubsetOf(shown)) {
-						settings.Add(($"{base_} {chosen}", key, copy.Value));
-					}
-				}
+				settings.Add((Target(source), "file", file));
 			}
 			return (wanted, settings);
 		}
@@ -733,8 +729,8 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// What OBS has for the left panel, read once per rotation: the groups in both scenes and the copies among them.
-		/// Logs the set's groups that aren't there.
+		/// What OBS has for the left panel, read once per rotation: the groups in both scenes and the copies among them, and
+		/// the sources with numbered copies. Logs the set's groups that aren't there.
 		/// </summary>
 		static Layout FindLayout(string gameName, PanelSet set, ObsCalls calls) {
 			Dictionary<string, List<(string Scene, string Item)>> groups = new();
@@ -762,7 +758,10 @@ namespace StreamAssistant2 {
 					copies[number] = group;
 				}
 			}
-			Layout layout = new(groups, families, hasReference);
+			List<string>? inputs = null;
+			Attempt("listing OBS's inputs", () => inputs = calls.InputNames());
+			HashSet<string>? copySources = inputs?.Select(input => Numbered(input)?.Base).OfType<string>().ToHashSet();
+			Layout layout = new(groups, families, hasReference) { CopySources = copySources };
 			List<string> missing = Missing(set, name => Exists(layout, name));
 			if (missing.Count > 0) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Left panel: {gameName} has groups OBS doesn't: {string.Join(", ", missing)}");

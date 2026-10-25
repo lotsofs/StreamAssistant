@@ -6,29 +6,29 @@ namespace StreamAssistant2.Tests {
 		const string N = "None", P = "LabelPositive", M = "LabelNegative", G = "LabelGold";
 
 		[Theory]
-		[InlineData("Undetermined", N, N, N)]
 		[InlineData("NotApplicable", N, N, N)]
 		[InlineData("Ahead", P, N, N)]
 		[InlineData("Behind", M, N, N)]
-		[InlineData("Gained", N, P, N)]
-		[InlineData("Lost", N, M, N)]
-		[InlineData("Gold", N, G, G)]
 		[InlineData("GainedAhead", P, P, N)]
 		[InlineData("GainedBehind", M, P, N)]
 		[InlineData("LostAhead", P, M, N)]
 		[InlineData("LostBehind", M, M, N)]
 		[InlineData("GoldAhead", P, G, G)]
 		[InlineData("GoldBehind", M, G, G)]
-		[InlineData("PB", P, N, N)]
-		[InlineData("NoPB", M, N, N)]
-		[InlineData("PBGained", P, P, N)]
-		[InlineData("PBLost", P, N, N)]
-		[InlineData("PBGold", P, G, G)]
-		[InlineData("NoPBGained", M, P, N)]
-		[InlineData("NoPBLost", M, M, N)]
-		[InlineData("NoPBGold", M, G, G)]
+		[InlineData("FinishedNotApplicable", N, N, N)]
+		[InlineData("FinishedAhead", P, N, N)]
+		[InlineData("FinishedBehind", M, N, N)]
+		[InlineData("FinishedGainedAhead", P, P, N)]
+		[InlineData("FinishedGainedBehind", M, P, N)]
+		[InlineData("FinishedLostAhead", P, M, N)]
+		[InlineData("FinishedLostBehind", M, M, N)]
+		[InlineData("FinishedGoldAhead", P, G, G)]
+		[InlineData("FinishedGoldBehind", M, G, G)]
 		[InlineData("goldahead\r\n", P, G, G)]
 		[InlineData("  Behind ", M, N, N)]
+		[InlineData(" finishedlostahead\r\n", P, M, N)]
+		[InlineData("Finished", N, N, N)]
+		[InlineData("PBGold", N, N, N)]
 		[InlineData("Sideways", N, N, N)]
 		[InlineData("", N, N, N)]
 		[InlineData(null, N, N, N)]
@@ -37,28 +37,26 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Theory]
-		[InlineData("Gold", "Gold")]
 		[InlineData("GoldAhead", "Gold")]
 		[InlineData("GoldBehind", "Gold")]
-		[InlineData("PBGold", "Gold")]
-		[InlineData("NoPBGold", "Gold")]
+		[InlineData("FinishedGoldAhead", "Gold")]
+		[InlineData("FinishedGoldBehind", "Gold")]
 		[InlineData("Ahead", "Ahead")]
 		[InlineData("GainedAhead", "Ahead")]
 		[InlineData("LostAhead", "Ahead")]
-		[InlineData("PB", "Ahead")]
-		[InlineData("PBGained", "Ahead")]
-		[InlineData("PBLost", "Ahead")]
+		[InlineData("FinishedAhead", "Ahead")]
+		[InlineData("FinishedGainedAhead", "Ahead")]
+		[InlineData("FinishedLostAhead", "Ahead")]
 		[InlineData("Behind", "Behind")]
 		[InlineData("GainedBehind", "Behind")]
 		[InlineData("LostBehind", "Behind")]
-		[InlineData("NoPB", "Behind")]
-		[InlineData("NoPBGained", "Behind")]
-		[InlineData("NoPBLost", "Behind")]
+		[InlineData("FinishedBehind", "Behind")]
+		[InlineData("FinishedGainedBehind", "Behind")]
+		[InlineData("FinishedLostBehind", "Behind")]
 		[InlineData(" lostbehind\r\n", "Behind")]
-		[InlineData("Gained", null)]
-		[InlineData("Lost", null)]
 		[InlineData("NotApplicable", null)]
-		[InlineData("Undetermined", null)]
+		[InlineData("FinishedNotApplicable", null)]
+		[InlineData("PB", null)]
 		[InlineData("", null)]
 		[InlineData(null, null)]
 		public void Trend_GoldFirst_ThenTheRunsSide(string? sign, string? trend) {
@@ -77,7 +75,10 @@ namespace StreamAssistant2.Tests {
 		[InlineData("Ahead", "BlueTeam")]
 		[InlineData("LostBehind", "RedTeam")]
 		[InlineData("GoldAhead", "Element")]
+		[InlineData("FinishedGoldBehind", "Element")]
+		[InlineData("FinishedLostAhead", "BlueTeam")]
 		[InlineData("NotApplicable", "Menu")]
+		[InlineData("FinishedNotApplicable", "Menu")]
 		[InlineData(null, "Menu")]
 		public void ChooseScheme_TheTrendsScheme_ElseTheDefault(string? sign, string scheme) {
 			Assert.Equal(scheme, GameColor.ChooseScheme(Swat4, sign));
@@ -126,9 +127,9 @@ namespace StreamAssistant2.Tests {
 		[Fact]
 		public void HighlightFilters_EachHighlightWithAColour_OnColorCorrection2() {
 			Assert.Equal([
-				new("Livesplit: Splits List Highlights Gold", "Color Correction 2", "color_multiply", ColorUtil.ToOBS("#ffc800")),
-				new("Livesplit: Splits List Highlights AheadGained", "Color Correction 2", "color_multiply", ColorUtil.ToOBS("#000086")),
-				new SplitColors.FilterColor("Livesplit: Splits List Highlights BehindLost", "Color Correction 2", "color_multiply", ColorUtil.ToOBS("#af0000")),
+				new("Livesplit: SL Highlights Gold", "Color Correction 2", "color_multiply", ColorUtil.ToOBS("#ffc800")),
+				new("Livesplit: SL Highlights AheadGained", "Color Correction 2", "color_multiply", ColorUtil.ToOBS("#000086")),
+				new SplitColors.FilterColor("Livesplit: SL Highlights BehindLost", "Color Correction 2", "color_multiply", ColorUtil.ToOBS("#af0000")),
 			], SplitColors.HighlightFilters(Colors));
 		}
 

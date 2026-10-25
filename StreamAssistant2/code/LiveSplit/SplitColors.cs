@@ -15,14 +15,16 @@ namespace StreamAssistant2 {
 		const string POSITIVE = "LabelPositive";
 		const string NEGATIVE = "LabelNegative";
 		const string GOLD = "LabelGold";
+		// What LiveSplit puts in front of a sign at the finish
+		const string FINISHED = "finished";
 
 		// The split list highlight sources and the split colour each takes
 		internal static readonly (string Source, string Key)[] Highlights = [
-			("Livesplit: Splits List Highlights Gold", "ListGold"),
-			("Livesplit: Splits List Highlights AheadGained", "ListGainedAhead"),
-			("Livesplit: Splits List Highlights AheadLost", "ListLostAhead"),
-			("Livesplit: Splits List Highlights BehindGained", "ListGainedBehind"),
-			("Livesplit: Splits List Highlights BehindLost", "ListLostBehind"),
+			("Livesplit: SL Highlights Gold", "ListGold"),
+			("Livesplit: SL Highlights AheadGained", "ListGainedAhead"),
+			("Livesplit: SL Highlights AheadLost", "ListLostAhead"),
+			("Livesplit: SL Highlights BehindGained", "ListGainedBehind"),
+			("Livesplit: SL Highlights BehindLost", "ListLostBehind"),
 		];
 
 		/// <summary>
@@ -66,44 +68,41 @@ namespace StreamAssistant2 {
 
 		/// <summary>
 		/// The split colour keys for the previous split's run, segment and gold differences, by LiveSplit's sign (any case,
-		/// trimmed); None for each with an unknown or blank sign.
+		/// trimmed, a finish's like the same sign during the run); None for each with an unknown or blank sign.
 		/// </summary>
 		internal static (string Run, string Segment, string Gold) SignKeys(string? sign) {
-			return sign?.Trim().ToLowerInvariant() switch {
+			return InRun(sign) switch {
 				"ahead" => (POSITIVE, NONE, NONE),
-				"gained" => (NONE, POSITIVE, NONE),
-				"gainedahead" => (POSITIVE, POSITIVE, NONE),
-				"lostahead" => (POSITIVE, NEGATIVE, NONE),
 				"behind" => (NEGATIVE, NONE, NONE),
-				"lost" => (NONE, NEGATIVE, NONE),
+				"gainedahead" => (POSITIVE, POSITIVE, NONE),
 				"gainedbehind" => (NEGATIVE, POSITIVE, NONE),
+				"lostahead" => (POSITIVE, NEGATIVE, NONE),
 				"lostbehind" => (NEGATIVE, NEGATIVE, NONE),
-				"nopb" => (NEGATIVE, NONE, NONE),
-				"nopbgained" => (NEGATIVE, POSITIVE, NONE),
-				"nopblost" => (NEGATIVE, NEGATIVE, NONE),
-				"gold" => (NONE, GOLD, GOLD),
 				"goldahead" => (POSITIVE, GOLD, GOLD),
 				"goldbehind" => (NEGATIVE, GOLD, GOLD),
-				"pb" => (POSITIVE, NONE, NONE),
-				"pbgained" => (POSITIVE, POSITIVE, NONE),
-				"pblost" => (POSITIVE, NONE, NONE),
-				"pbgold" => (POSITIVE, GOLD, GOLD),
-				"nopbgold" => (NEGATIVE, GOLD, GOLD),
 				_ => (NONE, NONE, NONE),
 			};
 		}
 
 		/// <summary>
-		/// The trend of LiveSplit's sign (any case, trimmed): Gold for any gold, else Ahead or Behind by the run (a PB
-		/// counts as ahead, no PB as behind); null when the sign says neither.
+		/// The trend of LiveSplit's sign (any case, trimmed, a finish's like the same sign during the run): Gold for a gold,
+		/// else Ahead or Behind by the run; null when the sign says neither.
 		/// </summary>
 		internal static string? Trend(string? sign) {
-			return sign?.Trim().ToLowerInvariant() switch {
-				"gold" or "goldahead" or "goldbehind" or "pbgold" or "nopbgold" => "Gold",
-				"ahead" or "gainedahead" or "lostahead" or "pb" or "pbgained" or "pblost" => "Ahead",
-				"behind" or "gainedbehind" or "lostbehind" or "nopb" or "nopbgained" or "nopblost" => "Behind",
+			return InRun(sign) switch {
+				"goldahead" or "goldbehind" => "Gold",
+				"ahead" or "gainedahead" or "lostahead" => "Ahead",
+				"behind" or "gainedbehind" or "lostbehind" => "Behind",
 				_ => null,
 			};
+		}
+
+		/// <summary>
+		/// The sign trimmed, in lower case and without a finish's leading "finished"; null for none.
+		/// </summary>
+		static string? InRun(string? sign) {
+			string? trimmed = sign?.Trim().ToLowerInvariant();
+			return trimmed != null && trimmed.StartsWith(FINISHED, StringComparison.Ordinal) ? trimmed[FINISHED.Length..] : trimmed;
 		}
 
 		/// <summary>

@@ -215,7 +215,7 @@ colours LiveSplit's split sources through `SplitColors`. See [obs.md](obs.md#lef
 ### `code/LiveSplit/`
 
 [SplitWatcher.cs](../code/LiveSplit/SplitWatcher.cs): watches LiveSplit's split index
-(`<LivesplitGenerated>\CurrentSplit\AllSplits\Index.txt`) and calls `LeftPanel.OnSplit` when it rises by one
+(from `Number.txt` and `Completed.txt` in `<LivesplitGenerated>\CurrentSplit\AllSplits`) and calls `LeftPanel.OnSplit` when it rises by one
 split. See [obs.md](obs.md#splits-from-livesplit).
 
 [SplitColors.cs](../code/LiveSplit/SplitColors.cs): a game's split colours from `gameschemes.json` (over

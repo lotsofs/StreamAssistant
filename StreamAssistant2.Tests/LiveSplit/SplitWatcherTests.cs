@@ -20,6 +20,25 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Theory]
+		[InlineData("-", "0", -1)]
+		[InlineData("1", "0", 0)]
+		[InlineData("4", "3", 3)]
+		[InlineData("-", "20", 20)]
+		[InlineData(" 4\r\n", "3", 3)]
+		[InlineData(" -\r\n", " 20\r\n", 20)]
+		[InlineData("4", null, 3)]
+		[InlineData("4", "", 3)]
+		[InlineData("-", "", null)]
+		[InlineData("-", "-", null)]
+		[InlineData("-", null, null)]
+		[InlineData("", "3", null)]
+		[InlineData("x", "3", null)]
+		[InlineData(null, "3", null)]
+		public void Index_TheNumberLessOne_ElseTheFinishedCount_ElseBeforeARun(string? number, string? completed, int? expected) {
+			Assert.Equal(expected, SplitWatcher.Index(number, completed));
+		}
+
+		[Theory]
 		[InlineData("-", true)]
 		[InlineData(" -\r\n", true)]
 		[InlineData("1:23.45", false)]
