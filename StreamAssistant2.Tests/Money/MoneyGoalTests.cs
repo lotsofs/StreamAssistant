@@ -24,7 +24,7 @@ namespace StreamAssistant2.Tests {
 
 		[Fact]
 		public void DefaultGoal_Is999() {
-			Assert.Equal("0 / 999 EUR", MoneyGoal.Text(0, MoneyGoal.DEFAULT_GOAL_CENTS));
+			Assert.Equal("0 / 999 EUR", MoneyGoal.Text(0, MoneyGoal.DefaultGoalCents));
 		}
 
 		[Theory]

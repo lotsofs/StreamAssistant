@@ -19,7 +19,7 @@ namespace StreamAssistant2 {
 		/// table from before, and a folder that can't be listed keeps them all.
 		/// </summary>
 		public static void LoadTables() {
-			string[]? files = Coloring.ListFiles(Config.Data.Directories.Colors);
+			string[]? files = Coloring.ListFiles(Settings.Data.Directories.Colors);
 			if (files == null) {
 				return;
 			}

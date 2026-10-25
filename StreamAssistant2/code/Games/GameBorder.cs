@@ -1,8 +1,5 @@
 namespace StreamAssistant2 {
 	internal static class GameBorder {
-		const string INNER = "Border: Colorable Inner";
-		const string OUTER = "Border: Colorable Outer";
-		const string TWIN = " (Transitionary)";
 		const string DEFAULT_ASPECT = "16x9";
 		const string INNER_FILE = "Borders_Inner";
 		const string OUTER_FILE = "Borders_Outer";
@@ -12,20 +9,21 @@ namespace StreamAssistant2 {
 		/// ones; leaves them when neither pair is there. An OBS failure is logged, not thrown.
 		/// </summary>
 		internal static void Set(Games.Game game) {
-			string directory = Config.Data.Directories.Layout;
+			string directory = Settings.Data.Directories.Layout;
 			if (string.IsNullOrEmpty(directory)) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "Layout not set in paths.json, borders left as is");
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "Layout not set in settings.json, borders left as is");
 				return;
 			}
 			if (Files(directory, game.Aspect, File.Exists) is not var (inner, outer)) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No border images for {game.Name}, borders left as is");
 				return;
 			}
+			LayoutSettings layout = Settings.Data.Layout;
 			try {
-				Obs.SetImageSource(INNER, inner);
-				Obs.SetImageSource(OUTER, outer);
-				Obs.SetImageSource(INNER + TWIN, inner);
-				Obs.SetImageSource(OUTER + TWIN, outer);
+				Obs.SetImageSource(layout.InnerBorder, inner);
+				Obs.SetImageSource(layout.OuterBorder, outer);
+				Obs.SetImageSource(layout.Twin(layout.InnerBorder), inner);
+				Obs.SetImageSource(layout.Twin(layout.OuterBorder), outer);
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"Borders → {Path.GetFileName(inner)}, {Path.GetFileName(outer)}");
 			}
 			catch (Exception ex) {

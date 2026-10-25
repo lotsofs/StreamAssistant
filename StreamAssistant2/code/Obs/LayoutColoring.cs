@@ -4,16 +4,6 @@ namespace StreamAssistant2 {
 	internal static class LayoutColoring {
 		public record ColorRequest(string Inner, string Outer, string Text);
 
-		internal const string FILTER = "Color Correction";
-		const string LAYOUT_PREFIX = "!Scene: Layout ";
-		internal const string COLORABLES = "!Layout: Colorables";
-		internal const string TWIN = " (Transitionary)";
-		internal const string INNER = "Border: Colorable Inner";
-		internal const string INNER_ATTACHMENT = "Border: Colorable Inner Attachment";
-		internal const string OUTER = "Border: Colorable Outer";
-		internal const string OUTER_ATTACHMENT = "Border: Colorable Outer Attachment";
-		internal const string TEXT_SCENE = "!Scene: All Colorable";
-
 		static readonly Channel<ColorRequest> _colorChangeQueue = Channel.CreateUnbounded<ColorRequest>();
 
 		static bool _running = false;
@@ -89,20 +79,21 @@ namespace StreamAssistant2 {
 		/// </summary>
 		static async Task ChangeColorAsync(ColorRequest req) {
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"Changing layout color to {ColorUtil.ToOBS(req.Inner)} {ColorUtil.ToOBS(req.Outer)} {ColorUtil.ToOBS(req.Text)}");
-			List<string> layouts = LayoutScenes(Obs.GetSceneNames());
+			LayoutSettings layout = Settings.Data.Layout;
+			List<string> layouts = LayoutScenes(Obs.GetSceneNames(), layout);
 			if (layouts.Count == 0 && ObsConnection.IsConnected()) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {LAYOUT_PREFIX}<aspect> scenes, layout colour changes without the fade");
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {layout.LayoutScenePrefix} <aspect> scenes, layout colour changes without the fade");
 			}
 
-			SetFilters(Filters(req, twins: true));
-			Toggle(layouts, COLORABLES + TWIN, true);
-			await Task.Delay(5500);
-			Toggle(layouts, COLORABLES, false);
-			await Task.Delay(2500);
-			SetFilters(Filters(req, twins: false));
-			await Task.Delay(1000);
-			Toggle(layouts, COLORABLES, true);
-			Toggle(layouts, COLORABLES + TWIN, false);
+			SetFilters(Filters(req, twins: true, layout), layout.Filter);
+			Toggle(layouts, layout.Twin(layout.Colorables), true);
+			await Task.Delay(TimeSpan.FromSeconds(layout.ShowTwinsSeconds));
+			Toggle(layouts, layout.Colorables, false);
+			await Task.Delay(TimeSpan.FromSeconds(layout.HideRealSeconds));
+			SetFilters(Filters(req, twins: false, layout), layout.Filter);
+			await Task.Delay(TimeSpan.FromSeconds(layout.RecolorSeconds));
+			Toggle(layouts, layout.Colorables, true);
+			Toggle(layouts, layout.Twin(layout.Colorables), false);
 		}
 
 		/// <summary>
@@ -110,34 +101,36 @@ namespace StreamAssistant2 {
 		/// attachment multiply by the inner colour, the outer ones add the outer colour, and the colourable scene
 		/// multiplies by the text colour.
 		/// </summary>
-		internal static List<(string Source, string Property, long Color)> Filters(ColorRequest req, bool twins) {
-			string twin = twins ? TWIN : "";
+		internal static List<(string Source, string Property, long Color)> Filters(ColorRequest req, bool twins, LayoutSettings? layout = null) {
+			layout ??= Settings.Data.Layout;
+			Func<string, string> name = twins ? layout.Twin : source => source;
 			long inner = ColorUtil.ToOBS(req.Inner);
 			long outer = ColorUtil.ToOBS(req.Outer);
 			long text = ColorUtil.ToOBS(req.Text);
 			return [
-				(INNER + twin, "color_multiply", inner),
-				(INNER_ATTACHMENT + twin, "color_multiply", inner),
-				(OUTER + twin, "color_add", outer),
-				(OUTER_ATTACHMENT + twin, "color_add", outer),
-				(TEXT_SCENE + twin, "color_multiply", text),
+				(name(layout.InnerBorder), "color_multiply", inner),
+				(name(layout.InnerAttachment), "color_multiply", inner),
+				(name(layout.OuterBorder), "color_add", outer),
+				(name(layout.OuterAttachment), "color_add", outer),
+				(name(layout.TextScene), "color_multiply", text),
 			];
 		}
 
 		/// <summary>
-		/// The layout scenes among the scene names: those named "!Scene: Layout &lt;aspect&gt;".
+		/// The layout scenes among the scene names: those named "&lt;layout scene prefix&gt; &lt;aspect&gt;".
 		/// </summary>
-		internal static List<string> LayoutScenes(IEnumerable<string> scenes) {
-			return scenes.Where(scene => scene.StartsWith(LAYOUT_PREFIX, StringComparison.Ordinal)).ToList();
+		internal static List<string> LayoutScenes(IEnumerable<string> scenes, LayoutSettings? layout = null) {
+			string prefix = (layout ?? Settings.Data.Layout).LayoutScenePrefix + " ";
+			return scenes.Where(scene => scene.StartsWith(prefix, StringComparison.Ordinal)).ToList();
 		}
 
 		/// <summary>
 		/// Sets each colour on its source's colour filter, logging any that fails.
 		/// </summary>
-		static void SetFilters(List<(string Source, string Property, long Color)> filters) {
+		static void SetFilters(List<(string Source, string Property, long Color)> filters, string filter) {
 			foreach (var (source, property, color) in filters) {
 				try {
-					Obs.SetFilterProperty(source, FILTER, property, color);
+					Obs.SetFilterProperty(source, filter, property, color);
 				}
 				catch (Exception ex) {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Couldn't colour {source}: {ex.Message}");

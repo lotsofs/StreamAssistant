@@ -37,40 +37,44 @@ namespace StreamAssistant2 {
 
 		// The filter rows, each with the group that shows its sources: the layout colours, their fade twins, the split
 		// list highlights and the previous split
-		static readonly (string Label, string Group, ChipSpec[] Chips)[] _filterRows = [
-			("Layout", LayoutColoring.COLORABLES, LayoutChips("")),
-			("Fade", LayoutColoring.COLORABLES + LayoutColoring.TWIN, LayoutChips(LayoutColoring.TWIN)),
-			("Highlights", SplitColors.HIGHLIGHT_GROUP, [
-				new("AG", Highlight("ListGainedAhead"), SplitColors.HIGHLIGHT_FILTER),
-				new("AL", Highlight("ListLostAhead"), SplitColors.HIGHLIGHT_FILTER),
-				new("BG", Highlight("ListGainedBehind"), SplitColors.HIGHLIGHT_FILTER),
-				new("BL", Highlight("ListLostBehind"), SplitColors.HIGHLIGHT_FILTER),
-				new("Au", Highlight("ListGold"), SplitColors.HIGHLIGHT_FILTER),
-			]),
-			("Previous", SplitColors.PREVIOUS_GROUP, [
-				new("Run", SplitColors.PREVIOUS_RUN, SplitColors.PREVIOUS_FILTER),
-				new("Seg", SplitColors.PREVIOUS_SEGMENT, SplitColors.PREVIOUS_FILTER),
-				new("Au", SplitColors.PREVIOUS_GOLD, SplitColors.PREVIOUS_FILTER),
-			]),
-		];
+		static (string Label, string Group, ChipSpec[] Chips)[] FilterRows() {
+			LayoutSettings layout = Settings.Data.Layout;
+			SplitColorsSettings split = Settings.Data.SplitColors;
+			return [
+				("Layout", layout.Colorables, LayoutChips(layout, source => source)),
+				("Fade", layout.Twin(layout.Colorables), LayoutChips(layout, layout.Twin)),
+				("Highlights", split.HighlightGroup, [
+					new("AG", split.HighlightAheadGained, split.HighlightFilter),
+					new("AL", split.HighlightAheadLost, split.HighlightFilter),
+					new("BG", split.HighlightBehindGained, split.HighlightFilter),
+					new("BL", split.HighlightBehindLost, split.HighlightFilter),
+					new("Au", split.HighlightGold, split.HighlightFilter),
+				]),
+				("Previous", split.PreviousGroup, [
+					new("Run", split.PreviousRun, split.PreviousFilter),
+					new("Seg", split.PreviousSegment, split.PreviousFilter),
+					new("Au", split.PreviousGold, split.PreviousFilter),
+				]),
+			];
+		}
 
 		// Sources that join their main source's swatch when set to the same colour
-		static readonly (string Attachment, string Main)[] _attachments = [
-			(LayoutColoring.INNER_ATTACHMENT, LayoutColoring.INNER),
-			(LayoutColoring.OUTER_ATTACHMENT, LayoutColoring.OUTER),
-			(LayoutColoring.INNER_ATTACHMENT + LayoutColoring.TWIN, LayoutColoring.INNER + LayoutColoring.TWIN),
-			(LayoutColoring.OUTER_ATTACHMENT + LayoutColoring.TWIN, LayoutColoring.OUTER + LayoutColoring.TWIN),
-		];
+		static (string Attachment, string Main)[] Attachments() {
+			LayoutSettings layout = Settings.Data.Layout;
+			return [
+				(layout.InnerAttachment, layout.InnerBorder),
+				(layout.OuterAttachment, layout.OuterBorder),
+				(layout.Twin(layout.InnerAttachment), layout.Twin(layout.InnerBorder)),
+				(layout.Twin(layout.OuterAttachment), layout.Twin(layout.OuterBorder)),
+			];
+		}
 
-		// The inner, outer and text swatches, of the real sources or their twins
-		static ChipSpec[] LayoutChips(string twin) => [
-			new("In", LayoutColoring.INNER + twin, LayoutColoring.FILTER),
-			new("Out", LayoutColoring.OUTER + twin, LayoutColoring.FILTER),
-			new("Txt", LayoutColoring.TEXT_SCENE + twin, LayoutColoring.FILTER),
+		// The inner, outer and text swatches, of the real sources or (by name) their twins
+		static ChipSpec[] LayoutChips(LayoutSettings layout, Func<string, string> name) => [
+			new("In", name(layout.InnerBorder), layout.Filter),
+			new("Out", name(layout.OuterBorder), layout.Filter),
+			new("Txt", name(layout.TextScene), layout.Filter),
 		];
-
-		// The split list highlight source that takes a split colour key
-		static string Highlight(string key) => SplitColors.Highlights.First(h => h.Key == key).Source;
 
 		// The last entry per source and setting
 		internal sealed class Store {
@@ -211,7 +215,7 @@ namespace StreamAssistant2 {
 		static async Task WatchShowingAsync() {
 			while (true) {
 				try {
-					if (ObsConnection.IsReady && ShowingIn(GameScene.STREAM, Obs.SceneItems) is HashSet<string> showing) {
+					if (ObsConnection.IsReady && ShowingIn(GameScene.Stream, Obs.SceneItems) is HashSet<string> showing) {
 						foreach (string source in Current.Snapshot().Where(e => e.Kind is Kind.Image or Kind.Text).Select(e => e.Source).Distinct()) {
 							Current.SetShowing(source, showing.Contains(source));
 						}
@@ -276,7 +280,7 @@ namespace StreamAssistant2 {
 			if (!notShowing || line.Kind != LineKind.Item) {
 				return line;
 			}
-			string note = $"not showing in {GameScene.STREAM}";
+			string note = $"not showing in {GameScene.Stream}";
 			return line with { Kind = LineKind.Dim, ToolTip = line.ToolTip == null ? note : $"{line.ToolTip}{Environment.NewLine}{note}" };
 		}
 
@@ -334,7 +338,8 @@ namespace StreamAssistant2 {
 			}
 			HashSet<Entry> shown = new();
 			List<StatusLine> lines = [];
-			foreach (var (label, group, specs) in _filterRows) {
+			var attachments = Attachments();
+			foreach (var (label, group, specs) in FilterRows()) {
 				bool hidden = !IsShown(group, visible);
 				string hiddenNote = hidden ? $"{Environment.NewLine}{group} hidden" : "";
 				List<Chip> chips = [];
@@ -346,7 +351,7 @@ namespace StreamAssistant2 {
 					}
 					shown.Add(entry);
 					string toolTip = Undated(entry);
-					foreach (var (attachment, _) in _attachments.Where(a => a.Main == spec.Source)) {
+					foreach (var (attachment, _) in attachments.Where(a => a.Main == spec.Source)) {
 						if (byFilter.TryGetValue((attachment, spec.Filter), out Entry? joined) && joined.Error == null && joined.Value == entry.Value) {
 							shown.Add(joined);
 							toolTip += Environment.NewLine + Undated(joined);

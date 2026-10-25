@@ -117,10 +117,12 @@ namespace StreamAssistant2 {
 
 		const string PANELS_FILE = "leftpanel.json";
 		const string DEFAULT_KEY = "default";
-		const string PREFIX = "_LP: ";
-		const string PREFIX_COLORED = "_LPC: ";
-		const string SCENE = "!Scene: Left Panel";
-		const string SCENE_COLORED = "!Scene: Left Panel Colored";
+
+		/// <summary>
+		/// The left-panel scene, and the coloured one.
+		/// </summary>
+		static string Scene => Settings.Data.LeftPanel.Scene;
+		static string SceneColored => Settings.Data.LeftPanel.ColoredScene;
 
 		internal static readonly TimeSpan OBS_WAIT = TimeSpan.FromSeconds(5);
 
@@ -271,7 +273,7 @@ namespace StreamAssistant2 {
 			List<string> groups = new();
 			foreach (string? name in names ?? []) {
 				string trimmed = name?.Trim() ?? "";
-				string group = (GroupName(trimmed, SCENE) ?? GroupName(trimmed, SCENE_COLORED) ?? trimmed).Trim();
+				string group = (GroupName(trimmed, Scene) ?? GroupName(trimmed, SceneColored) ?? trimmed).Trim();
 				if (group.Length > 0) {
 					groups.Add(group);
 				}
@@ -463,7 +465,7 @@ namespace StreamAssistant2 {
 					if (layout == null) {
 						layout = FindLayout(gameName, set, calls);
 						if (layout.HasReference) {
-							Attempt($"hiding {SCENE} in {SCENE_COLORED}", () => calls.SetEnabled(SCENE_COLORED, SCENE, false));
+							Attempt($"hiding {Scene} in {SceneColored}", () => calls.SetEnabled(SceneColored, Scene, false));
 						}
 						if (colors != null) {
 							SetFilters(SplitColors.HighlightFilters(colors), calls);
@@ -729,9 +731,10 @@ namespace StreamAssistant2 {
 		/// any other item, including the other scene's prefix.
 		/// </summary>
 		internal static string? GroupName(string item, string scene) {
-			string? prefix = scene == SCENE ? PREFIX : scene == SCENE_COLORED ? PREFIX_COLORED : null;
-			if (prefix != null && item.StartsWith(prefix, StringComparison.Ordinal)) {
-				return item[prefix.Length..];
+			LeftPanelSettings settings = Settings.Data.LeftPanel;
+			string? prefix = scene == settings.Scene ? settings.Prefix : scene == settings.ColoredScene ? settings.ColoredPrefix : null;
+			if (prefix != null && item.StartsWith(prefix + " ", StringComparison.Ordinal)) {
+				return item[(prefix.Length + 1)..];
 			}
 			return null;
 		}
@@ -743,11 +746,11 @@ namespace StreamAssistant2 {
 		static Layout FindLayout(string gameName, PanelSet set, ObsCalls calls) {
 			Dictionary<string, List<(string Scene, string Item)>> groups = new();
 			bool hasReference = false;
-			foreach (string scene in new[] { SCENE, SCENE_COLORED }) {
+			foreach (string scene in new[] { Scene, SceneColored }) {
 				List<string> items = [];
 				Attempt($"listing {scene}", () => items = calls.SceneItems(scene));
 				foreach (string item in items) {
-					hasReference |= scene == SCENE_COLORED && item == SCENE;
+					hasReference |= scene == SceneColored && item == Scene;
 					if (GroupName(item, scene) is not string group) {
 						continue;
 					}

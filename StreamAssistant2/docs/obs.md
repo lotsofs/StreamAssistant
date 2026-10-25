@@ -65,9 +65,9 @@ connected.
 
 None of them catch: a refusal is recorded, then rethrown. A missing scene, source or filter name makes the library throw. That is handled
 for colour changes (the worker logs `Error Obs29`) but not for the train reward, where it ends the
-reward's task silently and can leave the train image showing. All names are hardcoded strings,
-listed in [reference.md](reference.md#obs-names); renaming something in OBS breaks the matching call
-without any compile-time hint.
+reward's task silently and can leave the train image showing. All names are strings in
+`settings.json`, listed in [reference.md](reference.md#layout) and the sections after it; renaming something
+in OBS breaks the matching call until its setting is changed too, without any warning beforehand.
 
 ## Layout recolouring
 
@@ -119,15 +119,16 @@ colour filters take) and then:
 | t | Step |
 |---|---|
 | 0 s | Set the **Transitionary** filters to the new colours (`Filters`, tested). Enable `Colorables (Transitionary)` in each layout scene |
-| +5.5 s | Disable the real `Colorables` group |
-| +2.5 s | Set the **real** filters to the new colours (the group is hidden, so nothing shows) |
-| +1.0 s | Enable the real `Colorables` group; disable the transitionary one |
+| +5.5 s (`Layout.ShowTwinsSeconds`) | Disable the real `Colorables` group |
+| +2.5 s (`Layout.HideRealSeconds`) | Set the **real** filters to the new colours (the group is hidden, so nothing shows) |
+| +1.0 s (`Layout.RecolorSeconds`) | Enable the real `Colorables` group; disable the transitionary one |
 
 The cross-fade itself is done by OBS's show and hide transitions on those scene items, configured in
-OBS and invisible from this code. The visible effect is the old colour fading into the new one while
-the real group is swapped underneath.
+OBS and invisible from this code; the three waits are settings so they can follow those transitions.
+The visible effect is the old colour fading into the new one while the real group is swapped underneath.
+Each request reads the `Layout` settings once at its start.
 
-Total: 9 s per request. Ten colour redemptions in a row take 90 s to play out.
+Total: 9 s per request with the defaults. Ten colour redemptions in a row take 90 s to play out.
 
 ### With OBS closed
 
@@ -138,8 +139,8 @@ and still announces in chat as though it happened. Read, not reproduced.
 ## Train
 
 The train reward ([events.md](events.md#channel-point-rewards)) shows a PNG over the layout: it sets the
-`Image: Train` input's file, enables it in `!Scene: Basics Colored`, waits 62 s, disables it and resets
-the file to `Empty.png`. It bypasses `LayoutColoring`'s queue entirely. The entry point is
+`Image: Train` input's file (`Train.Source`), enables it in `!Scene: Basics Colored` (`Train.Scene`), waits
+62 s (`Train.Seconds`), disables it and resets the file to `Empty.png`. It bypasses `LayoutColoring`'s queue entirely. The entry point is
 `ChannelPoints.TryStartTrain`, shared by the reward and the `!train` admin command; it holds one flag
 (`_trainOnTracks`, claimed with `Interlocked.CompareExchange`) for the whole 62 s, and a train started while
 it is set is dropped with a chat line instead. A train that starts logs `Choo choo!` on the `SceneChanges`
@@ -214,7 +215,7 @@ rejections themselves, with a clearer `Couldn't set …: …` warning.
     `(Transitionary)` twins too, so the colour animation fades between frames of the same shape. It logs
     `Borders → <inner file>, <outer file>`.
   - With no plain pair either it logs `No border images for <name>, borders left as is`, and with no
-    `Layout` in `paths.json`, `Layout not set in paths.json, borders left as is`.
+    `Layout` in `settings.json`, `Layout not set in settings.json, borders left as is`.
   - An OBS rejection logs `Couldn't set the borders: <message>`, and the later steps still run.
   - It runs before the colour step, which recolours these same four sources (`Files`, tested).
 - **Scenes**, [GameScene.cs](../code/Games/GameScene.cs): the layout and the game capture each come in a scene
@@ -590,7 +591,7 @@ test checks that the panels in an entry that move the same families set the same
 `Program.StartBotAsync` starts it with the other periodic work.
 
 - It watches `Number.txt` and `Completed.txt` in `<LivesplitGenerated>\CurrentSplit\AllSplits` with one
-  `FileSystemWatcher`. That folder is a `paths.json` directory, and LiveSplit's text output (Output to File,
+  `FileSystemWatcher`. That folder is a `settings.json` directory, and LiveSplit's text output (Output to File,
   release 8 since 2026-10-22) writes these files. `AllSplits` is the list the previous-split texts read
   (`PreviousSplit\AllSplits\…`).
 - `Number.txt` holds the current split's number from 1, and `-` when there is none: before the start and
@@ -640,7 +641,7 @@ test checks that the panels in an entry that move the same families set the same
   one. It runs continuations asynchronously, so the watcher's thread never runs a rotation step.
 - Logs:
   - `Watching LiveSplit's split index` on start.
-  - `LivesplitGenerated not set in paths.json, previous-split panel off`, or `No <folder>, previous-split
+  - `LivesplitGenerated not set in settings.json, previous-split panel off`, or `No <folder>, previous-split
     panel off`, when it can't start.
   - Nothing per split or skip.
   - `Error LSW1` when handling a change throws, `Error LSW2: <message>` when the watcher itself fails,

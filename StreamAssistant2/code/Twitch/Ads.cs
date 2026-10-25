@@ -2,8 +2,6 @@ using System.Text.Json;
 
 namespace StreamAssistant2 {
 	internal static class Ads {
-		const int MINUTES_BETWEEN_ADS = 60;
-
 		static CancellationTokenSource? _warnings;
 
 		internal async static Task Process(JsonElement evt) {
@@ -20,11 +18,12 @@ namespace StreamAssistant2 {
 		}
 
 		static IReadOnlyList<(TimeSpan At, Action Send)> BuildSchedule() {
+			int interval = Settings.Data.Ads.IntervalMinutes;
 			return [
-				(TimeSpan.FromMinutes(MINUTES_BETWEEN_ADS - 5), () => WarnChat("Obligatory ad in 5 minutes :(")),
-				(TimeSpan.FromMinutes(MINUTES_BETWEEN_ADS - 3), SpamChat),
-				(TimeSpan.FromMinutes(MINUTES_BETWEEN_ADS - 2), () => WarnChat("Obligatory ad in 2 minutes :( :( :(")),
-				(TimeSpan.FromMinutes(MINUTES_BETWEEN_ADS - 1), () => WarnChat("Obligatory ad coming right up. Maybe snooze it if something interesting is about to happen.")),
+				(TimeSpan.FromMinutes(interval - 5), () => WarnChat("Obligatory ad in 5 minutes :(")),
+				(TimeSpan.FromMinutes(interval - 3), SpamChat),
+				(TimeSpan.FromMinutes(interval - 2), () => WarnChat("Obligatory ad in 2 minutes :( :( :(")),
+				(TimeSpan.FromMinutes(interval - 1), () => WarnChat("Obligatory ad coming right up. Maybe snooze it if something interesting is about to happen.")),
 			];
 		}
 

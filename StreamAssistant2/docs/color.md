@@ -12,9 +12,9 @@ Three channel-point rewards in [ChannelPoints.cs](../code/Twitch/ChannelPoints.c
 
 | Reward | Calls | Input |
 |---|---|---|
-| `REWARD_ID_COLOR_SINGLE` | `LayoutColoring.TryChangeToSingle` | one colour, via `SingleColorParser` |
-| `REWARD_ID_COLOR_TRIPLE` | `LayoutColoring.TryChangeToTriple` | up to three colours, via `TripleColorParser` |
-| `REWARD_ID_COLOR_RANDOM` | `LayoutColoring.ChangeToRandom` | none; a random table colour |
+| `Rewards.ColorSingle` | `LayoutColoring.TryChangeToSingle` | one colour, via `SingleColorParser` |
+| `Rewards.ColorTriple` | `LayoutColoring.TryChangeToTriple` | up to three colours, via `TripleColorParser` |
+| `Rewards.ColorRandom` | `LayoutColoring.ChangeToRandom` | none; a random table colour |
 
 The admins (`lotsofs`, `botsofs`) can trigger the same three paths from chat without spending
 points, via `ChatHandler.CheckForAdminCommands`: `!changecolor <text>` (single),
@@ -29,7 +29,7 @@ Helix call fails, it logs `Error CP1`. The chat commands never touch Helix.
 
 **Helix only allows this for rewards created by the bot's own client id.** A reward made in the
 Twitch dashboard gets a 403 here. The three colour rewards were therefore recreated through the API
-on 2026-10-04, and their IDs are the `REWARD_ID_COLOR_*` constants in `ChannelPoints.cs`. If a
+on 2026-10-04, and their IDs are the `Rewards.Color*` settings' defaults ([reference.md](reference.md#rewards)). If a
 colour reward is ever recreated in the dashboard, refunds break again. Of the bot's other rewards,
 only *Flush your points down the toilet* is bot-created; that's the one whose redemptions it
 refunds.
@@ -67,7 +67,7 @@ OBS animation. Requests are queued, not run directly, so they never overlap.
 
 ## Data files
 
-Both directories are configured in `paths.json` (`Directories.Colors`,
+Both directories are configured in `settings.json` (`Directories.Colors`,
 `Directories.ColorSchemes`), currently `Stream-Resources\Colors\Tables\` and `Colors\Schemes\`. Each `*.json` file in them is loaded, and its file name becomes its
 name.
 
@@ -258,8 +258,9 @@ literal-hex input path lowercases both the colour and its displayed name. Keep n
 - **No parallelism:** because the registries are static, test parallelism is switched off, and a
   test that loads other data must reload the fixtures in a `finally`.
 - **Real-data smoke test:** `RealDataSmokeTest` also loads the real colour data from the directories
-  in the bot's own `paths.json` and checks every entry survived loading. It follows the data when it
-  moves, and is skipped (with the reason) when there's no `paths.json` or it names missing folders.
+  in the `settings.json` in the `BotInput` of the bot's own `paths.json`, and checks every entry survived
+  loading. It follows the data when it moves, and is skipped (with the reason) when there's no
+  `paths.json` or `settings.json`, or the folders they name are missing.
 - **Open bugs:** a newly found bug can get a test for the correct behaviour straight away, marked
   `Skip = "<code>: …"`; fixing the bug then means deleting the `Skip`.
 - **Keep fixtures valid and collision-free.** An invalid or colliding entry makes the loader call

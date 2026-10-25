@@ -33,7 +33,7 @@ namespace StreamAssistant2 {
 		/// from before, and a folder that can't be listed keeps them all.
 		/// </summary>
 		public static void LoadSets() {
-			string[]? files = Coloring.ListFiles(Config.Data.Directories.ColorSchemes);
+			string[]? files = Coloring.ListFiles(Settings.Data.Directories.ColorSchemes);
 			if (files == null) {
 				return;
 			}

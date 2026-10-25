@@ -195,41 +195,47 @@ namespace StreamAssistant2.Tests {
 		static Entry Filter(string source, string filter, string property, string hex, DateTime? at = null, string? error = null) =>
 			new(source, $"{filter} · {property}", Kind.Filter, hex, at ?? T0, error);
 
-		// The layout's five filter entries as one colour change sets them
-		static List<Entry> Layout(string twin, string inner, string outer, string text) => [
-			Filter(LayoutColoring.INNER + twin, LayoutColoring.FILTER, "color_multiply", inner),
-			Filter(LayoutColoring.INNER_ATTACHMENT + twin, LayoutColoring.FILTER, "color_multiply", inner),
-			Filter(LayoutColoring.OUTER + twin, LayoutColoring.FILTER, "color_add", outer),
-			Filter(LayoutColoring.OUTER_ATTACHMENT + twin, LayoutColoring.FILTER, "color_add", outer),
-			Filter(LayoutColoring.TEXT_SCENE + twin, LayoutColoring.FILTER, "color_multiply", text),
-		];
+		static LayoutSettings L => Settings.Data.Layout;
+		static SplitColorsSettings S => Settings.Data.SplitColors;
+
+		// The layout's five filter entries as one colour change sets them, on the real sources or their twins
+		static List<Entry> Layout(bool twins, string inner, string outer, string text) {
+			Func<string, string> name = twins ? L.Twin : source => source;
+			return [
+				Filter(name(L.InnerBorder), L.Filter, "color_multiply", inner),
+				Filter(name(L.InnerAttachment), L.Filter, "color_multiply", inner),
+				Filter(name(L.OuterBorder), L.Filter, "color_add", outer),
+				Filter(name(L.OuterAttachment), L.Filter, "color_add", outer),
+				Filter(name(L.TextScene), L.Filter, "color_multiply", text),
+			];
+		}
 
 		static IEnumerable<(string Code, string? Hex)> Codes(StatusLine row) => row.Chips!.Select(c => (c.Code, c.Hex));
 
 		[Fact]
 		public void StatusLines_LayoutAndFadeRows_AttachmentsJoinTheirSwatch() {
-			List<Entry> entries = [.. Layout("", "#ff0000", "#00ff00", "#0000ff"), .. Layout(LayoutColoring.TWIN, "#110000", "#001100", "#000011")];
+			List<Entry> entries = [.. Layout(false, "#ff0000", "#00ff00", "#0000ff"), .. Layout(true, "#110000", "#001100", "#000011")];
 			var lines = ObsInputs.StatusLines(entries, true, T0.AddSeconds(3));
 			Assert.Equal(["OBS sources", "Filters", "Layout", "Fade"], lines.Select(l => l.Text));
 			Assert.Equal([("In", "#ff0000"), ("Out", "#00ff00"), ("Txt", "#0000ff")], Codes(lines[2]));
 			Assert.Equal([("In", "#110000"), ("Out", "#001100"), ("Txt", "#000011")], Codes(lines[3]));
 			Assert.Equal("· 3 s ago", lines[2].After);
-			Assert.Contains(LayoutColoring.INNER_ATTACHMENT, lines[2].Chips![0].ToolTip);
+			Assert.Contains(L.InnerAttachment, lines[2].Chips![0].ToolTip);
 			Assert.DoesNotContain("ago", lines[2].Chips![0].ToolTip);
 		}
 
 		[Fact]
 		public void StatusLines_AttachmentOfAnotherColour_IsListedVerbosely() {
-			List<Entry> entries = Layout("", "#ff0000", "#00ff00", "#0000ff");
-			entries[1] = Filter(LayoutColoring.INNER_ATTACHMENT, LayoutColoring.FILTER, "color_multiply", "#123456");
+			List<Entry> entries = Layout(false, "#ff0000", "#00ff00", "#0000ff");
+			entries[1] = Filter(L.InnerAttachment, L.Filter, "color_multiply", "#123456");
 			var lines = ObsInputs.StatusLines(entries, true, T0);
-			Assert.Equal(["OBS sources", "Filters", "Layout", $"{LayoutColoring.INNER_ATTACHMENT} · Color Correction · color_multiply → #123456 · 0 s ago"], lines.Select(l => l.Text));
-			Assert.DoesNotContain(LayoutColoring.INNER_ATTACHMENT, lines[2].Chips![0].ToolTip);
+			Assert.Equal(["OBS sources", "Filters", "Layout", $"{L.InnerAttachment} · Color Correction · color_multiply → #123456 · 0 s ago"], lines.Select(l => l.Text));
+			Assert.DoesNotContain(L.InnerAttachment, lines[2].Chips![0].ToolTip);
 		}
 
 		[Fact]
 		public void StatusLines_UnsetSwatchInAShownRow_HasNoColour() {
-			List<Entry> entries = [Filter(LayoutColoring.INNER, LayoutColoring.FILTER, "color_multiply", "#ff0000")];
+			List<Entry> entries = [Filter(L.InnerBorder, L.Filter, "color_multiply", "#ff0000")];
 			StatusLine row = ObsInputs.StatusLines(entries, true, T0)[2];
 			Assert.Equal([("In", "#ff0000"), ("Out", null), ("Txt", null)], Codes(row));
 			Assert.Contains("not set", row.Chips![1].ToolTip);
@@ -238,14 +244,14 @@ namespace StreamAssistant2.Tests {
 		[Fact]
 		public void StatusLines_HighlightsAndPreviousRows_InTheirOrder() {
 			List<Entry> entries = [
-				Filter("Livesplit: SL Highlights Gold", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#ffd700"),
-				Filter("Livesplit: SL Highlights AheadGained", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#00cc00"),
-				Filter("Livesplit: SL Highlights AheadLost", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#66cc66"),
-				Filter("Livesplit: SL Highlights BehindGained", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#cc6666"),
-				Filter("Livesplit: SL Highlights BehindLost", SplitColors.HIGHLIGHT_FILTER, "color_multiply", "#cc0000"),
-				Filter(SplitColors.PREVIOUS_GOLD, SplitColors.PREVIOUS_FILTER, "color_multiply", "#ffffff"),
-				Filter(SplitColors.PREVIOUS_SEGMENT, SplitColors.PREVIOUS_FILTER, "color_multiply", "#00ff00"),
-				Filter(SplitColors.PREVIOUS_RUN, SplitColors.PREVIOUS_FILTER, "color_multiply", "#ff0000"),
+				Filter("Livesplit: SL Highlights Gold", S.HighlightFilter, "color_multiply", "#ffd700"),
+				Filter("Livesplit: SL Highlights AheadGained", S.HighlightFilter, "color_multiply", "#00cc00"),
+				Filter("Livesplit: SL Highlights AheadLost", S.HighlightFilter, "color_multiply", "#66cc66"),
+				Filter("Livesplit: SL Highlights BehindGained", S.HighlightFilter, "color_multiply", "#cc6666"),
+				Filter("Livesplit: SL Highlights BehindLost", S.HighlightFilter, "color_multiply", "#cc0000"),
+				Filter(S.PreviousGold, S.PreviousFilter, "color_multiply", "#ffffff"),
+				Filter(S.PreviousSegment, S.PreviousFilter, "color_multiply", "#00ff00"),
+				Filter(S.PreviousRun, S.PreviousFilter, "color_multiply", "#ff0000"),
 			];
 			var lines = ObsInputs.StatusLines(entries, true, T0);
 			Assert.Equal(["OBS sources", "Filters", "Highlights", "Previous"], lines.Select(l => l.Text));
@@ -255,7 +261,7 @@ namespace StreamAssistant2.Tests {
 
 		[Fact]
 		public void StatusLines_RefusedSwatch_IsMarkedWithTheError() {
-			List<Entry> entries = [Filter(LayoutColoring.OUTER, LayoutColoring.FILTER, "color_add", "#00ff00", error: "No filter")];
+			List<Entry> entries = [Filter(L.OuterBorder, L.Filter, "color_add", "#00ff00", error: "No filter")];
 			Chip chip = ObsInputs.StatusLines(entries, true, T0)[2].Chips![1];
 			Assert.True(chip.Failed);
 			Assert.Contains("failed: No filter", chip.ToolTip);
@@ -263,23 +269,23 @@ namespace StreamAssistant2.Tests {
 
 		[Fact]
 		public void StatusLines_RowOfAHiddenGroup_IsDimWithHiddenSwatches() {
-			List<Entry> entries = Layout("", "#ff0000", "#00ff00", "#0000ff");
+			List<Entry> entries = Layout(false, "#ff0000", "#00ff00", "#0000ff");
 			List<ObsInputs.Visibility> visible = [
-				new("!Scene: Layout 16x9", LayoutColoring.COLORABLES, false),
-				new("!Scene: Layout 5x4", LayoutColoring.COLORABLES, false),
+				new("!Scene: Layout 16x9", L.Colorables, false),
+				new("!Scene: Layout 5x4", L.Colorables, false),
 			];
 			StatusLine row = ObsInputs.StatusLines(entries, true, T0, visible)[2];
 			Assert.Equal(LineKind.Dim, row.Kind);
 			Assert.All(row.Chips!, chip => Assert.True(chip.Hidden));
-			Assert.Contains($"{LayoutColoring.COLORABLES} hidden", row.Chips![0].ToolTip);
+			Assert.Contains($"{L.Colorables} hidden", row.Chips![0].ToolTip);
 		}
 
 		[Theory]
 		[InlineData(true)]
 		[InlineData(null)]
 		public void StatusLines_RowOfAShownOrUntouchedGroup_IsPlain(bool? enabled) {
-			List<Entry> entries = Layout("", "#ff0000", "#00ff00", "#0000ff");
-			List<ObsInputs.Visibility> visible = enabled is bool on ? [new("!Scene: Layout 16x9", LayoutColoring.COLORABLES, on)] : [];
+			List<Entry> entries = Layout(false, "#ff0000", "#00ff00", "#0000ff");
+			List<ObsInputs.Visibility> visible = enabled is bool on ? [new("!Scene: Layout 16x9", L.Colorables, on)] : [];
 			StatusLine row = ObsInputs.StatusLines(entries, true, T0, visible)[2];
 			Assert.Equal(LineKind.Item, row.Kind);
 			Assert.All(row.Chips!, chip => Assert.False(chip.Hidden));
@@ -290,8 +296,8 @@ namespace StreamAssistant2.Tests {
 		[InlineData(false)]
 		[InlineData(true)]
 		public void StatusLines_LeftPanelGroup_MatchedThroughPrefixAndCopy(bool enabled) {
-			List<Entry> entries = [Filter(SplitColors.PREVIOUS_RUN, SplitColors.PREVIOUS_FILTER, "color_multiply", "#ff0000")];
-			List<ObsInputs.Visibility> visible = [new("!Scene: Left Panel Colored", $"_LPC: {SplitColors.PREVIOUS_GROUP} 2", enabled)];
+			List<Entry> entries = [Filter(S.PreviousRun, S.PreviousFilter, "color_multiply", "#ff0000")];
+			List<ObsInputs.Visibility> visible = [new("!Scene: Left Panel Colored", $"_LPC: {S.PreviousGroup} 2", enabled)];
 			Assert.Equal(enabled ? LineKind.Item : LineKind.Dim, ObsInputs.StatusLines(entries, true, T0, visible)[2].Kind);
 		}
 

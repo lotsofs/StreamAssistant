@@ -35,14 +35,15 @@ namespace StreamAssistant2 {
 			DiskLevel _lastLevel = DiskLevel.Ok;
 			DateTime _lastAlertUtc = DateTime.MinValue;
 
-			internal DiskAlert? Update(double freeBytes, DateTime nowUtc) {
-				DiskLevel level = Classify(freeBytes);
+			internal DiskAlert? Update(double freeBytes, DateTime nowUtc, DiskSpaceSettings? settings = null) {
+				settings ??= Settings.Data.DiskSpace;
+				DiskLevel level = Classify(freeBytes, settings);
 				if (level == DiskLevel.Ok) {
 					_lastLevel = DiskLevel.Ok;
 					return null;
 				}
 
-				TimeSpan interval = TimeInterval(level);
+				TimeSpan interval = TimeInterval(level, settings);
 				bool newWindow = ClockMarks.Window(nowUtc, interval) > ClockMarks.Window(_lastAlertUtc, interval);
 
 				bool worse = level > _lastLevel;
@@ -57,12 +58,6 @@ namespace StreamAssistant2 {
 
 		const double GIBIBYTE = 1073741824;
 
-		const string DRIVE_LETTER = "A:\\";
-
-		const double SPAM_GB_THRESHOLD = 2;
-		const double WARN_GB_THRESHOLD = 15;
-		const double NOTIFY_GB_THRESHOLD = 100;
-
 		const string SPAM_SPEAK = "Alert: Less than {0} GB available on drive {1}. Take action NOW or your vod will be bad and you will be sad";
 		const string SPAM_CHAT = "⚠️⚠️⚠️🚨🚨 Alert: Less than {0} GB available on drive {1} - {2:0} B. Take action NOW or your vod will be bad and you will be sad 🚨🚨⚠️⚠️⚠️";
 		const string WARN_CHAT = "⚠️ Warning: Less than {0} GB available on drive {1} - {2:0.0} GB, take action soon ⚠️";
@@ -70,26 +65,30 @@ namespace StreamAssistant2 {
 
 		static readonly AlertState _state = new();
 
-		internal static DiskLevel Classify(double freeBytes) {
-			if (freeBytes < SPAM_GB_THRESHOLD * GIBIBYTE) {
+		internal static DiskLevel Classify(double freeBytes, DiskSpaceSettings? settings = null) {
+			settings ??= Settings.Data.DiskSpace;
+			if (freeBytes < settings.SpamGiB * GIBIBYTE) {
 				return DiskLevel.Spam;
 			}
-			if (freeBytes < WARN_GB_THRESHOLD * GIBIBYTE) {
+			if (freeBytes < settings.WarnGiB * GIBIBYTE) {
 				return DiskLevel.Warn;
 			}
-			if (freeBytes < NOTIFY_GB_THRESHOLD * GIBIBYTE) {
+			if (freeBytes < settings.NotifyGiB * GIBIBYTE) {
 				return DiskLevel.Notify;
 			}
 			return DiskLevel.Ok;
 		}
 
 		// Every interval divides an hour, so windows of the tick count start exactly on the clock marks.
-		internal static TimeSpan TimeInterval(DiskLevel level) => level switch {
-			DiskLevel.Spam => TimeSpan.FromMinutes(1),
-			DiskLevel.Warn => TimeSpan.FromMinutes(12),
-			DiskLevel.Notify => TimeSpan.FromMinutes(60),
-			_ => throw new ArgumentOutOfRangeException(nameof(level)),
-		};
+		internal static TimeSpan TimeInterval(DiskLevel level, DiskSpaceSettings? settings = null) {
+			settings ??= Settings.Data.DiskSpace;
+			return level switch {
+				DiskLevel.Spam => TimeSpan.FromMinutes(settings.SpamEveryMinutes),
+				DiskLevel.Warn => TimeSpan.FromMinutes(settings.WarnEveryMinutes),
+				DiskLevel.Notify => TimeSpan.FromMinutes(settings.NotifyEveryMinutes),
+				_ => throw new ArgumentOutOfRangeException(nameof(level)),
+			};
+		}
 
 		internal static void Start() {
 			_ = WatchAsync();
@@ -108,16 +107,19 @@ namespace StreamAssistant2 {
 			}
 		}
 
-		static DriveInfo GetDrive() {
+		// The drive in the settings, with or without its trailing backslash and in any case; else the first drive
+		static DriveInfo GetDrive(string name) {
 			DriveInfo[] drives = DriveInfo.GetDrives();
-			DriveInfo? drive = drives.FirstOrDefault(d => d.Name == DRIVE_LETTER);
+			DriveInfo? drive = drives.FirstOrDefault(d => d.Name.TrimEnd('\\').Equals(name.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
 			drive ??= drives[0];
 			return drive;
 		}
 
 		static void CheckSpaceAndNotify() {
-			double space = GetDrive().AvailableFreeSpace;
-			DiskAlert? alert = _state.Update(space, DateTime.UtcNow);
+			DiskSpaceSettings settings = Settings.Data.DiskSpace;
+			string drive = settings.Drive;
+			double space = GetDrive(drive).AvailableFreeSpace;
+			DiskAlert? alert = _state.Update(space, DateTime.UtcNow, settings);
 			if (alert == null) {
 				return;
 			}
@@ -125,14 +127,14 @@ namespace StreamAssistant2 {
 			switch (alert.Level) {
 				case DiskLevel.Spam:
 					Sound.PlaySound(Sound.Sounds.Warning);
-					TwitchIRCManager.SendMessage(string.Format(SPAM_CHAT, SPAM_GB_THRESHOLD, DRIVE_LETTER, space.ToString("N0").Replace(","," ")));
-					TextToSpeech.EnqueueSpeech(string.Format(SPAM_SPEAK, SPAM_GB_THRESHOLD, DRIVE_LETTER));
+					TwitchIRCManager.SendMessage(string.Format(SPAM_CHAT, settings.SpamGiB, drive, space.ToString("N0").Replace(","," ")));
+					TextToSpeech.EnqueueSpeech(string.Format(SPAM_SPEAK, settings.SpamGiB, drive));
 					break;
 				case DiskLevel.Warn:
-					TwitchIRCManager.SendMessage(string.Format(WARN_CHAT, WARN_GB_THRESHOLD, DRIVE_LETTER, space/GIBIBYTE));
+					TwitchIRCManager.SendMessage(string.Format(WARN_CHAT, settings.WarnGiB, drive, space/GIBIBYTE));
 					break;
 				case DiskLevel.Notify:
-					TwitchIRCManager.SendMessage(string.Format(NOTIFY_CHAT, NOTIFY_GB_THRESHOLD, DRIVE_LETTER, space/GIBIBYTE));
+					TwitchIRCManager.SendMessage(string.Format(NOTIFY_CHAT, settings.NotifyGiB, drive, space/GIBIBYTE));
 					break;
 			}
 		}

@@ -1,6 +1,6 @@
 # Infrastructure
 
-The supporting modules that aren't Twitch, OBS or colour: configuration, logging, periodic work, the
+The supporting modules that aren't Twitch, OBS or colour: configuration and settings, logging, periodic work, the
 database, sound, speech, the language filter, the two periodic watchdogs and the clock. Each is a `static class`
 holding its own state.
 
@@ -12,20 +12,17 @@ text format, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
 [Config.cs](../code/Core/Config.cs). `Config.Load()` runs before anything else, from `Program.Main`.
 
 1. Reads **`paths.json`** from the working directory (so the app must run from the project folder). It
-   holds only `directories`: `BotInput`, `BotOutput`, `Trains`, `Colors`, `ColorSchemes`, `Backgrounds`,
-   `LivesplitGenerated`, `Layout`, `Sidebar`. `Backgrounds` holds the per-game OBS backgrounds (`GameBackground`);
-   `Sidebar` the sidebar images, the split-index ones in `Dynamic\` (`GameSidebar`);
-   `Layout` the layout's border images, per aspect and plain (`GameBorder`,
-   [obs.md](obs.md#per-game-setup)), and without it the borders are left as they are;
-   `LivesplitGenerated` is LiveSplit's text output, whose split index `SplitWatcher` watches
-   ([obs.md](obs.md#splits-from-livesplit)). Without it the previous-split panel is off. It is
+   holds only `directories.BotInput`, the folder of `secrets.json`, `settings.json`, `games.json` and
+   `leftpanel.json`, with environment variables expanded. Every other directory is in `settings.json`
+   ([Settings](#settings)); an older `paths.json` that still lists them loads, and they're ignored. Without
+   a `BotInput`, `Load()` throws an `InvalidDataException` that `Main` shows as a message box. It is
    machine-specific, so it is gitignored; a `BeforeBuild` target in the csproj copies it from the tracked
-   `paths.json.example` when missing.
-2. Reads **`secrets.json`** from `Directories.BotInput`, which is outside this repository. If the file
-   is missing, `Load()` copies the tracked `secrets.json.example` there and throws a
-   `FileNotFoundException` telling the user to fill it in; `Main` shows that as a message box. It does
-   the same, with an `InvalidDataException`, when `twitchAuth` has no `login`.
-3. Merges them into `Config.Data` (`Directories` from the first, `Obs`, `TwitchAuth`, `TwitchBot`,
+   `paths.json.example` when missing, whose `BotInput` is `%APPDATA%\StreamAssistant2\Bot Input`.
+2. Reads **`secrets.json`** from `BotInput`, which is outside this repository. If the file
+   is missing, `Load()` creates the folder if needed, copies the tracked `secrets.json.example` there and
+   throws a `FileNotFoundException` telling the user to fill it in; `Main` shows that as a message box. It
+   does the same, with an `InvalidDataException`, when `twitchAuth` has no `login`.
+3. Merges them into `Config.Data` (`Directories.BotInput` from the first, `Obs`, `TwitchAuth`, `TwitchBot`,
    `TwitchIds`, `StreamElements` from the second), with both logins lowercased. `twitchAuth` and
    `twitchBot` share a shape (`login`, `accessToken`, `refreshToken`, `clientId`): the broadcaster and
    the account chat goes through ([twitch.md](twitch.md#credentials-and-identity)). Without `twitchBot`,
@@ -33,7 +30,8 @@ text format, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
    ([streamelements.md](streamelements.md#credentials)). A file without either block still loads; the
    values are then empty, and tips are off.
 
-`BotInput` also holds **`games.json`** and **`leftpanel.json`**, which aren't config: `Games.Load()` and
+`BotInput` also holds **`settings.json`** ([Settings](#settings)), and **`games.json`** and
+**`leftpanel.json`**, which aren't config: `Games.Load()` and
 `LeftPanel.Load()` read them later in startup, and again on `!reloaddata`, with the colour data
 ([architecture.md](architecture.md#codeobs), [obs.md](obs.md#left-panel)). A missing file only logs,
 and turns off per-game setup or the left panel; on a reload it keeps what was loaded.
@@ -43,8 +41,51 @@ JSON is read with `System.Text.Json` and `PropertyNameCaseInsensitive`, so `sock
 has no matching property and is never read.
 
 `Config.Data` starts as an empty `ConfigModel` before `Load`, which is what lets tests assign
-`Config.Data.Directories.Colors` directly. Never print or log anything from `Obs`, `TwitchAuth`,
+`Config.Data.Directories.BotInput` directly. Never print or log anything from `Obs`, `TwitchAuth`,
 `TwitchBot`, `TwitchIds` or `StreamElements`.
+
+## Settings
+
+[Settings.cs](../code/Core/Settings.cs) loads **`settings.json`** from `BotInput` into `Settings.Data`, a
+[SettingsModel](../code/Core/SettingsModel.cs). It holds the owner's choices: every directory but
+`BotInput`, the reward ids, the OBS scene, source and filter names, the train, the sound files and
+volumes, the TTS voice, the disk-space thresholds, the ad interval, the FAQ cooldown and the money goal.
+[reference.md § Settings](reference.md#settings) lists every key with its default.
+
+- **Every setting is in the file.** The tracked [settings.json.example](../settings.json.example) in the
+  project folder lists every key at its default, with comments. On a start with no `settings.json`, `Load`
+  copies it into `BotInput` and logs `Created <path> from settings.json.example, every setting at its
+  default`, so the file to edit always shows everything. A test checks that the example leaves no key out.
+- **Defaults.** Every key defaults to the value the bot used before it was a setting, except the
+  directories: `BotOutput` defaults to `%APPDATA%\StreamAssistant2\Bot Output`, and the others to empty,
+  which turns their feature off. A section or key the file leaves out (one added by a later version, say)
+  keeps its default, and each load logs them: `settings.json lacks <keys>; their defaults apply
+  (settings.json.example has every key)`. The bot never writes keys into an existing file, which would lose
+  its comments and layout. A sound given only its `File` or its `Volume` keeps the other.
+- **Loading.** `Main` calls `Settings.Load(atStartup: true)` right after `Config.Load()` and creating the
+  window, so its line shows in the window and nothing is logged before the log's folder, `BotOutput`, is
+  known. `!reloaddata` calls `Settings.Load()` first, before the colour data, games and left panels. Each
+  load replaces `Settings.Data` whole and logs `Loaded settings.json, all defaults` or
+  `Loaded settings.json, changed <section>: <keys>; …`, the keys that differ from the defaults.
+- **Read at use.** Code reads `Settings.Data` each time it needs a value and never keeps one, so a reload
+  takes effect at the next use: the next train, colour change, game setup, sound, utterance, disk check,
+  ad break or FAQ answer, and the dashboard's next refresh. Code that uses several values in one go takes
+  one section (`LayoutSettings layout = Settings.Data.Layout`), so a reload can't mix old and new halfway.
+- **`BotOutput` waits for a restart.** On a reload a changed `BotOutput` is set back to the running one,
+  with `BotOutput changes after a restart`: the log file and the database are already there.
+- **Strict parsing.** Keys are read in any case, and comments and trailing commas are allowed. A key no
+  setting has, a `null`, bad JSON or a number out of range make the file broken, with a reason that names
+  the key. Out of range means a negative time, a volume outside 0 to 1, disk repeat minutes that don't
+  divide 60, an ad interval under 5 minutes, no capture slots, or a default goal under 0.01. Directory
+  values have environment variables expanded.
+- **A broken file** at startup stops the bot with a message box naming the file and the reason, as a bad
+  `secrets.json` does: running on the defaults would put the log and a fresh, empty database in the
+  default `BotOutput`. On `!reloaddata` it logs `Error SET1: settings.json: <reason>` and keeps the
+  settings loaded. A missing file on a reload logs `settings.json not found, keeping the settings loaded`;
+  at startup without the example as well, `settings.json not found, using the defaults`.
+- **Tests** leave `Settings.Data` at the defaults or point `Settings.Data.Directories` at fixtures
+  (`ColorData.Load`). Pure functions that tests feed other values take the settings as a parameter
+  (`DiskSpace.Classify(freeBytes, settings)`, `ChannelPoints.RewardOf(id, rewards)`).
 
 ## Logging
 
@@ -113,7 +154,7 @@ can't stop another.
 | uptime poll | `TwitchUptime.Start()` | about when the stream's uptime ticks over a minute, and at once on going live | `UpT5` |
 | ad warnings | `Ads.Process` | once per ad break, see below | `ADS1` per warning |
 | connection health | `ConnectionHealth.Start()` | every second | `CHL1` |
-| which image and text sources are showing in `Basic Stream Layout`, for the dashboard ([dashboard.md](dashboard.md#obs-sources)) | `ObsInputs.Start()` | every 2 s while OBS is ready | `OBI1` |
+| which image and text sources are showing in the stream scene (`Basic Stream Layout`), for the dashboard ([dashboard.md](dashboard.md#obs-sources)) | `ObsInputs.Start()` | every 2 s while OBS is ready | `OBI1` |
 
 Details of each are under [Disk space](#disk-space), [Clock](#clock), [Uptime](#uptime),
 [Connection health](#connection-health) and [events.md](events.md#ads). The loops end with the process; there is no shutdown hook.
@@ -148,7 +189,8 @@ money_goal (
   current_cents INTEGER NOT NULL,                     -- tips since the last !resetmoney
   goal_cents    INTEGER NOT NULL
 )
--- INSERT OR IGNORE (1, 0, 99900): a first start begins at 0 / 999 EUR; later starts keep the row
+-- INSERT OR IGNORE (1, 0, MoneyGoal.DefaultGoal in cents): with the default settings a first start
+-- begins at 0 / 999 EUR; later starts keep the row
 ```
 
 | Method | Statement |
@@ -156,7 +198,7 @@ money_goal (
 | `InsertFlushAsync(flushId, userId, userLogin)` | `INSERT`; a duplicate redemption id throws |
 | `RetrieveFlushesAsync(userId)` | `SELECT flush_id … WHERE user_id = $user_id` |
 | `DeleteFlushesAsync(userId)` | `DELETE … WHERE user_id = $user_id` |
-| `GetMoneyAsync()` | `SELECT current_cents, goal_cents`; `(0, 99900)` if the row is missing |
+| `GetMoneyAsync()` | `SELECT current_cents, goal_cents`; `(0, <default goal in cents>)` if the row is missing |
 | `AddMoneyAsync(cents)` | `UPDATE … SET current_cents = current_cents + $cents` |
 | `SetMoneyGoalAsync(cents)` | `UPDATE … SET goal_cents = $cents` |
 | `ResetMoneyAsync()` | `UPDATE … SET current_cents = 0` |
@@ -173,8 +215,10 @@ All are parameterised. The flush table is for the toilet rewards
 play, both disposed on `PlaybackStopped`, on the default output device. Playback is asynchronous;
 `PlaySound` returns immediately and several can overlap.
 
-The folder is the one **hard-coded path not in `paths.json`**: `D:\Repositories\Stream-Resources\Alert
-Sounds\`. A missing file throws `FileNotFoundException` into the caller.
+The folder is `Directories.Sounds` in `settings.json`, and each sound's file and volume are in its `Sounds`
+section ([reference.md](reference.md#sounds)). With no folder set, `PlaySound` logs `Sounds not set in
+settings.json, <sound> not played` and plays nothing. A missing file throws `FileNotFoundException` into
+the caller. The defaults:
 
 | `Sounds` | File | Volume | Played by |
 |---|---|---|---|
@@ -191,10 +235,10 @@ There is no delayed variant: handlers `await Task.Delay(...)` between sounds.
 
 [TextToSpeech.cs](../code/Audio/TextToSpeech.cs) wraps `System.Speech`'s `SpeechSynthesizer` (SAPI) behind a queue.
 
-- The static constructor selects the voice **`Microsoft Catherine`** and starts the worker. If that voice
-  isn't installed `SelectVoice` throws, the type fails to initialise, and every later TTS call throws
-  `TypeInitializationException`. The first touch is `ReportStart()` at the end of startup (log `Error
-  PRG1`), and after that handlers fail silently ([twitch.md](twitch.md#adding-an-eventsub-event)).
+- The static constructor starts the worker. Before each item the worker selects the voice in
+  `Speech.Voice` (default **`Microsoft Catherine`**) when it isn't the current one, so `!reloaddata`
+  changes it. If that voice isn't installed, `SelectVoice` throws and the item logs `Error 5` unspoken, as
+  does every item after it until the setting names an installed voice.
 - `EnqueueSpeech(text)` logs `TTS Enqueue: …` on `Notification` and calls `SpeakAsync`. `SpeakAsync`
   returns a `Task` that completes when the text has been spoken (the cheer handler discards it).
   Empty or whitespace text is ignored.
@@ -221,11 +265,13 @@ stay above any shorter entry it contains (`jewess` before `jew`, `faggot` before
 ## Disk space
 
 [DiskSpace.cs](../code/Timing/DiskSpace.cs) watches free space so the VOD recording doesn't run out of room. It looks
-at drive `A:\` and falls back to the first drive from `DriveInfo.GetDrives()` if there is no `A:`.
+at the drive in `DiskSpace.Drive` (`A:\` by default; with or without the backslash, any case) and falls back to the
+first drive from `DriveInfo.GetDrives()` if there is no such drive.
 
 `DiskSpace.Start()` runs a loop that wakes on every whole minute (`ClockMarks.UntilNextMinute`: UTC, recomputed
 from the current time each pass, with a 10 ms floor) and checks free bytes against three thresholds (GiB, `1073741824`
-bytes):
+bytes). The thresholds and repeat intervals are settings (`SpamGiB`, `SpamEveryMinutes`, …, read at each check);
+the defaults:
 
 | Free space | Level | Repeat interval | Sound and TTS |
 |---|---|---|---|
@@ -237,10 +283,10 @@ bytes):
 
 - **A level that gets worse alerts at once**, including the first crossing.
 - **A level that persists alerts on the first check inside each new window of its interval.** The windows are
-  `ClockMarks.Window` (`ticks / interval`), and every interval divides an hour, so they start on the clock marks: `Warn` at `:00,
-  :12, :24, :36, :48`, `Notify` on the hour. It reads the time *when the check runs*, so a wake that lands a
+  `ClockMarks.Window` (`ticks / interval`), and every interval divides an hour (the settings check enforces
+  it), so they start on the clock marks: by default `Warn` at `:00, :12, :24, :36, :48`, `Notify` on the hour. It reads the time *when the check runs*, so a wake that lands a
   hair early (11:59:59.999) sees the old window and does nothing, and the immediate re-check lands on the mark.
-- Recovering above 100 GiB resets it, so the next crossing alerts at once. Improving between levels
+- Recovering above the `Notify` threshold resets it, so the next crossing alerts at once. Improving between levels
   doesn't alert early.
 
 A first crossing at, say, 12:11 alerts immediately and then again at the 12:12 mark. The time arithmetic lives in
@@ -256,7 +302,7 @@ delay between them.
 whole minute (`ClockMarks.UntilNextMinute`, local time, recomputed each pass) and does two jobs, each in its own
 try/catch, so one failing can't stop the other:
 
-- **The OBS clock text.** It writes `yyyy-MM-dd HH:mm` to the text source `Text: Time Of Day` with
+- **The OBS clock text.** It writes `yyyy-MM-dd HH:mm` to the text source `Clock.Source` (`Text: Time Of Day`) with
   `Obs.SetInputSetting`. The format quotes its separators (`yyyy'-'MM'-'dd HH':'mm`), because an unquoted `:` is
   the culture's time separator. While OBS isn't ready (`ObsConnection.IsReady`) it skips silently, rather than
   logging the `IsConnected()` warning every minute. There is no write at start or on connect, so after the bot
@@ -276,7 +322,7 @@ recomputed every pass, so nothing drifts, and a sleep or clock change costs at m
 
 [TwitchUptime.cs](../code/Timing/TwitchUptime.cs), started by `TwitchUptime.Start()`, asks
 `https://decapi.me/twitch/uptime/<broadcaster login>` (a third-party scraper, used instead of Helix) how long the stream
-has been live, and writes the answer to the OBS text source `Text: Stream Uptime`.
+has been live, and writes the answer to the OBS text source `Uptime.Source` (`Text: Stream Uptime`).
 
 - The loop calls `UptimeCheck()`, then waits `SecondsUntilNextMinute` or until woken, whichever comes
   first. Its first run is immediate. Errors that escape the check log `UpT5`.

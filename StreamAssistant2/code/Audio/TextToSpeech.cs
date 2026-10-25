@@ -17,7 +17,6 @@ namespace StreamAssistant2 {
 		static readonly Task worker;
 		
 		static TextToSpeech() {
-			synth.SelectVoice("Microsoft Catherine");
 			worker = Task.Run(ProcessQueueAsync);
 		}
 
@@ -69,6 +68,10 @@ namespace StreamAssistant2 {
 					done.Set();
 				}
 
+				string voice = Settings.Data.Speech.Voice;
+				if (synth.Voice.Name != voice) {
+					synth.SelectVoice(voice);
+				}
 				synth.SpeakCompleted += Handler;
 				synth.SpeakAsync(text);
 				ConsoleLogger.LogToFile($"TTS Speaking: {text}");

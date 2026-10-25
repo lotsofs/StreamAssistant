@@ -1,0 +1,127 @@
+// Stream Assistant's settings, every one listed. Change what you need and send !reloaddata, or restart
+// (BotOutput needs a restart). Comments and trailing commas are allowed; unknown keys are not. A key left
+// out keeps its default, and the log names it. The bot copies this file into BotInput when there's none.
+{
+	"Directories": {
+		// Logs and the database; changes after a restart
+		"BotOutput": "%APPDATA%\\StreamAssistant2\\Bot Output",
+		// Empty turns the feature off
+		"Trains": "",
+		"Colors": "",
+		"ColorSchemes": "",
+		"Backgrounds": "",
+		"LivesplitGenerated": "",
+		"Layout": "",
+		"Sidebar": "",
+		"Sounds": ""
+	},
+	// Channel-point reward ids
+	"Rewards": {
+		"Train": "0260c648-c3ba-4ff1-920d-dffa5431da74",
+		"ToiletFlush": "cd46e822-f288-47e6-8e8c-c56155603a0e",
+		"ToiletRetrieve": "785967e7-9b58-41eb-aa11-15fed82a72ec",
+		"ColorRandom": "bc78e213-6818-464d-8d5f-3408e9bd2413",
+		"ColorSingle": "ad70a9d9-12fa-44dd-a3fb-dde21ebc4ec1",
+		"ColorTriple": "30168c08-09f6-4557-ab49-b7eaed212978"
+	},
+	"Train": {
+		"Scene": "!Scene: Basics Colored",
+		"Source": "Image: Train",
+		"Seconds": 62,
+		// Train0.png up to Train99.png
+		"Images": 100
+	},
+	// A file in the Sounds directory and its volume, 0 to 1
+	"Sounds": {
+		"TribalHymn": { "File": "Tribal hymn.mp3", "Volume": 0.5 },
+		"TheClap": { "File": "theclap.mp3", "Volume": 0.4 },
+		"Team17Applauds": { "File": "Team17-Applauds.mp3", "Volume": 0.75 },
+		"IndianAnthem": { "File": "IndianAnthem.mp3", "Volume": 0.4 },
+		"Flush": { "File": "Flush.wav", "Volume": 0.4 },
+		"Warning": { "File": "Warning.wav", "Volume": 0.6 }
+	},
+	"Speech": {
+		// An installed SAPI voice
+		"Voice": "Microsoft Catherine"
+	},
+	"DiskSpace": {
+		// Falls back to the first drive when missing
+		"Drive": "A:\\",
+		"SpamGiB": 2,
+		"WarnGiB": 15,
+		"NotifyGiB": 100,
+		// Each divides 60
+		"SpamEveryMinutes": 1,
+		"WarnEveryMinutes": 12,
+		"NotifyEveryMinutes": 60
+	},
+	"Ads": {
+		// From an ad break's end to the next; at least 5
+		"IntervalMinutes": 60
+	},
+	"Chat": {
+		"FaqCooldownSeconds": 60
+	},
+	"MoneyGoal": {
+		"Source": "Text: Money Goal",
+		"Currency": "EUR",
+		// The goal on a first start, until !moneygoal
+		"DefaultGoal": 999
+	},
+	"Clock": {
+		"Source": "Text: Time Of Day"
+	},
+	"Uptime": {
+		"Source": "Text: Stream Uptime"
+	},
+	"Layout": {
+		"StreamScene": "Basic Stream Layout",
+		// Each followed by a space and the aspect
+		"LayoutScenePrefix": "!Scene: Layout",
+		"GamesScenePrefix": "!Scene: Games",
+		"Colorables": "!Layout: Colorables",
+		// After a name and a space, names its fade twin
+		"TwinSuffix": "(Transitionary)",
+		"InnerBorder": "Border: Colorable Inner",
+		"InnerAttachment": "Border: Colorable Inner Attachment",
+		"OuterBorder": "Border: Colorable Outer",
+		"OuterAttachment": "Border: Colorable Outer Attachment",
+		"TextScene": "!Scene: All Colorable",
+		"Filter": "Color Correction",
+		// The fade's waits: after showing the twins, after hiding the real group, after recolouring it
+		"ShowTwinsSeconds": 5.5,
+		"HideRealSeconds": 2.5,
+		"RecolorSeconds": 1
+	},
+	"Game": {
+		"BackgroundSource": "Image: Background",
+		// By position, they show <game>_<n>.png, <game>_2_<n>.png, <game>_3_<n>.png, …
+		"SidebarSources": ["Sidebar: Dynamic 1", "Sidebar: Dynamic 2"],
+		// Each followed by a space and the slot number
+		"GameCapturePrefix": "Game: Game Capture",
+		"WindowCapturePrefix": "Game: Window Capture",
+		"AudioCapturePrefix": "Audio 5: App Capture",
+		"CaptureSlots": 3
+	},
+	"LeftPanel": {
+		"Scene": "!Scene: Left Panel",
+		"ColoredScene": "!Scene: Left Panel Colored",
+		// Each followed by a space and the group name
+		"Prefix": "_LP:",
+		"ColoredPrefix": "_LPC:"
+	},
+	"SplitColors": {
+		"HighlightGroup": "Splits List Highlights",
+		"HighlightFilter": "Color Correction 2",
+		"HighlightGold": "Livesplit: SL Highlights Gold",
+		"HighlightAheadGained": "Livesplit: SL Highlights AheadGained",
+		"HighlightAheadLost": "Livesplit: SL Highlights AheadLost",
+		"HighlightBehindGained": "Livesplit: SL Highlights BehindGained",
+		"HighlightBehindLost": "Livesplit: SL Highlights BehindLost",
+		"PreviousGroup": "Splits Previous Values",
+		"PreviousFilter": "Color Correction",
+		"PreviousRun": "Livesplit: Previous Run",
+		"PreviousSegment": "Livesplit: Previous Segment",
+		"PreviousGold": "Livesplit: Previous Gold"
+	}
+}

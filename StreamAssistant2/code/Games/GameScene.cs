@@ -2,13 +2,25 @@ using Game = StreamAssistant2.Games.Game;
 
 namespace StreamAssistant2 {
 	internal static class GameScene {
-		internal const string STREAM = "Basic Stream Layout";
-		internal const string LAYOUTS = "!Scene: Layout ";
-		internal const string GAMES = "!Scene: Games ";
 		const string DEFAULT_ASPECT = "16x9";
 
 		/// <summary>
-		/// Shows the layout scene and the games scene for the game's aspect in Basic Stream Layout and hides the other ones
+		/// The stream scene, Basic Stream Layout.
+		/// </summary>
+		internal static string Stream => Settings.Data.Layout.StreamScene;
+
+		/// <summary>
+		/// The layout scenes' names before the aspect, with the space.
+		/// </summary>
+		internal static string LayoutsPrefix => Settings.Data.Layout.LayoutScenePrefix + " ";
+
+		/// <summary>
+		/// The games scenes' names before the aspect, with the space.
+		/// </summary>
+		internal static string GamesPrefix => Settings.Data.Layout.GamesScenePrefix + " ";
+
+		/// <summary>
+		/// Shows the layout scene and the games scene for the game's aspect in the stream scene and hides the other ones
 		/// there; logs and leaves a kind when OBS isn't ready or there's no scene of it for that aspect.
 		/// </summary>
 		internal static void Set(Game game) {
@@ -16,36 +28,37 @@ namespace StreamAssistant2 {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "OBS not connected, layout and games scenes not set");
 				return;
 			}
-			List<string> items = Obs.GetSceneItemNames(STREAM);
-			foreach (string prefix in new[] { LAYOUTS, GAMES }) {
-				Switch(Named(items, prefix), prefix, game.Aspect);
+			string stream = Stream;
+			List<string> items = Obs.GetSceneItemNames(stream);
+			foreach (string prefix in new[] { LayoutsPrefix, GamesPrefix }) {
+				Switch(stream, Named(items, prefix), prefix, game.Aspect);
 			}
 		}
 
 		/// <summary>
 		/// Shows the aspect's scene among one kind and hides the others, or logs that there's none for it.
 		/// </summary>
-		static void Switch(List<string> scenes, string prefix, string? aspect) {
+		static void Switch(string stream, List<string> scenes, string prefix, string? aspect) {
 			if (Choose(scenes, prefix, aspect) is not var (show, hide)) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {prefix}{aspect ?? DEFAULT_ASPECT} in {STREAM}, left as is");
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {prefix}{aspect ?? DEFAULT_ASPECT} in {stream}, left as is");
 				return;
 			}
 			foreach (string scene in hide.Prepend(show)) {
 				try {
-					Obs.SetSourceEnabled(STREAM, scene, scene == show);
+					Obs.SetSourceEnabled(stream, scene, scene == show);
 				}
 				catch (Exception ex) {
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Couldn't set {scene}: {ex.Message}");
 				}
 			}
-			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"{STREAM} → {show}");
+			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, $"{stream} → {show}");
 		}
 
 		/// <summary>
-		/// The games scenes among Basic Stream Layout's top-level items.
+		/// The games scenes among the stream scene's top-level items.
 		/// </summary>
 		internal static List<string> GamesScenes() {
-			return Named(Obs.GetSceneItemNames(STREAM), GAMES);
+			return Named(Obs.GetSceneItemNames(Stream), GamesPrefix);
 		}
 
 		/// <summary>

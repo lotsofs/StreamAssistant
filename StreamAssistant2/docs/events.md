@@ -164,7 +164,7 @@ On `channel.ad_break.begin`:
 2. wait the ad's duration, log `Ad break over`
 3. cancel the previous round's `CancellationTokenSource` (the old pending warnings stop) and swap in a fresh one
 4. start `RunScheduleAsync` with four warnings, timed from *now* ([infrastructure.md](infrastructure.md#periodic-work)),
-   assuming an ad every `MINUTES_BETWEEN_ADS` = 60 minutes:
+   assuming an ad every `Ads.IntervalMinutes` (60 by default; the table shows the default):
 
 | Minutes after the break | Chat message |
 |---|---|
@@ -233,15 +233,15 @@ Details in [obs.md](obs.md#per-game-setup).
 ## Channel-point rewards
 
 [ChannelPoints.cs](../code/Twitch/ChannelPoints.cs). `ProcessAdd` reads `reward.id`, `id` (the
-redemption id), `user_id`, `user_login` and `user_input`, then switches on the reward GUID (the
-constants are listed in [reference.md](reference.md#channel-point-rewards)). An unknown id logs
+redemption id), `user_id`, `user_login` and `user_input`, then matches the reward GUID against the
+`Rewards` settings (`ChannelPoints.RewardOf`, listed in [reference.md](reference.md#rewards)) and switches on the reward. An unknown id logs
 `Unhandled channel point reward redemption id: <id>` and the payload.
 
 | Reward | Does |
 |---|---|
 | Toilet flush | play `Flush`, insert a row in `flushes` (redemption id, user id, login, time), log it. From `!test`: sound only, no row |
 | Toilet retrieve | look up that user's flushes; none → chat `🪠 … didn't find any of <user>'s stuff`; else `CANCELED` each flushed redemption through Helix (refunding it), delete the rows, chat `🪠 Found and returned N … 🪠`. From `!test`: only logs how many it would return |
-| Train | if a train is already showing: chat `🚂 A train is already on the tracks 🚂` and `CANCELED` the redemption (refunding it). Otherwise `FULFILLED` it, pick a random `Train0.png`–`Train99.png` from `Directories.Trains`, show it in OBS, wait 62 s, hide it, point the source back at `Empty.png`. A train left showing (the bot closed mid-train) is hidden on the next OBS connect, and one running when the window is closed is hidden then ([obs.md § Train](obs.md#train)). Lives in `ChannelPoints.TryStartTrain`; the admin command `!train` runs it without a redemption (and is ignored the same way). From `!test`: runs the train, but only logs the status instead of calling Helix |
+| Train | if a train is already showing: chat `🚂 A train is already on the tracks 🚂` and `CANCELED` the redemption (refunding it). Otherwise `FULFILLED` it, pick a random `Train0.png`–`Train99.png` (`Train.Images`, 100) from `Directories.Trains`, show it in OBS, wait `Train.Seconds` (62 s), hide it, point the source back at `Empty.png`. A train left showing (the bot closed mid-train) is hidden on the next OBS connect, and one running when the window is closed is hidden then ([obs.md § Train](obs.md#train)). Lives in `ChannelPoints.TryStartTrain`; the admin command `!train` runs it without a redemption (and is ignored the same way). From `!test`: runs the train, but only logs the status instead of calling Helix |
 | Colour random / single / triple | call `LayoutColoring`, then close the redemption (`FULFILLED`, or `CANCELED` if the colour didn't resolve). From `!test`: recolours, but only logs the status instead of calling Helix |
 
 ### How the flush pair works

@@ -1,13 +1,5 @@
 {
 	"directories": {
-		"BotInput": "D:\\Repositories\\Stream-Resources\\Bot Input",
-		"BotOutput": "D:\\Repositories\\Stream-Resources\\Bot Output",
-		"Trains": "D:\\Repositories\\Stream-Resources\\Images\\Train\\Trains",
-		"Colors": "D:\\Repositories\\Stream-Resources\\Colors\\Tables",
-		"ColorSchemes": "D:\\Repositories\\Stream-Resources\\Colors\\Schemes",
-		"Backgrounds": "D:\\Repositories\\Stream-Resources\\Images\\Backgrounds",
-		"LivesplitGenerated": "D:\\Repositories\\Stream-Resources\\Text\\Livesplit Generated",
-		"Layout": "D:\\Repositories\\Stream-Resources\\Images\\Layout",
-		"Sidebar": "D:\\Repositories\\Stream-Resources\\Images\\Sidebar"
+		"BotInput": "%APPDATA%\\StreamAssistant2\\Bot Input"
 	}
 }

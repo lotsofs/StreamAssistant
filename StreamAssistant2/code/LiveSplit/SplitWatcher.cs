@@ -30,9 +30,9 @@ namespace StreamAssistant2 {
 				if (_watcher != null) {
 					return;
 				}
-				string directory = Config.Data.Directories.LivesplitGenerated;
+				string directory = Settings.Data.Directories.LivesplitGenerated;
 				if (string.IsNullOrEmpty(directory)) {
-					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "LivesplitGenerated not set in paths.json, previous-split panel off");
+					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, "LivesplitGenerated not set in settings.json, previous-split panel off");
 					return;
 				}
 				string folder = Path.Combine(directory, INDEX_FOLDER);

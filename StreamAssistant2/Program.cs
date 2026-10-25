@@ -22,6 +22,13 @@ namespace StreamAssistant2
 
 			Application app = new();
 			MainWindow window = new();
+			try {
+				Settings.Load(atStartup: true);
+			}
+			catch (Exception ex) {
+				MessageBox.Show(ex.Message, "Stream Assistant", MessageBoxButton.OK, MessageBoxImage.Error);
+				return;
+			}
 			// On the thread pool, so the bot's fire-and-forget loops don't pick up the UI thread's
 			// synchronization context and run their continuations on it.
 			window.Loaded += (_, _) => Task.Run(StartBotAsync);

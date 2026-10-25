@@ -14,7 +14,7 @@ namespace StreamAssistant2 {
 		static string _connectionString = "";
 		
 		internal async static Task InitAsync() {
-			_dbPath = Path.Combine(Config.Data.Directories.BotOutput, "streamAssistant.db");
+			_dbPath = Path.Combine(Settings.Data.Directories.BotOutput, "streamAssistant.db");
 			_connectionString = new SqliteConnectionStringBuilder { DataSource = _dbPath }.ToString();
 
 			await using var connection = new SqliteConnection(_connectionString);
@@ -40,7 +40,7 @@ namespace StreamAssistant2 {
 			);
 
 			INSERT OR IGNORE INTO money_goal (id, current_cents, goal_cents)
-			VALUES (1, 0, " + MoneyGoal.DEFAULT_GOAL_CENTS + @");
+			VALUES (1, 0, " + MoneyGoal.DefaultGoalCents + @");
 			";
 
 			await cmd.ExecuteNonQueryAsync();
@@ -123,7 +123,7 @@ namespace StreamAssistant2 {
 
 			await using var reader = await select.ExecuteReaderAsync();
 			if (!await reader.ReadAsync()) {
-				return (0, MoneyGoal.DEFAULT_GOAL_CENTS);
+				return (0, MoneyGoal.DefaultGoalCents);
 			}
 			return (reader.GetInt64(0), reader.GetInt64(1));
 		}

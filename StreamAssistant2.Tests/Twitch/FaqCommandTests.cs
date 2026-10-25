@@ -68,37 +68,46 @@ namespace StreamAssistant2.Tests {
 
 		static readonly DateTime T0 = new(2026, 10, 15, 12, 0, 0, DateTimeKind.Utc);
 
+		static readonly TimeSpan Minute = TimeSpan.FromSeconds(60);
+
 		static ChatHandler.Cooldowns NewCooldowns() {
-			return new ChatHandler.Cooldowns(TimeSpan.FromSeconds(60));
+			return new ChatHandler.Cooldowns();
 		}
 
 		[Fact]
 		public void Cooldown_FirstUse_Allowed() {
-			Assert.True(NewCooldowns().TryUse("alice", "!skeys", T0));
+			Assert.True(NewCooldowns().TryUse("alice", "!skeys", T0, Minute));
 		}
 
 		[Fact]
 		public void Cooldown_SameUserAndCommand_RefusedUntilItEnds() {
 			ChatHandler.Cooldowns cooldowns = NewCooldowns();
-			cooldowns.TryUse("alice", "!skeys", T0);
-			Assert.False(cooldowns.TryUse("alice", "!skeys", T0.AddSeconds(59)));
-			Assert.True(cooldowns.TryUse("alice", "!skeys", T0.AddSeconds(60)));
+			cooldowns.TryUse("alice", "!skeys", T0, Minute);
+			Assert.False(cooldowns.TryUse("alice", "!skeys", T0.AddSeconds(59), Minute));
+			Assert.True(cooldowns.TryUse("alice", "!skeys", T0.AddSeconds(60), Minute));
 		}
 
 		[Fact]
 		public void Cooldown_OtherUserOrCommand_Allowed() {
 			ChatHandler.Cooldowns cooldowns = NewCooldowns();
-			cooldowns.TryUse("alice", "!skeys", T0);
-			Assert.True(cooldowns.TryUse("bob", "!skeys", T0.AddSeconds(1)));
-			Assert.True(cooldowns.TryUse("alice", "!sssa", T0.AddSeconds(1)));
+			cooldowns.TryUse("alice", "!skeys", T0, Minute);
+			Assert.True(cooldowns.TryUse("bob", "!skeys", T0.AddSeconds(1), Minute));
+			Assert.True(cooldowns.TryUse("alice", "!sssa", T0.AddSeconds(1), Minute));
+		}
+
+		[Fact]
+		public void Cooldown_LengthIsTheOneGivenNow() {
+			ChatHandler.Cooldowns cooldowns = NewCooldowns();
+			cooldowns.TryUse("alice", "!skeys", T0, Minute);
+			Assert.True(cooldowns.TryUse("alice", "!skeys", T0.AddSeconds(10), TimeSpan.FromSeconds(10)));
 		}
 
 		[Fact]
 		public void Cooldown_RefusedTry_DoesNotExtendIt() {
 			ChatHandler.Cooldowns cooldowns = NewCooldowns();
-			cooldowns.TryUse("alice", "!skeys", T0);
-			cooldowns.TryUse("alice", "!skeys", T0.AddSeconds(30));
-			Assert.True(cooldowns.TryUse("alice", "!skeys", T0.AddSeconds(60)));
+			cooldowns.TryUse("alice", "!skeys", T0, Minute);
+			cooldowns.TryUse("alice", "!skeys", T0.AddSeconds(30), Minute);
+			Assert.True(cooldowns.TryUse("alice", "!skeys", T0.AddSeconds(60), Minute));
 		}
 	}
 }

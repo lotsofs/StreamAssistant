@@ -1,7 +1,6 @@
 namespace StreamAssistant2 {
 	// Time-of-day work on every whole minute: the OBS clock text, and the date in chat at local midnight
 	internal static class Clock {
-		const string SOURCE = "Text: Time Of Day";
 		const string CLOCK_FORMAT = "yyyy'-'MM'-'dd HH':'mm";
 		const string DATE_FORMAT = "yyyy'-'MM'-'dd";
 
@@ -40,7 +39,7 @@ namespace StreamAssistant2 {
 			if (!ObsConnection.IsReady) {
 				return;
 			}
-			Obs.SetInputSetting(SOURCE, "text", ClockText(now));
+			Obs.SetInputSetting(Settings.Data.Clock.Source, "text", ClockText(now));
 		}
 
 		// Posts the date to chat on the first tick of a new day

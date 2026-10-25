@@ -3,14 +3,6 @@ namespace StreamAssistant2 {
 		const string SCHEME_SET = "gameschemes";
 		const string FALLBACK = "none";
 		const string PROPERTY = "color_multiply";
-		internal const string HIGHLIGHT_FILTER = "Color Correction 2";
-		internal const string PREVIOUS_FILTER = "Color Correction";
-		internal const string PREVIOUS_RUN = "Livesplit: Previous Run";
-		internal const string PREVIOUS_SEGMENT = "Livesplit: Previous Segment";
-		internal const string PREVIOUS_GOLD = "Livesplit: Previous Gold";
-		// The left-panel groups that hold the highlights and the previous split's differences
-		internal const string HIGHLIGHT_GROUP = "Splits List Highlights";
-		internal const string PREVIOUS_GROUP = "Splits Previous Values";
 		const string NONE = "None";
 		const string POSITIVE = "LabelPositive";
 		const string NEGATIVE = "LabelNegative";
@@ -19,12 +11,12 @@ namespace StreamAssistant2 {
 		const string FINISHED = "finished";
 
 		// The split list highlight sources and the split colour each takes
-		internal static readonly (string Source, string Key)[] Highlights = [
-			("Livesplit: SL Highlights Gold", "ListGold"),
-			("Livesplit: SL Highlights AheadGained", "ListGainedAhead"),
-			("Livesplit: SL Highlights AheadLost", "ListLostAhead"),
-			("Livesplit: SL Highlights BehindGained", "ListGainedBehind"),
-			("Livesplit: SL Highlights BehindLost", "ListLostBehind"),
+		internal static (string Source, string Key)[] Highlights(SplitColorsSettings settings) => [
+			(settings.HighlightGold, "ListGold"),
+			(settings.HighlightAheadGained, "ListGainedAhead"),
+			(settings.HighlightAheadLost, "ListLostAhead"),
+			(settings.HighlightBehindGained, "ListGainedBehind"),
+			(settings.HighlightBehindLost, "ListLostBehind"),
 		];
 
 		/// <summary>
@@ -109,7 +101,8 @@ namespace StreamAssistant2 {
 		/// The split list highlights' filter colours; a highlight whose key has no colour is left out.
 		/// </summary>
 		internal static List<FilterColor> HighlightFilters(IReadOnlyDictionary<string, string> colors) {
-			return Highlights.Select(h => ToFilter(h.Source, HIGHLIGHT_FILTER, h.Key, colors)).OfType<FilterColor>().ToList();
+			SplitColorsSettings settings = Settings.Data.SplitColors;
+			return Highlights(settings).Select(h => ToFilter(h.Source, settings.HighlightFilter, h.Key, colors)).OfType<FilterColor>().ToList();
 		}
 
 		/// <summary>
@@ -117,10 +110,11 @@ namespace StreamAssistant2 {
 		/// </summary>
 		internal static List<FilterColor> PreviousFilters(IReadOnlyDictionary<string, string> colors, string? sign) {
 			var (run, segment, gold) = SignKeys(sign);
+			SplitColorsSettings settings = Settings.Data.SplitColors;
 			return new[] {
-				ToFilter(PREVIOUS_RUN, PREVIOUS_FILTER, run, colors),
-				ToFilter(PREVIOUS_SEGMENT, PREVIOUS_FILTER, segment, colors),
-				ToFilter(PREVIOUS_GOLD, PREVIOUS_FILTER, gold, colors),
+				ToFilter(settings.PreviousRun, settings.PreviousFilter, run, colors),
+				ToFilter(settings.PreviousSegment, settings.PreviousFilter, segment, colors),
+				ToFilter(settings.PreviousGold, settings.PreviousFilter, gold, colors),
 			}.OfType<FilterColor>().ToList();
 		}
 

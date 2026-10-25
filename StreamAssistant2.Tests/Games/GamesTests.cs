@@ -315,6 +315,11 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void SidebarSources_SeriesByPosition() {
+			Assert.Equal([("A", ""), ("B", "_2"), ("C", "_3")], GameSidebar.Sources(["A", "B", "C"]));
+		}
+
+		[Fact]
 		public void GameBackgroundPath_ExistingFile_IsCombinedPath() {
 			string expected = Path.Combine(@"D:\Backgrounds", "KTANE.png");
 			Assert.Equal(expected, GameBackground.PathFor(@"D:\Backgrounds", "KTANE", p => p == expected));
@@ -363,8 +368,8 @@ namespace StreamAssistant2.Tests {
 
 		[Fact]
 		public void NamedScenes_AreTheItemsWithThatPrefix() {
-			Assert.Equal(["!Scene: Games 16x9", "!Scene: Games 5x4"], GameScene.Named(StreamItems, GameScene.GAMES));
-			Assert.Equal(["!Scene: Layout 16x9", "!Scene: Layout 5x4"], GameScene.Named(StreamItems, GameScene.LAYOUTS));
+			Assert.Equal(["!Scene: Games 16x9", "!Scene: Games 5x4"], GameScene.Named(StreamItems, GameScene.GamesPrefix));
+			Assert.Equal(["!Scene: Layout 16x9", "!Scene: Layout 5x4"], GameScene.Named(StreamItems, GameScene.LayoutsPrefix));
 		}
 
 		[Theory]
@@ -372,15 +377,15 @@ namespace StreamAssistant2.Tests {
 		[InlineData("16X9", "!Scene: Games 16x9", "!Scene: Games 5x4")]
 		[InlineData("5x4", "!Scene: Games 5x4", "!Scene: Games 16x9")]
 		public void ChooseScene_TheAspectsScene_The16x9OneWithout_AndHidesTheRest(string? aspect, string show, string hide) {
-			var (shown, hidden) = GameScene.Choose(GameScene.Named(StreamItems, GameScene.GAMES), GameScene.GAMES, aspect)!.Value;
+			var (shown, hidden) = GameScene.Choose(GameScene.Named(StreamItems, GameScene.GamesPrefix), GameScene.GamesPrefix, aspect)!.Value;
 			Assert.Equal(show, shown);
 			Assert.Equal([hide], hidden);
 		}
 
 		[Fact]
 		public void ChooseScene_NoSceneForTheAspect_IsNull() {
-			Assert.Null(GameScene.Choose(GameScene.Named(StreamItems, GameScene.LAYOUTS), GameScene.LAYOUTS, "4x3"));
-			Assert.Null(GameScene.Choose([], GameScene.GAMES, null));
+			Assert.Null(GameScene.Choose(GameScene.Named(StreamItems, GameScene.LayoutsPrefix), GameScene.LayoutsPrefix, "4x3"));
+			Assert.Null(GameScene.Choose([], GameScene.GamesPrefix, null));
 		}
 
 		[Fact]
@@ -563,20 +568,20 @@ namespace StreamAssistant2.Tests {
 
 		[Fact]
 		public void CaptureAssignments_FillInOrder_PadWithNone_FromZero() {
-			var slots = GameCapture.Assignments("Game: Game Capture ", C("a.exe"));
+			var slots = GameCapture.Assignments("Game: Game Capture", C("a.exe"), 3);
 			Assert.Equal([("Game: Game Capture 0", "a.exe"), ("Game: Game Capture 1", "none"), ("Game: Game Capture 2", "none")], slots.Select(s => (s.Source, s.Capture.Executable)));
 		}
 
 		[Fact]
 		public void CaptureAssignments_IgnoreExtras() {
-			var slots = GameCapture.Assignments("P ", C("a", "b", "c", "d"));
-			Assert.Equal(GameCapture.SLOTS, slots.Count);
+			var slots = GameCapture.Assignments("P", C("a", "b", "c", "d"), 3);
+			Assert.Equal(3, slots.Count);
 			Assert.Equal(("P 2", new Capture("c")), slots[2]);
 		}
 
 		[Fact]
 		public void CaptureAssignments_Empty_AllNone() {
-			Assert.All(GameCapture.Assignments("P ", []), s => Assert.Equal("none", s.Capture.Executable));
+			Assert.All(GameCapture.Assignments("P", [], 3), s => Assert.Equal("none", s.Capture.Executable));
 		}
 
 		[Theory]

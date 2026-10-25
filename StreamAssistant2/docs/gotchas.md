@@ -87,14 +87,20 @@ full explanation is. Skim this before making a change you think is small.
 
 - **Run from the project folder.** `paths.json` and `secrets.json.example` resolve against the working
   directory.
-- **`secrets.json` lives outside the repo**, in `Directories.BotInput`, a different git repo that must
+- **`secrets.json` lives outside the repo**, in `BotInput`, a different git repo that must
   ignore it. Never print or log its values.
-- **The TTS voice `Microsoft Catherine` must exist**, and the first use is at the *end* of startup, so a
-  missing voice shows up as `Error PRG1` after everything else is already running.
+- **The TTS voice in `Speech.Voice` (`Microsoft Catherine`) must exist**; a missing one logs `Error 5`
+  for every utterance, the first at the *end* of startup, after everything else is already running.
   ([infrastructure.md](infrastructure.md#text-to-speech))
-- **One path is hardcoded outside `paths.json`**: the alert-sounds folder. ([reference.md](reference.md))
-- **Scene, source and filter names in OBS are strings in code**; renaming one in OBS silently breaks that
-  call. ([reference.md](reference.md#obs-names))
+- **`paths.json` holds only `BotInput`; every other directory is in `settings.json`**, and an empty one
+  turns its feature off. A first start creates `settings.json` from the example, whose `BotOutput` is
+  `%APPDATA%\StreamAssistant2\Bot Output`, so the log and the database go there until it's changed. ([infrastructure.md](infrastructure.md#settings))
+- **A broken `settings.json` stops startup** with a message box, but on `!reloaddata` only logs
+  `Error SET1` and keeps the old settings. A misspelt key counts as broken. ([infrastructure.md](infrastructure.md#settings))
+- **Code must read `Settings.Data` at each use**, never keep a value in a field, or `!reloaddata` won't
+  reach it. `BotOutput` alone waits for a restart. ([infrastructure.md](infrastructure.md#settings))
+- **Scene, source and filter names in OBS are strings in `settings.json`**; renaming one in OBS silently
+  breaks that call until the setting is changed too. ([reference.md](reference.md#layout))
 - **In a `leftpanel.json` panel that shows a copy family, every `Text` and `File` source gets the copy's
   number**, so a source shared by all copies, or in another group, can't be set there.
   ([obs.md](obs.md#copies))
@@ -110,7 +116,8 @@ full explanation is. Skim this before making a change you think is small.
 - **`code/` is lowercase and a case-only rename needs `git mv`**, with VS Code holding a handle on the
   folder itself; move subfolders instead. ([CLAUDE.md](../CLAUDE.md))
 - **The test project mirrors `code/`'s folders, but `ColorData.cs` must stay at its root**: it finds the
-  bot's `paths.json` two folders up from itself, so moving it skips the real-data tests.
+  bot's `paths.json` two folders up from itself (and the `settings.json` it leads to), so moving it skips
+  the real-data tests.
   ([development.md](development.md#unit-tests))
 - **`Fold` relies on `string.Normalize`**, which silently does nothing under `InvariantGlobalization`.
 

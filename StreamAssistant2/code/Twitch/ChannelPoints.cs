@@ -12,14 +12,22 @@ using System.Threading.Tasks;
 
 namespace StreamAssistant2 {
 	internal static class ChannelPoints {
-		const string REWARD_ID_TRAIN = "0260c648-c3ba-4ff1-920d-dffa5431da74";
-		const string REWARD_ID_TOILET_FLUSH = "cd46e822-f288-47e6-8e8c-c56155603a0e";
-		const string REWARD_ID_TOILET_RETRIEVE = "785967e7-9b58-41eb-aa11-15fed82a72ec";
-		const string REWARD_ID_COLOR_RANDOM = "bc78e213-6818-464d-8d5f-3408e9bd2413";
-		const string REWARD_ID_COLOR_SINGLE = "ad70a9d9-12fa-44dd-a3fb-dde21ebc4ec1";
-		const string REWARD_ID_COLOR_TRIPLE = "30168c08-09f6-4557-ab49-b7eaed212978";
-		const string TRAIN_SCENE = "!Scene: Basics Colored";
-		const string TRAIN_SOURCE = "Image: Train";
+		internal enum Reward { None, Train, ToiletFlush, ToiletRetrieve, ColorRandom, ColorSingle, ColorTriple }
+
+		/// <summary>
+		/// The reward a redemption's reward id is, by the ids in the settings; None for any other.
+		/// </summary>
+		internal static Reward RewardOf(string rewardId, RewardsSettings rewards) {
+			return rewardId switch {
+				_ when rewardId == rewards.Train => Reward.Train,
+				_ when rewardId == rewards.ToiletFlush => Reward.ToiletFlush,
+				_ when rewardId == rewards.ToiletRetrieve => Reward.ToiletRetrieve,
+				_ when rewardId == rewards.ColorRandom => Reward.ColorRandom,
+				_ when rewardId == rewards.ColorSingle => Reward.ColorSingle,
+				_ when rewardId == rewards.ColorTriple => Reward.ColorTriple,
+				_ => Reward.None,
+			};
+		}
 
 		/// <param name="isTest">From !test (a replay): leave the toilet database and the real redemptions alone.</param>
 		internal async static Task ProcessAdd(JsonElement evt, bool isTest = false) {
@@ -32,8 +40,9 @@ namespace StreamAssistant2 {
 
 			bool success = false;
 
-			switch (rewardId) {
-				case REWARD_ID_TOILET_FLUSH:
+			RewardsSettings rewards = Settings.Data.Rewards;
+			switch (RewardOf(rewardId, rewards)) {
+				case Reward.ToiletFlush:
 					Sound.PlaySound(Sound.Sounds.Flush);
 					if (isTest) {
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Test flush for {userLogin}: not written to the database ({redemptionId})");
@@ -42,7 +51,7 @@ namespace StreamAssistant2 {
 					await Database.InsertFlushAsync(redemptionId, userId, userLogin);
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully wrote flush for {userLogin}: {redemptionId}");
 					break;
-				case REWARD_ID_TOILET_RETRIEVE:
+				case Reward.ToiletRetrieve:
 					var flushes = await Database.RetrieveFlushesAsync(userId);
 					if (isTest) {
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Test retrieve for {userLogin}: would return {flushes.Count} flush(es); database, Helix and chat left alone");
@@ -54,25 +63,25 @@ namespace StreamAssistant2 {
 						return;
 					}
 					foreach (string id in flushes) {
-						await TwitchHelixApi.UpdateRedemption(REWARD_ID_TOILET_FLUSH, id, "CANCELED");
+						await TwitchHelixApi.UpdateRedemption(rewards.ToiletFlush, id, "CANCELED");
 					}
 					await Database.DeleteFlushesAsync(userId);
 					TwitchIRCManager.SendMessage($"🪠 Found and returned {flushes.Count} of {userLogin}'s flushed channel points 🪠");
 					ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Succesfully cleared sewers for {userLogin}: {flushes.Count}");
 					break;
-				case REWARD_ID_TRAIN:
+				case Reward.Train:
 					success = TryStartTrain();
 					await CloseRedemption(rewardId, redemptionId, "Train request", "", success, isTest);
 					break;
-				case REWARD_ID_COLOR_RANDOM:
+				case Reward.ColorRandom:
 					LayoutColoring.ChangeToRandom();
 					await CloseRedemption(rewardId, redemptionId, "Color change request", "random", true, isTest);
 					break;
-				case REWARD_ID_COLOR_SINGLE:
+				case Reward.ColorSingle:
 					success = LayoutColoring.TryChangeToSingle(userInput);
 					await CloseRedemption(rewardId, redemptionId, "Color change request", userInput, success, isTest);
 					break;
-				case REWARD_ID_COLOR_TRIPLE:
+				case Reward.ColorTriple:
 					success = LayoutColoring.TryChangeToTriple(userInput);
 					await CloseRedemption(rewardId, redemptionId, "Color change request", userInput, success, isTest);
 					break;
@@ -99,16 +108,17 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Shows a random train image on stream for 62 seconds, off the caller's thread, then frees the tracks.
+		/// Shows a random train image on stream for the train's seconds, off the caller's thread, then frees the tracks.
 		/// </summary>
 		static async Task RunTrainAsync() {
 			try {
 				await Task.Yield();
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, "Choo choo!");
-				int r = Random.Shared.Next(0, 100);
-				Obs.SetImageSource(TRAIN_SOURCE, Path.Combine(Config.Data.Directories.Trains, $"Train{r}.png"));
-				Obs.SetSourceEnabled(TRAIN_SCENE, TRAIN_SOURCE, true);
-				await Task.Delay(62000);
+				TrainSettings train = Settings.Data.Train;
+				int r = Random.Shared.Next(0, train.Images);
+				Obs.SetImageSource(train.Source, Path.Combine(Settings.Data.Directories.Trains, $"Train{r}.png"));
+				Obs.SetSourceEnabled(train.Scene, train.Source, true);
+				await Task.Delay(TimeSpan.FromSeconds(train.Seconds));
 				ClearTrain();
 			}
 			finally {
@@ -120,8 +130,9 @@ namespace StreamAssistant2 {
 		/// Hides the train and points it back at the empty image.
 		/// </summary>
 		static void ClearTrain() {
-			Obs.SetSourceEnabled(TRAIN_SCENE, TRAIN_SOURCE, false);
-			Obs.SetImageSource(TRAIN_SOURCE, Path.Combine(Config.Data.Directories.Trains, "Empty.png"));
+			TrainSettings train = Settings.Data.Train;
+			Obs.SetSourceEnabled(train.Scene, train.Source, false);
+			Obs.SetImageSource(train.Source, Path.Combine(Settings.Data.Directories.Trains, "Empty.png"));
 		}
 
 		/// <summary>
@@ -134,7 +145,8 @@ namespace StreamAssistant2 {
 					return;
 				}
 				try {
-					if (Obs.SceneItems(TRAIN_SCENE, false)?.Any(item => item.Source == TRAIN_SOURCE && item.Enabled) == true) {
+					TrainSettings train = Settings.Data.Train;
+					if (Obs.SceneItems(train.Scene, false)?.Any(item => item.Source == train.Source && item.Enabled) == true) {
 						ClearTrain();
 						ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChanges, "Leftover train cleared");
 					}

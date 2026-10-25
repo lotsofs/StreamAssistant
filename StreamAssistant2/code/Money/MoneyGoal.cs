@@ -3,9 +3,11 @@ using System.Globalization;
 namespace StreamAssistant2 {
 	// Tips' running total toward a goal, kept in the database and shown in OBS
 	internal static class MoneyGoal {
-		const string SOURCE = "Text: Money Goal";
-		internal const string CURRENCY = "EUR";
-		internal const long DEFAULT_GOAL_CENTS = 99900;
+		// The goal and total's currency
+		static string Currency => Settings.Data.MoneyGoal.Currency;
+
+		// The goal on a first start, in cents
+		internal static long DefaultGoalCents => ToCents(Settings.Data.MoneyGoal.DefaultGoal);
 
 		// Adds a tip to the total and shows it
 		internal static void Credit(string user, decimal amount, string currency) {
@@ -20,11 +22,11 @@ namespace StreamAssistant2 {
 			}
 			await Database.AddMoneyAsync(cents);
 			var (current, goal) = await Database.GetMoneyAsync();
-			if (string.IsNullOrWhiteSpace(currency) || currency.Equals(CURRENCY, StringComparison.OrdinalIgnoreCase)) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Money goal: +{Amount(cents)} {CURRENCY} from {user}, now {Text(current, goal)}");
+			if (string.IsNullOrWhiteSpace(currency) || currency.Equals(Currency, StringComparison.OrdinalIgnoreCase)) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Money goal: +{Amount(cents)} {Currency} from {user}, now {Text(current, goal)}");
 			}
 			else {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Money goal: +{Amount(cents)} {currency} from {user}, counted as {Amount(cents)} {CURRENCY}, now {Text(current, goal)}");
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Money goal: +{Amount(cents)} {currency} from {user}, counted as {Amount(cents)} {Currency}, now {Text(current, goal)}");
 			}
 			Show(current, goal);
 		}
@@ -39,7 +41,7 @@ namespace StreamAssistant2 {
 			FireForget.Run("MON2", "money goal change", async () => {
 				await Database.SetMoneyGoalAsync(cents.Value);
 				var (current, goal) = await Database.GetMoneyAsync();
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Money goal set to {Amount(goal)} {CURRENCY}, now {Text(current, goal)}");
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Money goal set to {Amount(goal)} {Currency}, now {Text(current, goal)}");
 				Show(current, goal);
 			});
 		}
@@ -50,7 +52,7 @@ namespace StreamAssistant2 {
 				var (was, _) = await Database.GetMoneyAsync();
 				await Database.ResetMoneyAsync();
 				var (current, goal) = await Database.GetMoneyAsync();
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Money total reset (was {Amount(was)} {CURRENCY}), now {Text(current, goal)}");
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"Money total reset (was {Amount(was)} {Currency}), now {Text(current, goal)}");
 				Show(current, goal);
 			});
 		}
@@ -69,11 +71,12 @@ namespace StreamAssistant2 {
 			if (!ObsConnection.IsReady) {
 				return;
 			}
+			string source = Settings.Data.MoneyGoal.Source;
 			try {
-				Obs.SetInputSetting(SOURCE, "text", Text(current, goal));
+				Obs.SetInputSetting(source, "text", Text(current, goal));
 			}
 			catch (Exception ex) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Couldn't set {SOURCE}: {ex.Message}");
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Couldn't set {source}: {ex.Message}");
 			}
 		}
 
@@ -87,9 +90,9 @@ namespace StreamAssistant2 {
 			return Tips.FormatAmount(cents / 100m);
 		}
 
-		// "<current> / <goal> EUR"
+		// "<current> / <goal> <currency>"
 		internal static string Text(long currentCents, long goalCents) {
-			return $"{Amount(currentCents)} / {Amount(goalCents)} {CURRENCY}";
+			return $"{Amount(currentCents)} / {Amount(goalCents)} {Currency}";
 		}
 
 		// Cents for a positive amount with a dot or comma decimal, or null

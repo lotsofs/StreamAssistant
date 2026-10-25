@@ -12,8 +12,6 @@ namespace StreamAssistant2 {
 			Warning,
 		}
 
-		private const string SOUNDS_FOLDER = "D:\\Repositories\\Stream-Resources\\Alert Sounds\\";
-
 		static void PlaySound(string file, float volume = 1.0f) {
 			var audioFile = new AudioFileReader(file);
 			var outputDevice = new WaveOutEvent();
@@ -30,30 +28,31 @@ namespace StreamAssistant2 {
 
 		}
 
+		/// <summary>
+		/// Plays the sound's file from the Sounds directory at its volume; logs instead when the directory isn't set.
+		/// </summary>
 		internal static void PlaySound(Sounds s) {
-			switch (s) {
-				case Sounds.TribalHymn:
-					PlaySound(Path.Combine(SOUNDS_FOLDER, "Tribal hymn.mp3"), 0.5f);
-					break;
-				case Sounds.TheClap:
-					PlaySound(Path.Combine(SOUNDS_FOLDER, "theclap.mp3"), 0.4f);
-					break;
-				case Sounds.Team17Applauds:
-					PlaySound(Path.Combine(SOUNDS_FOLDER, "Team17-Applauds.mp3"), 0.75f);
-					break;
-				case Sounds.IndianAnthem:
-					PlaySound(Path.Combine(SOUNDS_FOLDER, "IndianAnthem.mp3"), 0.4f);
-					break;
-				case Sounds.Flush:
-					PlaySound(Path.Combine(SOUNDS_FOLDER, "Flush.wav"), 0.4f);
-					break;
-				case Sounds.Warning:
-					PlaySound(Path.Combine(SOUNDS_FOLDER, "Warning.wav"), 0.6f);
-					break;
-				default:
-					break;
+			string folder = Settings.Data.Directories.Sounds;
+			if (folder.Length == 0) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Sounds not set in settings.json, {s} not played");
+				return;
 			}
+			SoundSettings sound = SettingsFor(s, Settings.Data.Sounds);
+			PlaySound(Path.Combine(folder, sound.File), (float)sound.Volume);
 		}
+
+		/// <summary>
+		/// The sound's file and volume.
+		/// </summary>
+		internal static SoundSettings SettingsFor(Sounds s, SoundsSettings sounds) => s switch {
+			Sounds.TribalHymn => sounds.TribalHymn,
+			Sounds.TheClap => sounds.TheClap,
+			Sounds.Team17Applauds => sounds.Team17Applauds,
+			Sounds.IndianAnthem => sounds.IndianAnthem,
+			Sounds.Flush => sounds.Flush,
+			Sounds.Warning => sounds.Warning,
+			_ => throw new ArgumentOutOfRangeException(nameof(s)),
+		};
 
 	}
 }

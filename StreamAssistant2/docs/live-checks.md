@@ -29,6 +29,7 @@ raise it.
 - **138.** Change a scheme's colours in a scheme file, `!reloaddata`, then `!changecolor <that scheme>`: the layout takes the new colours
 - **141.** F5 with `twitchBot` filled in and `botsofs` a moderator: no `Chat: no twitchBot…` line, and `🟣 Connected` comes from `botsofs`; `!changecolorrandom` typed as `lotsofs` still runs, its `Changing to color …` coming from `botsofs`; a real colour redemption still works and is marked fulfilled; your own first message still gets `YOOO BRO`, and `Text: Stream Uptime` still updates
 - **142.** `!test online`: the log shows `Twitch: stream online (…)` as before
+- **144.** F5 with the migrated files (`paths.json` holding only `BotInput`, `Bot Input\settings.json` every setting, with your directories): no `settings.json lacks …` line, and the first line is `Loaded settings.json, changed Directories: BotOutput, Trains, Colors, ColorSchemes, Backgrounds, LivesplitGenerated, Layout, Sidebar, Sounds`; the log file is still in `Stream-Resources\Bot Output\AssistantLogs`; `Text: Money Goal` keeps its total; the game setup sets the background, borders and sidebar; and `!test cheer` plays the applause and speaks in Catherine's voice
 
 ## With LiveSplit running SWAT4 splits
 
@@ -67,12 +68,18 @@ raise it.
 
 - **22.** Rename a source the game setup sets, then `!changegame <a game>`: it logs `Couldn't set <source>: …` and the rest still apply (also try it with `Image: Background` renamed: colour and captures must still change)
 - **37.** Move the `streamElements` block out of `Bot Input\secrets.json` and F5: the log shows `StreamElements: no channelId or jwt in secrets.json, tips are off`, the status bar's third segment shows `off`, and everything else starts as normal (the log line seen 2026-10-10, everything else starting; the status bar's `off` is still to see)
-- **48.** Off-stream, raise `SPAM_GB_THRESHOLD` in `DiskSpace.cs` above A:'s free space and F5: at the next whole minute the warning beep plays (a real alert came 2026-10-11 22:40 at 1.4 GB free: chat line and TTS, no `Error DSK1`; only the beep isn't in the log, so the next real alert also settles it)
+- **48.** Off-stream, raise `DiskSpace.SpamGiB` in `settings.json` above A:'s free space and `!reloaddata`: at the next whole minute the warning beep plays (a real alert came 2026-10-11 22:40 at 1.4 GB free: chat line and TTS, no `Error DSK1`; only the beep isn't in the log, so the next real alert also settles it)
 - **85.** Give a game's `leftpanel.json` entry a group OBS lacks and F5: once OBS is connected, exactly the column's lines with such a group are red (the panel up keeps its `>` and timer), matching the `has groups OBS doesn't` log line; the `_LP:` and `_LPC:` groups that do exist show and hide in OBS
 - **91.** Put an `_LP:` group in the coloured scene, or an `_LPC:` group in the plain one: the bot never shows or hides it
 - **140.** Move the `twitchBot` block out of `Bot Input\secrets.json` and F5: the log shows `Chat: no twitchBot login or accessToken in secrets.json, chatting as lotsofs`, and `🟣 Connected` comes from `lotsofs`
 - **143.** Empty `twitchAuth`'s `login` and F5: a message box says `secrets.json` has no `twitchAuth` login, and the bot doesn't start
 - **139.** Add a stray comma to a scheme file, then `!reloaddata`: the log shows `Error CLR1: can't load <file>: …`, the other files load, and `!changecolor` still finds that file's schemes as they were. Remove the comma and `!reloaddata` again: no `Error CLR1`
+- **145.** In `settings.json` change `Train.Seconds` to 10 and `Game.BackgroundSource` to `Image: Nothing`, then `!reloaddata`: the log lists `changed … Train: Seconds; Game: BackgroundSource`, the game setup logs `Couldn't set Image: Nothing: …`, and `!train` goes after about 10 s. With `Rewards.Train` set to `x` too, `!test replay` of a saved train redemption logs `Unhandled channel point reward redemption id: <id>`
+- **146.** Misspell a key in `settings.json` (`Train.Seconds` as `Secnds`), then `!reloaddata`: `Error SET1: settings.json: The JSON property 'Secnds' could not be mapped …`, and `!train` lasts as long as before. F5 with it still misspelt: a message box names `settings.json` and `Secnds`, and the bot doesn't start
+- **147.** Set `Speech.Voice` to another installed voice, `!reloaddata`, then `!test cheer`: it's spoken in that voice. A voice that isn't installed logs `Error 5` and says nothing
+- **148.** Change `Directories.BotOutput`, then `!reloaddata`: the log shows `BotOutput changes after a restart`, and lines keep going into the same log file
+- **149.** Delete the `Clock` section from `settings.json`, then `!reloaddata`: the log shows `settings.json lacks Clock; their defaults apply …`, and the OBS clock still updates at the next minute
+- **150.** Off-stream, move `settings.json` out of `Bot Input` and F5: the window shows `Created …\settings.json from settings.json.example, every setting at its default`, and the new file lists every setting (the log and a fresh database are under `%APPDATA%\StreamAssistant2\Bot Output` for this run). Close the bot, put your file back and delete `%APPDATA%\StreamAssistant2`
 
 ## Closing the bot by its window (not the debugger)
 

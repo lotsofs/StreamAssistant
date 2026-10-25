@@ -10,9 +10,11 @@ Everything here was read from the code. Where a behaviour was also run, it says 
 A single-user Windows desktop program (WPF, `net8.0-windows`, `WinExe`) that sits beside OBS while the
 channel `lotsofs` streams. It listens to Twitch (and to StreamElements, for tips), and reacts by speaking, playing sounds, posting in chat,
 recolouring the OBS layout and recording a little state. There is no server, no installer and no
-second user, so OBS source names, reward GUIDs, drive letters and resource paths are hardcoded on
-purpose ([reference.md](reference.md) lists them). The broadcaster's and the bot account's logins come
-from `secrets.json`.
+second user. The owner's OBS source names, reward GUIDs, drive letter, resource paths, timings and
+thresholds are settings in `settings.json`, each defaulting to the owner's value
+([infrastructure.md § Settings](infrastructure.md#settings)); protocol values stay constants
+([reference.md](reference.md) lists both). The broadcaster's and the bot account's logins come from
+`secrets.json`.
 
 ```
                          ┌────────────────────────────────────────────┐
@@ -46,13 +48,17 @@ service registry.
 
 1. `Main` is a synchronous `[STAThread]` method. WPF needs the STA thread, and an `async Main` would
    lose it after the first `await`.
-2. `Config.Load()` runs first. A failure shows a message box (there is no console) and exits.
-3. `new Application()`, `new MainWindow()`, then `app.Run(window)`.
+2. `Config.Load()` runs first: `paths.json` and `secrets.json`. A failure shows a message box (there is no
+   console) and exits.
+3. `new Application()`, `new MainWindow()` (which subscribes to the log), then
+   `Settings.Load(atStartup: true)`: `settings.json`, whose `BotOutput` is where the log file goes, so it
+   comes before anything else logs. A broken file shows a message box and exits, like `Config.Load`. Then
+   `app.Run(window)`.
 4. When the window has loaded, `StartBotAsync` runs **on the thread pool** (`Task.Run`). It is
    load-bearing: started on the UI thread, every fire-and-forget loop would capture WPF's
    synchronization context and run its continuations on the UI thread.
 5. `StartBotAsync`, in order:
-   1. Logs `STARTED!`, so it is the first line of each run in the log.
+   1. Logs `STARTED!`, so it is the first line of each run in the log after the settings line.
    2. `Coloring.Load()`: colour tables and schemes from disk ([color.md](color.md#loading)). Never
       throws: a file it can't load logs `Error CLR1`, and the rest load.
    3. `Games.Load()`: `<BotInput>\games.json`, the game behind each Twitch category. Never throws.
@@ -73,8 +79,8 @@ service registry.
    9. `Games.OnBootAsync`, fire-and-forget (`Error GMS_boot`): stores the current category from Helix and
       applies the game once, when OBS is first connected ([events.md](events.md#category-change-and-going-live)).
    10. `TextToSpeech.ReportStart()`, which is the first touch of `TextToSpeech`, so its static
-      constructor (and the `Microsoft Catherine` voice lookup) runs only now, after everything else
-      is already live.
+      constructor runs only now, after everything else is already live. Its worker selects the voice in
+      `Speech.Voice` before each utterance.
    Any exception logs `Error PRG1` and the bot stays half-started.
 6. Closing the window ends `Application.Run`. `Main` then posts `🍂 Shutting Down` to chat, logs
    `SHUTDOWN!`, hides a train still running (`ChannelPoints.OnShutdown`, [obs.md § Train](obs.md#train)) and
@@ -119,10 +125,11 @@ and shutdown, above) at the root and the window in [ui/](#ui). The test project 
 
 | File | Role | Detail |
 |---|---|---|
-| [Config.cs](../code/Core/Config.cs) | Loads `paths.json` + `secrets.json` into `Config.Data` | [infrastructure.md](infrastructure.md#config) |
+| [Config.cs](../code/Core/Config.cs) | Loads `paths.json` (`BotInput`) + `secrets.json` into `Config.Data` | [infrastructure.md](infrastructure.md#config) |
+| [Settings.cs](../code/Core/Settings.cs), [SettingsModel.cs](../code/Core/SettingsModel.cs) | Loads `settings.json` into `Settings.Data`: the owner's directories, reward ids, OBS names, timings and thresholds, each with a default | [infrastructure.md](infrastructure.md#settings) |
 | [ConsoleLogger.cs](../code/Core/ConsoleLogger.cs) | All logging: dated file + `LineLogged` event | [infrastructure.md](infrastructure.md#logging) |
 | [Database.cs](../code/Core/Database.cs) | SQLite: the toilet rewards' `flushes` and the `money_goal` row | [infrastructure.md](infrastructure.md#database) |
-| [DataFiles.cs](../code/Core/DataFiles.cs) | `!reloaddata`: reloads the colour data, `games.json` and `leftpanel.json`, then redoes the game setup | [twitch.md](twitch.md#admin-commands) |
+| [DataFiles.cs](../code/Core/DataFiles.cs) | `!reloaddata`: reloads `settings.json`, the colour data, `games.json` and `leftpanel.json`, then redoes the game setup | [twitch.md](twitch.md#admin-commands) |
 
 ### `code/Audio/`
 

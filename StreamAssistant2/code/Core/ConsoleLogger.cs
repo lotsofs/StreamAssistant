@@ -8,7 +8,7 @@ namespace StreamAssistant2 {
 		/// </summary>
 		public static event Action<ColorType, string>? LineLogged;
 
-		static string LogDirectory => Path.Combine(Config.Data.Directories.BotOutput, "AssistantLogs");
+		static string LogDirectory => Path.Combine(Settings.Data.Directories.BotOutput, "AssistantLogs");
 		static readonly string _logName = DateTime.Now.ToString("yyyy-MM-dd HHmmss") + ".log";
 		static string LogPath => Path.Combine(LogDirectory, _logName);
 		static readonly SemaphoreSlim _semaphore = new(1,1);

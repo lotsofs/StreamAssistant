@@ -1,9 +1,7 @@
 ﻿namespace StreamAssistant2 {
 	internal static class ChatHandler {
 
-		static readonly TimeSpan COOLDOWN = TimeSpan.FromSeconds(60);
-
-		static readonly Cooldowns _cooldowns = new(COOLDOWN);
+		static readonly Cooldowns _cooldowns = new();
 
 		// FAQ commands, first match wins
 		internal static readonly ChatCommand[] _commands = [
@@ -184,7 +182,7 @@
 			if (cmd == null) {
 				return;
 			}
-			if (!_cooldowns.TryUse(username, cmd.Name, DateTime.UtcNow)) {
+			if (!_cooldowns.TryUse(username, cmd.Name, DateTime.UtcNow, TimeSpan.FromSeconds(Settings.Data.Chat.FaqCooldownSeconds))) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Notification, $"FAQ {cmd.Name} for {username}: on cooldown");
 				return;
 			}
@@ -209,18 +207,13 @@
 
 		// Last answer per user and command
 		internal sealed class Cooldowns {
-			readonly TimeSpan _length;
 			readonly Dictionary<(string User, string Command), DateTime> _lastUtc = [];
 			readonly object _lock = new();
 
-			internal Cooldowns(TimeSpan length) {
-				_length = length;
-			}
-
-			// Whether the user may have the command now; if so, starts its cooldown
-			internal bool TryUse(string user, string command, DateTime nowUtc) {
+			// Whether the user may have the command now, the length after their last answer; if so, starts its cooldown
+			internal bool TryUse(string user, string command, DateTime nowUtc, TimeSpan length) {
 				lock (_lock) {
-					if (_lastUtc.TryGetValue((user, command), out DateTime last) && nowUtc - last < _length) {
+					if (_lastUtc.TryGetValue((user, command), out DateTime last) && nowUtc - last < length) {
 						return false;
 					}
 					_lastUtc[(user, command)] = nowUtc;

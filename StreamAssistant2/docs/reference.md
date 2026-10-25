@@ -1,8 +1,8 @@
 # Reference
 
-Lookup tables: the error codes the bot logs, and every value that is hardcoded on purpose. Grep for the
-code or the constant to find the line. This file goes stale fastest, so when you change a value in
-code, update its row here.
+Lookup tables: the error codes the bot logs, every setting in `settings.json` with its default, and
+every value that stays a constant on purpose. Grep for the code, the key or the constant to find the
+line. This file goes stale fastest, so when you change a value in code, update its row here.
 
 Read from the code.
 
@@ -13,7 +13,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 
 | Code | Where | Meaning | Then |
 |---|---|---|---|
-| `PRG1` | `Program.StartBotAsync` | A startup step threw (message appended). Common cause: the TTS voice is missing | the bot stays half-started |
+| `PRG1` | `Program.StartBotAsync` | A startup step threw (message appended) | the bot stays half-started |
 | `1` | `TwitchIRCManager.StartConnectionLoop` | IRC connect or listen failed | waits 3 s, reconnects |
 | `TIRC2` | `TwitchIRCManager.ListenLoop` | IRC connection lost (always followed by `1`) | rethrows to the loop |
 | `TIRC3` | `FireForget.Run` (from `TwitchIRCManager.SendMessage`) | Writing a chat message failed | message dropped |
@@ -47,6 +47,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `OBSException58` | `ObsConnection.Loop` | `ConnectAsync` threw synchronously | retries in 3 s |
 | `GMS_cap` | `FireForget.Run` (from `Games.TryChangeCapture`) | `!changecapture` threw outside `RunStep`'s own catch | the capture sources aren't changed |
 | `GMS2` | `Games.RunStep` (from `Games.Apply`, and `!changecapture`) | One game setup step (background, border, scenes, sidebar, colour, left panel or capture sources) threw; the message names the step | that step skipped, the later ones still run |
+| `SET1` | `Settings.Load` (from `DataFiles.Reload`) | `settings.json: <reason>`: on `!reloaddata`, the file couldn't be read or parsed, has a key no setting has, a `null`, or a number out of range; the reason names the key. At startup the same stops the bot with a message box instead | the settings loaded before stay |
 | `GMS1` | `Games.Load` | `games.json` couldn't be read or parsed | at startup no games are loaded, so every category resolves to `None` and leaves the capture sources alone; on `!reloaddata` the games loaded before stay |
 | `LPN1` | `LeftPanel.Load` | `leftpanel.json` couldn't be read or parsed | at startup no left panels are loaded; on `!reloaddata` the panels loaded before stay |
 | `CLR1` | `Coloring.ListFiles`, `LoadFailed` (from `ColorTableRegistry.LoadTables`, `ColorSchemeRegistry.LoadSets`) | `can't load <path>: <message>`: a colour table or scheme file couldn't be read or parsed, or its folder couldn't be listed | that file keeps the table or set it held before (none at startup) and the other files load; a folder keeps everything its registry held |
@@ -69,7 +70,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `CLK1` | `Clock.WatchAsync` | Writing the OBS clock text threw (a missing source, or OBS dropping mid-request) | next minute |
 | `CLK2` | `Clock.WatchAsync` | The midnight date post threw | that day's date isn't posted; the next midnight's is |
 | `ADS1` | `Ads.RunScheduleAsync` | One ad warning threw | later warnings still go out |
-| `5` | `TextToSpeech.ProcessQueueAsync` | Speaking an item failed | next item |
+| `5` | `TextToSpeech.ProcessQueueAsync` | Speaking an item failed, including when `Speech.Voice` isn't an installed voice | next item |
 | `UpT4` | `TwitchUptime.UptimeCheck` | The decapi.me request failed | the OBS text shows `U: ?` |
 | `LOG1` | `ConsoleLogger` | Log files can't be written (once, until a write succeeds) | window only |
 
@@ -82,11 +83,17 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 |---|---|
 | `Unexpected response code` | a Helix or EventSub call returned something other than the expected 202 / 200 |
 | `Subscription <type> failed` | a `400` from the subscribe POST: wrong version or missing condition |
-| `Unhandled channel point reward redemption id: <id>` | a reward the code has no case for |
+| `Unhandled channel point reward redemption id: <id>` | a reward whose id isn't in `Rewards` |
 | `Event Sub Event happened, but is not handled in code: <type>` | a subscription with no `case`, e.g. `channel.follow` |
-| `Money goal: +<amount> EUR from <user>, now <total> / <goal> EUR` | a tip was counted; on `Important`, with `counted as … EUR`, when it came in another currency |
+| `Loaded settings.json, all defaults` / `…, changed <section>: <keys>; …` | `settings.json` loaded, at startup or on `!reloaddata`, and which keys differ from the defaults (`changed Directories: BotOutput, Trains; Train: Seconds`) |
+| `Created <path> from settings.json.example, every setting at its default` | a start found no `settings.json` in `BotInput` and copied the example there |
+| `settings.json lacks <keys>; their defaults apply (settings.json.example has every key)` | the file leaves out those sections or keys (one added by a later version, say); copy them from the example |
+| `settings.json not found, keeping the settings loaded` / `…, using the defaults` | there's no `settings.json` in `BotInput` on `!reloaddata`, or at startup with no example to copy |
+| `BotOutput changes after a restart` | `!reloaddata` found a new `Directories.BotOutput`; the log and the database stay where they are until the bot restarts |
+| `<directory> not set in settings.json, …` | that directory is empty, so its feature is off (`Sounds not set in settings.json, <sound> not played`, `Layout not set …, borders left as is`, `LivesplitGenerated not set …, previous-split panel off`) |
+| `Money goal: +<amount> <currency> from <user>, now <total> / <goal> <currency>` | a tip was counted; on `Important`, with `counted as …`, when it came in a currency other than `MoneyGoal.Currency` |
 | `Test tip: not counted toward the money goal` | a `!test tip` ran the alert without counting |
-| `FAQ <command> for <user>` / `…: on cooldown` | a chat line matched an FAQ command: answered, or not because that user had it within 60 s |
+| `FAQ <command> for <user>` / `…: on cooldown` | a chat line matched an FAQ command: answered, or not because that user had it within `Chat.FaqCooldownSeconds` |
 | `Chat: no twitchBot login or accessToken in secrets.json, chatting as <broadcaster>` | no bot-account credentials; IRC logs in with the broadcaster's |
 | `StreamElements: no channelId or jwt in secrets.json, tips are off` | no `streamElements` credentials; the bot runs without tips |
 | `StreamElements stopped: fix streamElements in secrets.json and restart the bot` | StreamElements refused the JWT (after `Error SES3`) |
@@ -112,9 +119,148 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `Trying to do an OBS action but not connected to OBS` | OBS is closed; the action was skipped |
 | `Color change request FAILED: <text>` | no colour matched; the points were refunded |
 
-## Hardcoded values
+## Settings
 
-Single-user software, so these are constants in code rather than settings.
+The owner's choices, read from `settings.json` in `BotInput` by `Settings`
+([infrastructure.md § Settings](infrastructure.md#settings)). The file lists every key: a first start
+copies it from [settings.json.example](../settings.json.example) in the project folder, which has them
+all at the defaults listed here. A key left out keeps its default, and the log names it. Keys are read
+in any case. Prefixes and suffixes are stored without the space
+that joins them to the rest of a name: the code adds it.
+
+### Directories
+
+Every directory but `BotInput`, which is in `paths.json`. An empty one turns its feature off with a log
+line (`… not set in settings.json, …`). Environment variables such as `%APPDATA%` are expanded. The
+owner's all sit under `D:\Repositories\Stream-Resources\`.
+
+| Key | Default | Holds |
+|---|---|---|
+| `BotOutput` | `%APPDATA%\StreamAssistant2\Bot Output` | `AssistantLogs\` (the log files and `EventSubs\`) and `streamAssistant.db`; a change on `!reloaddata` waits for a restart |
+| `Trains` | empty | `Train<n>.png` and `Empty.png` (`ChannelPoints`) |
+| `Colors` | empty | the colour tables (`ColorTableRegistry`) |
+| `ColorSchemes` | empty | the scheme files (`ColorSchemeRegistry`) |
+| `Backgrounds` | empty | per-game backgrounds and `Template.png` (`GameBackground`) |
+| `LivesplitGenerated` | empty | LiveSplit's text output (`SplitWatcher`, `LeftPanel`) |
+| `Layout` | empty | the border images (`GameBorder`) |
+| `Sidebar` | empty | the sidebar images, the split-index ones in `Dynamic\` (`GameSidebar`) |
+| `Sounds` | empty | the alert sounds (`Sound`) |
+
+### Rewards
+
+Channel-point reward ids, matched by `ChannelPoints.RewardOf`. Recreating a reward gives it a new id; put
+the new one here.
+
+| Key | Default | Reward |
+|---|---|---|
+| `Train` | `0260c648-c3ba-4ff1-920d-dffa5431da74` | train image over the layout |
+| `ToiletFlush` | `cd46e822-f288-47e6-8e8c-c56155603a0e` | flush channel points (bot-created) |
+| `ToiletRetrieve` | `785967e7-9b58-41eb-aa11-15fed82a72ec` | get flushed points back |
+| `ColorRandom` | `bc78e213-6818-464d-8d5f-3408e9bd2413` | random layout colour (bot-created) |
+| `ColorSingle` | `ad70a9d9-12fa-44dd-a3fb-dde21ebc4ec1` | one layout colour (bot-created) |
+| `ColorTriple` | `30168c08-09f6-4557-ab49-b7eaed212978` | up to three layout colours (bot-created) |
+
+### Train
+
+| Key | Default | Role |
+|---|---|---|
+| `Scene` | `!Scene: Basics Colored` | the scene holding the train image |
+| `Source` | `Image: Train` | the train image input |
+| `Seconds` | 62 | how long the image stays up |
+| `Images` | 100 | a train is a random `Train0.png` to `Train<Images − 1>.png` in `Trains` |
+
+### Sounds
+
+Each is `{ "File": …, "Volume": … }`: a file in `Directories.Sounds` and a volume from 0 to 1. A sound
+given only one of the two keeps the other's default.
+
+| Key | File | Volume | Played for |
+|---|---|---|---|
+| `TribalHymn` | `Tribal hymn.mp3` | 0.5 | subs, resubs and gifts; one per sub in a gift bomb |
+| `TheClap` | `theclap.mp3` | 0.4 | gifts and gift bombs |
+| `Team17Applauds` | `Team17-Applauds.mp3` | 0.75 | cheers |
+| `IndianAnthem` | `IndianAnthem.mp3` | 0.4 | tips |
+| `Flush` | `Flush.wav` | 0.4 | the flush reward |
+| `Warning` | `Warning.wav` | 0.6 | the disk-space spam alert |
+
+### Speech
+
+| Key | Default | Role |
+|---|---|---|
+| `Voice` | `Microsoft Catherine` | the SAPI voice; selected before each utterance, so `!reloaddata` changes it, and one that isn't installed logs `Error 5` per utterance |
+
+### DiskSpace
+
+| Key | Default | Role |
+|---|---|---|
+| `Drive` | `A:\` | the drive watched (with or without the backslash); the first drive when it's missing |
+| `SpamGiB`, `WarnGiB`, `NotifyGiB` | 2, 15, 100 | free space under each starts that level |
+| `SpamEveryMinutes`, `WarnEveryMinutes`, `NotifyEveryMinutes` | 1, 12, 60 | how often a level repeats, on clock marks; each must divide 60 |
+
+### Ads, Chat, MoneyGoal, Clock, Uptime
+
+| Key | Default | Role |
+|---|---|---|
+| `Ads.IntervalMinutes` | 60 | assumed time from an ad break's end to the next; the warnings go 5, 3, 2 and 1 minutes before it, so at least 5 |
+| `Chat.FaqCooldownSeconds` | 60 | a user gets the same FAQ command answered at most this often |
+| `MoneyGoal.Source` | `Text: Money Goal` | the OBS text, `<total> / <goal> <currency>`; you create it ([obs.md](obs.md#money-goal)) |
+| `MoneyGoal.Currency` | `EUR` | the goal and total's currency; a tip in another is counted as if in this one |
+| `MoneyGoal.DefaultGoal` | 999 | the goal on a first start (the database's first row), until `!moneygoal`; at least 0.01 |
+| `Clock.Source` | `Text: Time Of Day` | the clock text, `yyyy-MM-dd HH:mm`, setting `text` |
+| `Uptime.Source` | `Text: Stream Uptime` | the uptime text, `U: <h>h <mm>m`, `U: Offline` or `U: ?`, setting `text` |
+
+### Layout
+
+OBS names are plain strings, here and in the sections below. Renaming one in OBS silently breaks its call
+until the setting is changed too.
+
+| Key | Default | Used in | Role |
+|---|---|---|---|
+| `StreamScene` | `Basic Stream Layout` | `GameScene`, `GameCapture`, `ObsInputs` | the stream scene, whose layout and games scene items are found by name; of each kind, the game's aspect's one is shown and the others hidden. The dashboard greys the images and texts not showing in it |
+| `LayoutScenePrefix` | `!Scene: Layout` | `LayoutColoring`, `GameScene` | `<prefix> <aspect>` (`!Scene: Layout 16x9`, `… 5x4`): the layout per aspect, each holding both colour groups; the colour fade shows and hides the groups in all of them |
+| `GamesScenePrefix` | `!Scene: Games` | `GameCapture`, `GameScene` | `<prefix> <aspect>`: the scenes holding the nine capture sources, framed per aspect; unused ones are hidden in each |
+| `Colorables` | `!Layout: Colorables` | `LayoutColoring` | the real colour group; its twin is the fade group |
+| `TwinSuffix` | `(Transitionary)` | `LayoutColoring`, `GameBorder`, `ObsInputs` | `<name> <suffix>` is a source's or group's fade twin |
+| `InnerBorder`, `OuterBorder` | `Border: Colorable Inner`, `Border: Colorable Outer` | `LayoutColoring`, `GameBorder` | recoloured; their image (`file`), and their twins', is also set per game |
+| `InnerAttachment`, `OuterAttachment` | `Border: Colorable Inner Attachment`, `Border: Colorable Outer Attachment` | `LayoutColoring` | the frame's piece on the left, recoloured like the inner and outer borders |
+| `TextScene` | `!Scene: All Colorable` | `LayoutColoring` | recoloured with the text colour |
+| `Filter` | `Color Correction` | `LayoutColoring` | the filter on every one of them and their twins; properties `color_multiply`, `color_add` |
+| `ShowTwinsSeconds`, `HideRealSeconds`, `RecolorSeconds` | 5.5, 2.5, 1 | `LayoutColoring` | the fade's waits: after showing the twins, after hiding the real group, after recolouring it |
+
+### Game
+
+| Key | Default | Used in | Role |
+|---|---|---|---|
+| `BackgroundSource` | `Image: Background` | `GameBackground` | the per-game background image input |
+| `SidebarSources` | `Sidebar: Dynamic 1`, `Sidebar: Dynamic 2` | `GameSidebar` | the images in `!Scene: Sidebar 5x4` (inside `!Scene: Layout 5x4`) that follow the split index, setting `file`; by position they show `<game>_<n>.png`, `<game>_2_<n>.png`, `<game>_3_<n>.png`, … |
+| `GameCapturePrefix`, `WindowCapturePrefix`, `AudioCapturePrefix` | `Game: Game Capture`, `Game: Window Capture`, `Audio 5: App Capture` | `GameCapture` | `<prefix> <slot>`: the game, window and application audio capture sources, retargeted per game |
+| `CaptureSlots` | 3 | `GameCapture` | slots of each kind, numbered from 0 |
+
+### LeftPanel
+
+| Key | Default | Role |
+|---|---|---|
+| `Scene`, `ColoredScene` | `!Scene: Left Panel`, `!Scene: Left Panel Colored` | the two scenes whose top-level groups the rotation shows and hides. `Scene` as an item in `ColoredScene` is a reference copy for editing, hidden when a rotation starts |
+| `Prefix`, `ColoredPrefix` | `_LP:`, `_LPC:` | `<prefix> <name>`: a group in `Scene` and in `ColoredScene`; `<name> <n>` groups are copies of `<name>` |
+
+The text sources the rotation sets (`Livesplit: …`, settings `text` and `file`) are named in `leftpanel.json`.
+
+### SplitColors
+
+| Key | Default | Role |
+|---|---|---|
+| `HighlightGroup` | `Splits List Highlights` | the left-panel group holding the split list highlights |
+| `HighlightFilter` | `Color Correction 2` | their filter, property `color_multiply`, set when a rotation starts |
+| `HighlightGold`, `HighlightAheadGained`, `HighlightAheadLost`, `HighlightBehindGained`, `HighlightBehindLost` | `Livesplit: SL Highlights Gold`, `… AheadGained`, `… AheadLost`, `… BehindGained`, `… BehindLost` | the highlights, coloured `ListGold`, `ListGainedAhead`, `ListLostAhead`, `ListGainedBehind`, `ListLostBehind` |
+| `PreviousGroup` | `Splits Previous Values` | the left-panel group holding the previous split's differences |
+| `PreviousFilter` | `Color Correction` | their filter, property `color_multiply`, set on each previous-split panel |
+| `PreviousRun`, `PreviousSegment`, `PreviousGold` | `Livesplit: Previous Run`, `… Segment`, `… Gold` | the previous split's differences |
+
+## Constants
+
+Values that stay in code: protocol addresses and timings, internal polls and limits, data-file formats,
+and the texts and the delays matched to sounds (tracked as
+[TXT](robustness-fixes.md#txt--texts-and-sound-delays-as-settings)).
 
 ### Identity and addresses
 
@@ -126,7 +272,6 @@ Single-user software, so these are constants in code rather than settings.
 | StreamElements Astro `wss://astro.streamelements.com`, topic `channel.tips` | `StreamElementsSocket` |
 | OBS `ws://127.0.0.1:4455` | `ObsConnection` |
 | Uptime `https://decapi.me/twitch/uptime/`, followed by the broadcaster's login | `TwitchUptime` |
-| TTS voice `Microsoft Catherine` | `TextToSpeech` |
 
 The broadcaster's and the bot account's logins (the channel, the admins) aren't constants: they come from
 `secrets.json` ([twitch.md](twitch.md#credentials-and-identity)).
@@ -135,60 +280,16 @@ The broadcaster's and the bot account's logins (the channel, the admins) aren't 
 
 | Value | Where |
 |---|---|
-| `D:\Repositories\Stream-Resources\Alert Sounds\`, the only path not in `paths.json` | `Sound` |
-| Drive `A:\` (falls back to the first drive) | `DiskSpace` |
+| `paths.json` in the working directory, holding only `BotInput`; `secrets.json`, `settings.json`, `games.json` and `leftpanel.json` in `BotInput` | `Config`, `Settings`, `Games`, `LeftPanel` |
 | `Template.png` in `Backgrounds`, the background for a game without its own | `GameBackground` |
 | `Dynamic\<game>_<n>.png` and `Dynamic\<game>_2_<n>.png` in `Sidebar`, n the split index + 1 (`_00` before a run) | `GameSidebar` |
 | `Borders_Inner_<aspect>.png` and `Borders_Outer_<aspect>.png` in `Layout` (only `16x9` has them), else `Borders_Inner.png` and `Borders_Outer.png` there | `GameBorder` |
 | `16x9`, the aspect a game has without an `Aspect` in `games.json` | `GameBorder`, `GameScene` |
-| `games.json` and `leftpanel.json` in `BotInput` | `Games`, `LeftPanel` |
+| `Train<n>.png` and `Empty.png` in `Trains` | `ChannelPoints` |
 | `Number.txt` and `Completed.txt` in `CurrentSplit\AllSplits\`, `PreviousSplit\AllSplits\RealTime\RunTime.txt` and `PreviousSplit\AllSplits\RealTime\CurrentComparison\Sign.txt`, in `LivesplitGenerated` | `SplitWatcher` |
 | a `PreviousSplit\<level>\RealTime\CurrentComparison\Sign.txt`, named by an entry's `Sign` in `leftpanel.json` | `LeftPanel` |
 | `gameschemes.json` in `ColorSchemes`, its categories' `SplitColors`, with `none` as the fallback | `SplitColors` |
 | `AssistantLogs` and `AssistantLogs\EventSubs` under `BotOutput`, `streamAssistant.db` under `BotOutput` | `ConsoleLogger`, `TestReplay` (reads `EventSubs`, including StreamElements' `se.…` files), `Database` |
-
-### Channel-point rewards
-
-GUID constants in [ChannelPoints.cs](../code/Twitch/ChannelPoints.cs):
-
-| Constant | Reward |
-|---|---|
-| `REWARD_ID_TRAIN` | train image over the layout |
-| `REWARD_ID_TOILET_FLUSH` | flush channel points (bot-created) |
-| `REWARD_ID_TOILET_RETRIEVE` | get flushed points back |
-| `REWARD_ID_COLOR_RANDOM` / `_SINGLE` / `_TRIPLE` | the three colour rewards (bot-created) |
-
-Recreating a reward gives it a new GUID; update the constant and the `ProcessAdd` case together.
-
-### OBS names
-
-Scene, source and filter names in OBS are plain strings. Renaming one in OBS silently breaks its call.
-
-| Name | Used in | Role |
-|---|---|---|
-| `!Scene: Layout 16x9`, `!Scene: Layout 5x4` (any scene named `!Scene: Layout <aspect>`) | `LayoutColoring`, `GameScene` | the layout per aspect, each holding both colour groups; the colour fade shows and hides the groups in all of them, and the game's aspect's one is shown in `Basic Stream Layout` |
-| `!Layout: Colorables`, `!Layout: Colorables (Transitionary)` | `LayoutColoring` | the real group and its fade twin |
-| `Border: Colorable Inner`, `Border: Colorable Outer`, `!Scene: All Colorable` | `LayoutColoring` | the three sources recoloured; the two borders' image (`file`) is also set per game by `GameBorder` |
-| the same three with ` (Transitionary)` appended | `LayoutColoring`, `GameBorder` | their twins; `GameBorder` sets the two borders' image the same as the real ones |
-| `Border: Colorable Inner Attachment`, `Border: Colorable Outer Attachment`, and their ` (Transitionary)` twins | `LayoutColoring` | the frame's piece on the left, recoloured like the inner and outer borders |
-| `Color Correction` | `LayoutColoring` | filter on every one of them; properties `color_multiply`, `color_add` |
-| `!Scene: Basics Colored` | `ChannelPoints` | scene of the train image |
-| `Image: Train` | `ChannelPoints` | the train image input |
-| `Image: Background` | `GameBackground` | the per-game background image input |
-| `Sidebar: Dynamic 1`, `Sidebar: Dynamic 2` | `GameSidebar` | the images in `!Scene: Sidebar 5x4` (inside `!Scene: Layout 5x4`) that follow the split index, each from its own series, setting `file` |
-| `Text: Stream Uptime` | `TwitchUptime` | the uptime text, `U: <h>h <mm>m`, `U: Offline` or `U: ?`, setting `text` |
-| `Text: Time Of Day` | `Clock` | the clock text, `yyyy-MM-dd HH:mm`, setting `text` |
-| `Text: Money Goal` | `MoneyGoal` | the money goal, `<total> / <goal> EUR`, setting `text`; you create it ([obs.md](obs.md#money-goal)) |
-| `Game: Game Capture 0`–`2` | `GameCapture` | game capture sources, retargeted per game |
-| `Game: Window Capture 0`–`2` | `GameCapture` | window capture sources, retargeted per game |
-| `Audio 5: App Capture 0`–`2` | `GameCapture` | application audio capture, fallback, retargeted per game |
-| `!Scene: Games 16x9`, `!Scene: Games 5x4` (any `!Scene: Games <aspect>` item of `Basic Stream Layout`) | `GameCapture`, `GameScene` | scenes holding those nine capture sources, framed per aspect; unused ones are hidden in each |
-| `Basic Stream Layout` | `GameScene`, `GameCapture`, `ObsInputs` | the stream scene whose `!Scene: Layout <aspect>` and `!Scene: Games <aspect>` items are found by name; of each kind, the game's aspect's one is shown and the others hidden. The dashboard greys the images and texts not showing in it |
-| `!Scene: Left Panel`, `!Scene: Left Panel Colored` | `LeftPanel` | the two scenes whose top-level groups the rotation shows and hides: `_LP: <name>` in `!Scene: Left Panel`, `_LPC: <name>` in the coloured one; `<name> <n>` groups are copies of `<name>` |
-| `!Scene: Left Panel` as an item in `!Scene: Left Panel Colored` | `LeftPanel` | a reference copy for editing; hidden when a rotation starts |
-| the text sources named in `leftpanel.json` (`Livesplit: …`) | `LeftPanel` | settings `text` and `file` |
-| `Livesplit: SL Highlights Gold`, `AheadGained`, `AheadLost`, `BehindGained`, `BehindLost` | `SplitColors` | in `_LPC: Splits List Highlights`; filter `Color Correction 2`, property `color_multiply`, set when a rotation starts |
-| `Livesplit: Previous Run`, `Livesplit: Previous Segment`, `Livesplit: Previous Gold` | `SplitColors` | in `_LPC: Splits Previous Values`; filter `Color Correction`, property `color_multiply`, set on each previous-split panel |
 
 ### OBS volumes
 
@@ -242,32 +343,27 @@ Every other input with audio (window captures for chat, S Keys, Winamp, LiveSpli
 | 15 s | `StreamElementsSocket.ConnectTimeout` | longest wait for the StreamElements WebSocket connect |
 | 3 s doubling to 30 s | `StreamElementsSocket.Times.RetryBase` / `RetryCap` | pause before reconnecting after a failed session; none after a `reconnect` message |
 | 2 s | `StreamElementsSocket.CleanupSession` | sending the close frame on shutdown |
-| 6 s | `Tips` | let the anthem play before speaking |
-| 4.2 s | `Subscriptions` | let the tribal hymn finish before speaking |
-| 1 s | `HandleSubGiftNotif` | clap before the hymn |
-| 66 ms ×N, 3.8 s, 3 s | `HandleCommunitySubGiftNotif` | hymn per gift, then clap, then speech |
+| 6 s | `Tips` | let the anthem play before speaking (TXT) |
+| 4.2 s | `Subscriptions` | let the tribal hymn finish before speaking (TXT) |
+| 1 s | `HandleSubGiftNotif` | clap before the hymn (TXT) |
+| 66 ms ×N, 3.8 s, 3 s | `HandleCommunitySubGiftNotif` | hymn per gift, then clap, then speech (TXT) |
 | 10 s | `CommunityGiftSub.WaitForRecipientsAsync` | longest wait for bomb recipients |
 | 30 s | `Subscriptions.GiftlessWait` | bomb recipients wait this long for their bomb before chat is told it never came |
 | 1 h | `Subscriptions.SweepOldBombs` | a gift-bomb entry older than this is dropped when a new one is created |
-| 5 s | `Cheers` | let the applause finish before speaking |
-| 62 s | train reward | how long the image stays up |
+| 5 s | `Cheers` | let the applause finish before speaking (TXT) |
 | 5 s | `LeftPanel.OBS_WAIT` | while OBS isn't ready, the rotation checks again this often (each panel's own time is its `Seconds` in `leftpanel.json`) |
-| 5.5 s, 2.5 s, 1 s | `LayoutColoring.ChangeColorAsync` | the recolour animation, nine seconds in all |
-| 60 min; warnings at 5, 3, 2, 1 min before | `Ads` | assumed ad cadence |
+| 5, 3, 2, 1 min before the next ad | `Ads` | the ad warnings, each with its text (TXT); the interval is `Ads.IntervalMinutes` |
 | 5 s | `TwitchUptime.MIN_GAP` | least time between uptime requests; a poll inside it waits out the rest |
-| 60 s | `ChatHandler.COOLDOWN` | a user gets the same FAQ command answered at most this often |
-| 2 s | `ObsInputs.SHOWING_POLL` | how often the dashboard lists `Basic Stream Layout`, its nested scenes and groups, to see which image and text sources are showing |
+| 2 s | `ObsInputs.SHOWING_POLL` | how often the dashboard lists the stream scene, its nested scenes and groups, to see which image and text sources are showing |
 | 60 s | `TwitchHelixApi` | HTTP timeout (EventSub's separate client keeps the default) |
 
 ### Thresholds
 
 | Value | Where |
 |---|---|
-| 2, 15, 100 GiB | `DiskSpace` spam, warn, notify |
 | 300 / 360 / 420 s, 12 / 15 / 20 s and 40 / 50 / 70 s | `ConnectionHealth.Irc` / `.EventSub` / `.StreamElements`: status colours and the health log (420 s, 20 s and 70 s are the reconnect timeouts) |
 | 5000 lines | `MainWindow.MAX_LINES` |
 | 32 tokens | `TripleColorParser.MAX_TOKENS` |
-| 999 EUR | `MoneyGoal.DEFAULT_GOAL_CENTS`: the money goal on a first start, until `!moneygoal`; the goal and total are in `MoneyGoal.CURRENCY`, EUR |
 
 ## Chat conventions
 

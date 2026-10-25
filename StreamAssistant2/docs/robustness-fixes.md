@@ -8,8 +8,6 @@ there, along with the conventions these codes follow. This file holds the detail
 
 **Dependencies between plans**
 
-- **CFG** turns hardcoded values into settings. Work done before it that adds constants (NCK's interval
-  and colours) adds to its list; work done after it should add settings instead.
 - **NCK** and **TOK** both need the bot account's user id and send `twitchBot.clientId`; TOK's validate
   call returns the user id, so whichever comes second can reuse it.
 
@@ -236,7 +234,8 @@ bot speaks.
    picks the next colour with a pure, tested function and sends it. A failure logs a new `Error` code,
    and the loop carries on. The call goes in `TwitchHelixApi` and uses the bot's token, not the
    broadcaster's.
-3. Make the interval and the colour list constants, or settings if CFG is done first.
+3. Make the interval and the colour list settings, in a section of [SettingsModel.cs](../code/Core/SettingsModel.cs)
+   with today's choice as the default ([infrastructure.md § Settings](infrastructure.md#settings)).
 
 **Verify:** F5. The log shows each change, and bot lines a minute or more apart (`!changecolorrandom`'s,
 say) come in different colours.
@@ -248,57 +247,113 @@ say) come in different colours.
 - [reference.md](reference.md): the URL, the interval and the error code
 - the test row in [development.md](development.md#unit-tests)
 
-## CFG — Make the owner's hardcoded values settings
+## DIR — Ask for the BotInput folder at first boot
 
-Wanted: every value that is the owner's choice, rather than part of a protocol, becomes a setting, so
-that changing it needs no rebuild. Not built. Today these are constants spread through the code. Most of
-them are listed in [reference.md § Hardcoded values](reference.md#hardcoded-values):
-- the alert sounds folder and the watched drive
-- the channel-point reward GUIDs
-- the OBS scene, source and filter names
-- the timings and thresholds
-- the TTS voice
-- the money goal's default and currency
+Wanted by the owner on 2026-10-25: at first boot, prompt for the `BotInput` folder rather than needing
+`paths.json` edited by hand. Not built.
 
-Some of the owner's values are already in files: the directories in `paths.json`, the accounts in
-`secrets.json`, and `games.json`, `leftpanel.json` and the colour data.
+`paths.json` holds only `BotInput`; every other directory is in `settings.json` there
+([infrastructure.md § Config](infrastructure.md#config)). When `paths.json` is missing, the csproj's
+`BeforeBuild` target copies `paths.json.example`, whose `BotInput` is `%APPDATA%\StreamAssistant2\Bot Input`.
+`Config.Load` then creates that folder, copies the secrets template into it and stops with a message box.
+So a fresh install runs from `%APPDATA%` unless the user edits `paths.json`.
 
 ### Decisions
 
-- **Where they live:** a new `settings.json` in `BotInput`, beside `games.json`, which isn't secret and
-  is the owner's to edit; `paths.json`, which is per-machine and in the project folder; or split by kind.
-- **What stays a constant:** protocol values, such as the Twitch, StreamElements and obs-websocket
-  addresses, the IRC port, and the timeouts matched to Twitch's own pings and keepalives. Also undecided:
-  the delays matched to a sound's length, and the chat texts (FAQ answers, ad nags, train and flush lines).
-- **Reloading:** whether `!reloaddata` reloads them, or a restart is needed.
-- **A broken file:** stop startup with a message box, as with `secrets.json`, or log the problem and run
-  on the defaults.
+- **What counts as a first boot:** only a missing `paths.json`, or also a `BotInput` that doesn't exist
+  or holds no `secrets.json`.
+- **The build-time copy:** drop the `BeforeBuild` target, so a missing `paths.json` means a first boot;
+  or keep it and ask while `BotInput` is still the example's value.
 
 ### Plan
 
-1. Take an inventory. Go through reference.md's hardcoded tables, and grep `const` and `static readonly`
-   in `code/`. Sort what turns up into settings and constants, following the decisions, and list them
-   here.
-2. Add a settings model and loader beside `Config`, with defaults equal to today's values so that a
-   missing file or key changes nothing. Track an example file.
-3. Move the values over one area at a time (rewards, OBS names, timings, thresholds, paths, the rest),
-   with the tests passing after each move, so that each can be committed on its own. Tests that set an
-   `internal` value keep working or set the setting instead.
-4. As each value moves, take it out of reference.md's hardcoded tables and put it in a settings table.
+1. In `Main`, before `Config.Load()`, on a first boot: show WPF's `Microsoft.Win32.OpenFolderDialog` (new
+   in .NET 8), starting at `%APPDATA%\StreamAssistant2\Bot Input`. Cancelling exits.
+2. Write `paths.json` with the chosen folder as its only key, then carry on into `Config.Load()`, which
+   creates `secrets.json` there from the template as it does today.
+3. Keep the decision (is this a first boot?) in a pure function, and test it.
 
-**Verify:**
-- Builds warning-free and the tests pass.
-- F5 with no settings file behaves as before.
-- Changing one value of each kind in the file (an OBS name, a timing, a reward id) takes effect after
-  F5 (or `!reloaddata`, if it reloads them).
+**Verify:** with `paths.json` moved away, F5 shows the folder picker. Picking a folder writes `paths.json`
+and stops at the `secrets.json` message; cancelling exits. Put the file back.
 
-**Docs when done:** delete this section and the TODO row. Then update:
-- [reference.md § Hardcoded values](reference.md#hardcoded-values), which becomes the settings reference
-  plus the constants that are left
-- [infrastructure.md § Config](infrastructure.md#config)
-- CLAUDE.md: the "hardcoded throughout by design" sentence and the config files
-- the opening of [architecture.md](architecture.md)
-- every doc that names a moved constant ([obs.md](obs.md), [gotchas.md](gotchas.md), …)
+**Docs when done:** delete this section and the TODO row; [infrastructure.md § Config](infrastructure.md#config),
+CLAUDE.md's config files, the prerequisites in [development.md](development.md), and
+[gotchas.md](gotchas.md#startup-and-environment).
+
+## SED — Edit the settings in the app
+
+Wanted by the owner on 2026-10-25: change the settings from the bot's window rather than by editing
+`settings.json`. Not built.
+
+Every setting is in `settings.json` in `BotInput`, created from `settings.json.example` at the first
+start, edited by hand and applied with `!reloaddata` ([infrastructure.md § Settings](infrastructure.md#settings)).
+`Settings.Parse` already rejects a misspelt key, a `null` or a number out of range, naming the key.
+
+### Decisions
+
+- **Where:** a settings window opened from the dashboard, or a panel in it
+  ([dashboard.md](dashboard.md#adding-a-panel)).
+- **Saving:** writing the file back with `System.Text.Json` drops its comments and layout. Either keep the
+  descriptions in the editor (attributes on `SettingsModel`'s properties) and write the file plain, or
+  change only the edited values in the file's text.
+- **Applying:** a save reloads at once, as `!reloaddata` does for the settings, or waits for a button.
+
+### Plan
+
+1. Build the form from `SettingsModel` by reflection: a group per section, a field per key. Text for
+   names and ids, a folder picker for directories, numbers checked as `Settings.CheckRanges` does.
+2. On save, check the result through `Settings.Parse` before writing, so the file is never left broken;
+   then write it and reload. Keep a changed `BotOutput`'s "after a restart" rule.
+3. Keep the mapping between the model and the form pure, and test it.
+
+**Verify:** change an OBS name and a timing in the editor and save: the log shows `Loaded settings.json,
+changed …`, both take effect, and the file holds them. An out-of-range value is refused, with the reason,
+before anything is written.
+
+**Docs when done:** delete this section and the TODO row; [dashboard.md](dashboard.md),
+[infrastructure.md § Settings](infrastructure.md#settings), CLAUDE.md's dashboard and config-files
+paragraphs, and the "Change a setting" recipe in [development.md](development.md).
+
+## TXT — Texts and sound delays as settings
+
+Wanted by the owner on 2026-10-25: look later at making the chat and spoken texts, and the delays
+matched to sounds, settings too. The owner's other values are settings in `settings.json`
+([infrastructure.md § Settings](infrastructure.md#settings)); these stayed in code. Not built.
+
+What is still in code:
+- **Texts:**
+  - the FAQ commands (`ChatHandler._commands`: name, regex, answer)
+  - the ad warnings and nags (`Ads`), with their 5, 3, 2 and 1-minute schedule
+  - the train, flush and retrieve chat lines (`ChannelPoints`)
+  - the disk-space alerts (`DiskSpace`'s `*_CHAT` and `SPAM_SPEAK`)
+  - the sub, resub, gift and bomb sentences (`SubscriptionMessages`, which also names the community
+    "Lots Of Ess's")
+  - the tip lines (`Tips`), the raid line, and the startup and shutdown lines
+  - the clock, uptime and money-goal OBS text formats
+- **Delays matched to sounds:**
+  - speech 4.2 s after the tribal hymn (subs, resubs, gifts)
+  - the hymn 1 s after the clap (gifts)
+  - a bomb's 66 ms between hymns, 3.8 s to the clap and 3 s to the speech
+  - speech 5 s after the applause (cheers) and 6 s after the anthem (tips)
+
+### Decisions
+
+- **Where texts live:** `settings.json`, or a file of their own (`texts.json`, `faq.json`), since they
+  are content more than settings.
+- **Which texts:** all of them, or the FAQ answers first, as the most likely to change.
+- **Delays:** settings beside each sound, or taken from the sound file's length (NAudio's
+  `AudioFileReader.TotalTime`), so a new file needs no new delay.
+
+### Plan
+
+1. Settle the decisions and list the texts that move.
+2. Move them the way the settings work: a model with today's values as defaults, read at each use,
+   reloaded by `!reloaddata`, an example file, and a test that the example equals the defaults.
+3. Keep the sentence builders pure and tested, with the texts passed in.
+
+**Docs when done:** delete this section and the TODO row; [reference.md](reference.md) (the TXT rows in
+§ Constants, and § Settings), [infrastructure.md § Settings](infrastructure.md#settings),
+[events.md](events.md), and the FAQ in [twitch.md](twitch.md).
 
 ---
 

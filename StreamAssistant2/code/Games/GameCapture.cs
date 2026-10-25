@@ -3,25 +3,21 @@ using Game = StreamAssistant2.Games.Game;
 
 namespace StreamAssistant2 {
 	internal static class GameCapture {
-		internal const int SLOTS = 3;
 		internal const string NONE = "none";
 		const double MIN_DB = -100;
 		const double MAX_DB = 26;
-		const string GAME_CAPTURE = "Game: Game Capture ";
-		const string WINDOW_CAPTURE = "Game: Window Capture ";
-		const string AUDIO_CAPTURE = "Audio 5: App Capture ";
-
-		static readonly Dictionary<string, string> _kindNames = new() {
-			[GAME_CAPTURE.Trim()] = "Game capture",
-			[WINDOW_CAPTURE.Trim()] = "Window capture",
-			[AUDIO_CAPTURE.Trim()] = "Audio capture",
-		};
 
 		/// <summary>
-		/// A capture kind's short name by its sources' name before the slot number: "Game capture" for "Game: Game Capture";
-		/// any other name as it is.
+		/// A capture kind's short name by its sources' name before the slot number: "Game capture" for the game capture
+		/// prefix ("Game: Game Capture"), likewise for window and audio; any other name as it is.
 		/// </summary>
-		internal static string KindName(string kind) => _kindNames.GetValueOrDefault(kind, kind);
+		internal static string KindName(string kind) {
+			GameSettings settings = Settings.Data.Game;
+			return kind == settings.GameCapturePrefix ? "Game capture"
+				: kind == settings.WindowCapturePrefix ? "Window capture"
+				: kind == settings.AudioCapturePrefix ? "Audio capture"
+				: kind;
+		}
 
 		/// <summary>
 		/// Points, shows and sets the volume of a capture slot per game executable; the rest are pointed at none and hidden.
@@ -38,9 +34,10 @@ namespace StreamAssistant2 {
 			}
 			List<(string Kind, int Slot)> hidden = new();
 			double? defaultVolume = Games.DefaultVolume;
-			SetKind(GAME_CAPTURE, game.GameCapture, defaultVolume, scenes, hidden);
-			SetKind(WINDOW_CAPTURE, game.WindowCapture, defaultVolume, scenes, hidden);
-			SetKind(AUDIO_CAPTURE, game.AudioCapture, defaultVolume, scenes, hidden);
+			GameSettings settings = Settings.Data.Game;
+			SetKind(settings.GameCapturePrefix, game.GameCapture, settings.CaptureSlots, defaultVolume, scenes, hidden);
+			SetKind(settings.WindowCapturePrefix, game.WindowCapture, settings.CaptureSlots, defaultVolume, scenes, hidden);
+			SetKind(settings.AudioCapturePrefix, game.AudioCapture, settings.CaptureSlots, defaultVolume, scenes, hidden);
 			if (hidden.Count > 0) {
 				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.SceneChangesUnimportant, HiddenLine(hidden));
 			}
@@ -65,11 +62,11 @@ namespace StreamAssistant2 {
 		/// Sets one kind's slots, showing or hiding each in the scenes, adding the hidden ones to the list; a source that can't
 		/// be set is logged and the rest still go.
 		/// </summary>
-		static void SetKind(string prefix, IReadOnlyList<Capture> captures, double? defaultVolume, IReadOnlyList<string> scenes, List<(string Kind, int Slot)> hidden) {
-			for (int i = SLOTS; i < captures.Count; i++) {
-				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {prefix.Trim()} slot for {captures[i].Executable}, only {SLOTS}");
+		static void SetKind(string prefix, IReadOnlyList<Capture> captures, int slotCount, double? defaultVolume, IReadOnlyList<string> scenes, List<(string Kind, int Slot)> hidden) {
+			for (int i = slotCount; i < captures.Count; i++) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"No {prefix} slot for {captures[i].Executable}, only {slotCount}");
 			}
-			var slots = Assignments(prefix, captures);
+			var slots = Assignments(prefix, captures, slotCount);
 			for (int i = 0; i < slots.Count; i++) {
 				(string source, Capture capture) = slots[i];
 				try {
@@ -79,7 +76,7 @@ namespace StreamAssistant2 {
 						Obs.SetSourceEnabled(scene, source, used);
 					}
 					if (!used) {
-						hidden.Add((prefix.Trim(), i));
+						hidden.Add((prefix, i));
 						continue;
 					}
 					double? volume = VolumeFor(capture, defaultVolume);
@@ -95,12 +92,12 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// Each slot's source name, numbered from 0, with its capture or none.
+		/// Each slot's source name, the prefix and its number from 0, with its capture or none.
 		/// </summary>
-		internal static List<(string Source, Capture Capture)> Assignments(string prefix, IReadOnlyList<Capture> captures) {
+		internal static List<(string Source, Capture Capture)> Assignments(string prefix, IReadOnlyList<Capture> captures, int slotCount) {
 			List<(string, Capture)> slots = new();
-			for (int i = 0; i < SLOTS; i++) {
-				slots.Add(($"{prefix}{i}", i < captures.Count ? captures[i] : new Capture(NONE)));
+			for (int i = 0; i < slotCount; i++) {
+				slots.Add(($"{prefix} {i}", i < captures.Count ? captures[i] : new Capture(NONE)));
 			}
 			return slots;
 		}

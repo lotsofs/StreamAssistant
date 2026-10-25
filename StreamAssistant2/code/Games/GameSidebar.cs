@@ -4,11 +4,6 @@ namespace StreamAssistant2 {
 	internal static class GameSidebar {
 		const string FOLDER = "Dynamic";
 
-		static readonly (string Source, string Series)[] _sources = [
-			("Sidebar: Dynamic 1", ""),
-			("Sidebar: Dynamic 2", "_2"),
-		];
-
 		static readonly object _lock = new();
 		static string? _game;
 		static readonly Dictionary<string, string> _shown = new();
@@ -58,13 +53,13 @@ namespace StreamAssistant2 {
 					return;
 				}
 				int index = SplitWatcher.CurrentIndex ?? -1;
-				string directory = Config.Data.Directories.Sidebar;
+				string directory = Settings.Data.Directories.Sidebar;
 				string folder = Path.Combine(directory, FOLDER);
 				if (string.IsNullOrEmpty(directory) || !Directory.Exists(folder)) {
 					return;
 				}
 				List<string> files = Directory.EnumerateFiles(folder, "*.png").Select(Path.GetFileName).OfType<string>().ToList();
-				foreach (var (source, series) in _sources) {
+				foreach (var (source, series) in Sources(Settings.Data.Game.SidebarSources)) {
 					string? file = Choose(files, _game + series, index);
 					if (file == null || _shown.GetValueOrDefault(source) == file) {
 						continue;
@@ -79,6 +74,13 @@ namespace StreamAssistant2 {
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// Each dynamic sidebar source with its image series: "" for the first, then "_2", "_3", ….
+		/// </summary>
+		internal static List<(string Source, string Series)> Sources(IReadOnlyList<string> sources) {
+			return sources.Select((source, i) => (source, i == 0 ? "" : $"_{i + 1}")).ToList();
 		}
 
 		/// <summary>

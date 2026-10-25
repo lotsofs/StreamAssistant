@@ -20,6 +20,16 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void ClassifyAndRepeats_FollowTheSettings() {
+			DiskSpaceSettings settings = new() { SpamGiB = 1, WarnGiB = 5, NotifyGiB = 10, WarnEveryMinutes = 30 };
+			Assert.Equal(DiskSpace.DiskLevel.Ok, DiskSpace.Classify(10 * GIB, settings));
+			Assert.Equal(DiskSpace.DiskLevel.Notify, DiskSpace.Classify(9 * GIB, settings));
+			Assert.Equal(DiskSpace.DiskLevel.Warn, DiskSpace.Classify(4 * GIB, settings));
+			Assert.Equal(DiskSpace.DiskLevel.Spam, DiskSpace.Classify(0.5 * GIB, settings));
+			Assert.Equal(TimeSpan.FromMinutes(30), DiskSpace.TimeInterval(DiskSpace.DiskLevel.Warn, settings));
+		}
+
+		[Fact]
 		public void NothingAlertsWhileOk() {
 			DiskSpace.AlertState state = new();
 			Assert.Null(state.Update(500 * GIB, At(12, 0)));

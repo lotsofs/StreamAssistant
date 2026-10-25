@@ -3,8 +3,8 @@ using System.Text.Json;
 namespace StreamAssistant2 {
 	/// <summary>
 	/// Loads paths.json from the working directory (the project folder), then secrets.json from the
-	/// BotInput directory it names. A missing secrets.json is created there from the
-	/// secrets.json.example template, and startup stops until it's filled in.
+	/// BotInput directory it names, environment variables expanded. A missing secrets.json is created
+	/// there from the secrets.json.example template, and startup stops until it's filled in.
 	/// </summary>
 	static class Config {
 		const string PATHS_FILE = "paths.json";
@@ -17,9 +17,14 @@ namespace StreamAssistant2 {
 
 		public static void Load() {
 			ConfigModel paths = Read(PATHS_FILE);
+			string botInput = Environment.ExpandEnvironmentVariables(paths.Directories.BotInput);
+			if (botInput.Length == 0) {
+				throw new InvalidDataException($"{Path.GetFullPath(PATHS_FILE)} has no BotInput. Fill in the folder for secrets.json and settings.json and start again.");
+			}
 
-			string secretsPath = Path.Combine(paths.Directories.BotInput, SECRETS_FILE);
+			string secretsPath = Path.Combine(botInput, SECRETS_FILE);
 			if (!File.Exists(secretsPath)) {
+				Directory.CreateDirectory(botInput);
 				File.Copy(SECRETS_TEMPLATE, secretsPath);
 				throw new FileNotFoundException($"Created {secretsPath} from {SECRETS_TEMPLATE}. Fill in the real values and start again.");
 			}
@@ -31,7 +36,7 @@ namespace StreamAssistant2 {
 			secrets.TwitchBot.Login = secrets.TwitchBot.Login.ToLowerInvariant();
 
 			Data = new ConfigModel {
-				Directories = paths.Directories,
+				Directories = new DirectoriesConfig { BotInput = botInput },
 				Obs = secrets.Obs,
 				TwitchAuth = secrets.TwitchAuth,
 				TwitchBot = secrets.TwitchBot,
@@ -60,15 +65,8 @@ namespace StreamAssistant2 {
 	}
 
 	public class DirectoriesConfig {
+		// Holds secrets.json, settings.json, games.json and leftpanel.json
 		public string BotInput { get; set; } = "";
-		public string BotOutput { get; set; } = "";
-		public string Trains { get; set; } = "";
-		public string Colors { get; set; } = "";
-		public string ColorSchemes { get; set; } = "";
-		public string Backgrounds { get; set; } = "";
-		public string LivesplitGenerated { get; set; } = "";
-		public string Layout { get; set; } = "";
-		public string Sidebar { get; set; } = "";
 	}
 
 	public class ObsSocketConfig {

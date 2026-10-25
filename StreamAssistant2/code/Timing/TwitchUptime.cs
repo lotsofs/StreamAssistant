@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 namespace StreamAssistant2 {
 	internal static class TwitchUptime {
 		const string URL_UPTIME = @"https://decapi.me/twitch/uptime/";
-		const string SOURCE = "Text: Stream Uptime";
 
 		static readonly TimeSpan MIN_GAP = TimeSpan.FromSeconds(5);
 
@@ -83,7 +82,7 @@ namespace StreamAssistant2 {
 				_lastSecondsListed = 0;
 			}
 			if (ObsConnection.IsReady) {
-				Obs.SetInputSetting(SOURCE, "text", "U: " + formattedUptime);
+				Obs.SetInputSetting(Settings.Data.Uptime.Source, "text", "U: " + formattedUptime);
 			}
 		}
 

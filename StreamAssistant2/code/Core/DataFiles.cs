@@ -3,13 +3,15 @@ namespace StreamAssistant2 {
 		static readonly object _reloadLock = new();
 
 		/// <summary>
-		/// "!reloaddata": reloads the colour data, games.json and leftpanel.json off the caller's thread, one reload at a
-		/// time, then runs the current category's game setup; with no category yet, restarts the left-panel rotation instead.
+		/// "!reloaddata": reloads settings.json, the colour data, games.json and leftpanel.json off the caller's thread, one
+		/// reload at a time, then runs the current category's game setup; with no category yet, restarts the left-panel
+		/// rotation instead.
 		/// </summary>
 		internal static void Reload() {
 			FireForget.Run("DAT1", "data reload", async () => {
 				await Task.Yield();
 				lock (_reloadLock) {
+					Settings.Load();
 					Coloring.Load();
 					Games.Load();
 					LeftPanel.Load();
