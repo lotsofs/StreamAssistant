@@ -74,6 +74,13 @@
 	"Uptime": {
 		"Source": "Text: Stream Uptime"
 	},
+	// The broadcaster's chat name takes a random table colour, the bot's a named one
+	"NameColor": {
+		// false leaves both colours alone
+		"Enabled": true,
+		// At least 5
+		"IntervalSeconds": 60
+	},
 	"Layout": {
 		"StreamScene": "Basic Stream Layout",
 		// Each followed by a space and the aspect

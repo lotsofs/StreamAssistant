@@ -12,9 +12,10 @@ by the user, with F5).
 A `DockPanel` on a near-black background, Consolas 13, default size 1600 × 900. From left to right under
 the status bar: the log, the OBS sources column, the left-panel column.
 
-- **Status bar** (docked top): `Twitch IRC time since last ping: mm:ss  |  Event Sub time since last
-  keepalive: mm:ss  |  StreamElements time since last reply: mm:ss`. The three ages are `Run` elements
-  named `IrcAge`, `EventSubAge` and `StreamElementsAge`.
+- **Status bar** (docked top), two rows: `Twitch IRC time since last ping: mm:ss  |  Event Sub time since last
+  keepalive: mm:ss  |  StreamElements time since last reply: mm:ss`, whose three ages are `Run` elements
+  named `IrcAge`, `EventSubAge` and `StreamElementsAge`; and under it the chat name colours, an
+  `ItemsControl` named `NameColorList`. See [Chat name colours](#chat-name-colours).
 - **Left-panel column** (docked right, outermost, 360 px, `#141414`): an `ItemsControl` named
   `LeftPanelList` in a vertical `ScrollViewer`, each row a wrapping `TextBlock` in its own colour. See
   [The left panel](#the-left-panel).
@@ -55,6 +56,44 @@ an hour wraps.
 
 Before the first IRC line arrives `_lastPingTime` is `DateTime.MinValue`, so the IRC age starts out huge
 (and red) until the first line. EventSub's and StreamElements' stopwatches start at process start.
+
+## Chat name colours
+
+The status bar's second row shows the chat name colour of each account the bot changes
+([twitch.md](twitch.md#chat-name-colours)): the broadcaster, then the bot account when chat goes through one.
+
+```
+Lotsofs ■ Raw umber #826644 (encycolorpedia) 00:42  ·  Botsofs NO TOKEN
+```
+
+- **How it updates:** the 250 ms tick calls `UpdateNameColors()`, which builds the parts with
+  `NameColor.StatusParts(DateTime.UtcNow)` and changes the row only when they differ from the last draw: a
+  colour changed, a note changed, or an age reached another second. The parts are kept and updated in place
+  (`NameColorView` raises `PropertyChanged`), so a tooltip stays open. `NameColor.Part` is pure (tested), so
+  the window only picks brushes.
+- **Each account's part:** its login with the first letter capitalised, a 12 × 12 swatch of its last colour,
+  the colour as `<name> <#rrggbb> (<source>)`, and the time since it was set, `mm:ss` (`h:mm:ss` from an hour).
+  The source is the colour table the broadcaster's colour came from (`encycolorpedia`, `crayola`, …, or
+  `random rgb` with no tables loaded, shown as the hex alone), or `twitch` for the bot's named colour
+  (`coral #ff7f50 (twitch)`). The age climbs to the interval and starts again at each change. ` · `
+  separates the accounts. Before the bot starts, the row is empty.
+- **Notes,** after the age, or alone when there's no colour yet. Hovering the part shows the reason:
+
+  | Note | When | Colour |
+  |---|---|---|
+  | `waiting` | before the account's first change | grey |
+  | `NO TOKEN` | its token lacks `user:manage:chat_color`; left alone until a restart | red |
+  | `FAILED` | the last validate or change failed; the last colour and its age stay, and the next pass tries again | red |
+  | `OFF` | `NameColor.Enabled` is `false`; the colour is left alone | grey |
+
+| Part | Hex |
+|---|---|
+| Login | `#B9D6F2` (the OBS sources' label blue) |
+| Colour | `#EEEEEE` |
+| Age | `#CCCCCC` |
+| Separator, grey notes | `#888888` |
+| Red notes | `#EE4444` (the `Error` red) |
+| Swatch edge | `#666666` |
 
 ## The left panel
 

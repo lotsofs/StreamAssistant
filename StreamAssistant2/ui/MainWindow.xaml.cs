@@ -67,6 +67,24 @@ namespace StreamAssistant2 {
 			public string ToolTip { get => _toolTip; set => Set(ref _toolTip, value); }
 		}
 
+		// An account's part of the name colour bar, updated in place so its tooltip stays open: the separator before it,
+		// the login, the colour's swatch and description, the time since it was set, and a note
+		public sealed class NameColorView : Notifying {
+			string _separator = "", _label = "", _text = "", _age = "", _note = "";
+			Brush? _swatch;
+			Brush _noteBrush = Brushes.Transparent;
+			string? _toolTip;
+
+			public string Separator { get => _separator; set => Set(ref _separator, value); }
+			public string Label { get => _label; set => Set(ref _label, value); }
+			public Brush? Swatch { get => _swatch; set => Set(ref _swatch, value); }
+			public string Text { get => _text; set => Set(ref _text, value); }
+			public string Age { get => _age; set => Set(ref _age, value); }
+			public string Note { get => _note; set => Set(ref _note, value); }
+			public Brush NoteBrush { get => _noteBrush; set => Set(ref _noteBrush, value); }
+			public string? ToolTip { get => _toolTip; set => Set(ref _toolTip, value); }
+		}
+
 		static readonly Dictionary<ConsoleLogger.ColorType, Brush> _logColors = new() {
 			[ConsoleLogger.ColorType.None] = MakeBrush("#EEEEEE"),
 			[ConsoleLogger.ColorType.Error] = MakeBrush("#EE4444"),
@@ -91,6 +109,7 @@ namespace StreamAssistant2 {
 		static readonly Brush _statusWarn = MakeBrush("#EEEE44");
 		static readonly Brush _statusBad = MakeBrush("#EE8844");
 		static readonly Brush _statusDead = MakeBrush("#EE4444");
+		static readonly Brush _nameColorDim = MakeBrush("#888888");
 
 		static readonly Dictionary<LeftPanel.LineKind, Brush> _leftPanelColors = new() {
 			[LeftPanel.LineKind.Title] = MakeBrush("#CCCCCC"),
@@ -120,11 +139,14 @@ namespace StreamAssistant2 {
 		List<LeftPanel.StatusLine>? _leftPanelLines;
 		List<ObsInputs.StatusLine>? _obsSourceLines;
 		readonly ObservableCollection<SourceLine> _obsSourceViews = new();
+		List<NameColor.StatusPart>? _nameColorParts;
+		readonly ObservableCollection<NameColorView> _nameColorViews = new();
 
 		public MainWindow() {
 			InitializeComponent();
 			LogList.ItemsSource = _lines;
 			ObsSourcesList.ItemsSource = _obsSourceViews;
+			NameColorList.ItemsSource = _nameColorViews;
 			ConsoleLogger.LineLogged += OnLineLogged;
 
 			_statusTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Normal, (_, _) => UpdateStatus(), Dispatcher);
@@ -155,8 +177,39 @@ namespace StreamAssistant2 {
 				StreamElementsAge.Text = "off";
 				StreamElementsAge.Foreground = _statusHealthy;
 			}
+			UpdateNameColors();
 			UpdateLeftPanel();
 			UpdateObsSources();
+		}
+
+		/// <summary>
+		/// Redraws the name colour bar when its parts differ from the last draw: a colour changed, an account's note
+		/// changed, or an age reached another second.
+		/// </summary>
+		void UpdateNameColors() {
+			List<NameColor.StatusPart> parts = NameColor.StatusParts(DateTime.UtcNow);
+			if (_nameColorParts != null && parts.SequenceEqual(_nameColorParts)) {
+				return;
+			}
+			_nameColorParts = parts;
+			Resize(_nameColorViews, parts.Count, () => new NameColorView());
+			for (int i = 0; i < parts.Count; i++) {
+				Fill(_nameColorViews[i], parts[i], i == 0);
+			}
+		}
+
+		/// <summary>
+		/// Puts an account's part into its view, after a separator unless it's the first; the note red when it's a problem.
+		/// </summary>
+		void Fill(NameColorView view, NameColor.StatusPart part, bool first) {
+			view.Separator = first ? "" : "  ·  ";
+			view.Label = part.Label;
+			view.Swatch = SwatchBrush(part.Hex);
+			view.Text = part.Text;
+			view.Age = part.Age;
+			view.Note = part.Note;
+			view.NoteBrush = part.Bad ? _statusDead : _nameColorDim;
+			view.ToolTip = part.ToolTip;
 		}
 
 		/// <summary>

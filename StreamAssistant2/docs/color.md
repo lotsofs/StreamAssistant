@@ -72,7 +72,9 @@ Both directories are configured in `settings.json` (`Directories.Colors`,
 name.
 
 **Colour tables** map names to hex. The file name (`crayola`, `encycolorpedia`, …) is the table's
-*source*:
+*source*. `sources.txt` beside them says where each came from. `twitch` holds Twitch's fifteen named chat
+colours, the same list as `NameColor.Named` ([twitch.md](twitch.md#chat-name-colours)), which a real-data test
+checks:
 
 ```json
 { "Navy Blue": "#0066CC", "Green-Blue": "#2887C8" }

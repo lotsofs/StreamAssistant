@@ -42,6 +42,14 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[Fact]
+		public void NameColor_OnByDefault_AndSwitchesOff() {
+			Assert.True(new SettingsModel().NameColor.Enabled);
+			SettingsModel model = Settings.Parse("{ \"NameColor\": { \"Enabled\": false } }");
+			Assert.False(model.NameColor.Enabled);
+			Assert.Equal(["NameColor.Enabled"], Settings.Changed(model));
+		}
+
+		[Fact]
 		public void Directories_ExpandEnvironmentVariables() {
 			string expected = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Out");
 			Assert.Equal(expected, Settings.Parse("{ \"Directories\": { \"BotOutput\": \"%APPDATA%\\\\Out\" } }").Directories.BotOutput);
@@ -59,6 +67,7 @@ namespace StreamAssistant2.Tests {
 		[InlineData("{ \"Ads\": { \"IntervalMinutes\": 4 } }", "Ads.IntervalMinutes")]
 		[InlineData("{ \"Game\": { \"CaptureSlots\": 0 } }", "Game.CaptureSlots")]
 		[InlineData("{ \"MoneyGoal\": { \"DefaultGoal\": 0 } }", "MoneyGoal.DefaultGoal")]
+		[InlineData("{ \"NameColor\": { \"IntervalSeconds\": 4 } }", "NameColor.IntervalSeconds")]
 		[InlineData("{ \"Train\": { \"Seconds\": \"x\" } }", "Train.Seconds")]
 		public void BadSettings_ThrowNamingTheKey(string json, string key) {
 			Exception ex = Assert.ThrowsAny<Exception>(() => Settings.Parse(json));

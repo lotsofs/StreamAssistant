@@ -44,6 +44,22 @@ namespace StreamAssistant2.Tests {
 		}
 
 		[RealDataFact]
+		public void RealTwitchTable_IsTheBotsNamedColours() {
+			ColorData.Load(ColorData.RealColors!, ColorData.RealColorSchemes!);
+			try {
+				Dictionary<string, NamedColor> twitch = ColorTableRegistry.Tables["twitch"].Entries;
+				Assert.Equal(NameColor.Named.Length, twitch.Count);
+				foreach ((string name, string hex) in NameColor.Named) {
+					Assert.Equal(hex, twitch[name].Hex);
+				}
+				Assert.True(SingleColorParser.TryParse("twitch golden_rod", out _));
+			}
+			finally {
+				ColorData.LoadFixtures();
+			}
+		}
+
+		[RealDataFact]
 		public void RealGameScheme_ResolvesBySetAndCategory() {
 			ColorData.Load(ColorData.RealColors!, ColorData.RealColorSchemes!);
 			try {

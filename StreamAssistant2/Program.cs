@@ -78,6 +78,7 @@ namespace StreamAssistant2
 			TwitchIRCManager.OnMessage += ChatHandler.ProcessMessage;
 
 			TwitchHelixApi.Init();
+			NameColor.Start();
 
 			TwitchEventSub.Connect();
 

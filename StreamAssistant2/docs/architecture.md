@@ -73,7 +73,8 @@ service registry.
       `ObsInputs.Start()`, the dashboard's check of which images and texts are showing in `Basic Stream Layout`, idle
       until OBS is ready.
    8. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
-      `OnMessage += ChatHandler.ProcessMessage`, `TwitchHelixApi.Init()`, `TwitchEventSub.Connect()`,
+      `OnMessage += ChatHandler.ProcessMessage`, `TwitchHelixApi.Init()`, `NameColor.Start()` (the chat name
+      colours' loop, [twitch.md](twitch.md#chat-name-colours)), `TwitchEventSub.Connect()`,
       `StreamElementsSocket.Connect()` (only logs "tips are off" without credentials),
       `LayoutColoring.StartWorker()`.
    9. `Games.OnBootAsync`, fire-and-forget (`Error GMS_boot`): stores the current category from Helix and
@@ -150,7 +151,8 @@ and shutdown, above) at the root and the window in [ui/](#ui). The test project 
 | [TwitchEventSub.cs](../code/Twitch/TwitchEventSub.cs) | WebSocket session loop and subscribing |
 | [TwitchEventSubSubscription.cs](../code/Twitch/TwitchEventSubSubscription.cs) | The table of subscriptions to create |
 | [TwitchEventHandler.cs](../code/Twitch/TwitchEventHandler.cs) | Dispatch on event type |
-| [TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) | Outbound REST: redemption status, channel category |
+| [TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) | Outbound REST: redemption status, channel category; token validation and chat name colour |
+| [NameColor.cs](../code/Twitch/NameColor.cs) | Changes the broadcaster's and the bot's chat name colours every minute |
 | [ChannelPoints.cs](../code/Twitch/ChannelPoints.cs) | What each channel-point reward does |
 | [Ads.cs](../code/Twitch/Ads.cs) | Ad-break handling and chat warnings |
 | [Cheers.cs](../code/Twitch/Cheers.cs) | Bits alert |
@@ -266,7 +268,7 @@ See [color.md](color.md), which is the authority on them.
 
 ### `ui/`
 
-[MainWindow.xaml](../ui/MainWindow.xaml) and its code-behind: the dashboard (status bar, log, and on the
+[MainWindow.xaml](../ui/MainWindow.xaml) and its code-behind: the dashboard (status bar with the chat name colours under it, log, and on the
 right a column of the OBS sources the bot has set and the left-panel column). See [dashboard.md](dashboard.md).
 
 ## Data flows worth knowing

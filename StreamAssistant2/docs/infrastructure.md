@@ -155,9 +155,11 @@ can't stop another.
 | ad warnings | `Ads.Process` | once per ad break, see below | `ADS1` per warning |
 | connection health | `ConnectionHealth.Start()` | every second | `CHL1` |
 | which image and text sources are showing in the stream scene (`Basic Stream Layout`), for the dashboard ([dashboard.md](dashboard.md#obs-sources)) | `ObsInputs.Start()` | every 2 s while OBS is ready | `OBI1` |
+| the broadcaster's and the bot's chat name colours | `NameColor.Start()`, from `EnableBot` | at once, then every `NameColor.IntervalSeconds` (60 s); sends nothing while `NameColor.Enabled` is `false` | `NCL1` per account, `NCL2` |
 
 Details of each are under [Disk space](#disk-space), [Clock](#clock), [Uptime](#uptime),
-[Connection health](#connection-health) and [events.md](events.md#ads). The loops end with the process; there is no shutdown hook.
+[Connection health](#connection-health), [events.md](events.md#ads) and
+[twitch.md § Chat name colours](twitch.md#chat-name-colours). The loops end with the process; there is no shutdown hook.
 
 **Ad warnings** are not a loop but one method, `Ads.RunScheduleAsync`, run per ad break with a
 `CancellationTokenSource`. Starting a new round swaps in a fresh source and cancels the previous one, so the

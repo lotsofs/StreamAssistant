@@ -8,11 +8,47 @@
 		FontFamily="Consolas" FontSize="13">
 	<DockPanel>
 		<Border DockPanel.Dock="Top" Background="#1E1E1E" Padding="6,4" BorderBrush="#333333" BorderThickness="0,0,0,1">
-			<TextBlock Foreground="#F2F2F2">
-				<Run Text="Twitch IRC time since last ping: " /><Run x:Name="IrcAge" />
-				<Run Text="  |  Event Sub time since last keepalive: " /><Run x:Name="EventSubAge" />
-				<Run Text="  |  StreamElements time since last reply: " /><Run x:Name="StreamElementsAge" />
-			</TextBlock>
+			<StackPanel>
+				<TextBlock Foreground="#F2F2F2">
+					<Run Text="Twitch IRC time since last ping: " /><Run x:Name="IrcAge" />
+					<Run Text="  |  Event Sub time since last keepalive: " /><Run x:Name="EventSubAge" />
+					<Run Text="  |  StreamElements time since last reply: " /><Run x:Name="StreamElementsAge" />
+				</TextBlock>
+				<ItemsControl x:Name="NameColorList" Margin="0,3,0,0">
+					<ItemsControl.ItemsPanel>
+						<ItemsPanelTemplate>
+							<WrapPanel Orientation="Horizontal" />
+						</ItemsPanelTemplate>
+					</ItemsControl.ItemsPanel>
+					<ItemsControl.ItemTemplate>
+						<DataTemplate>
+							<StackPanel Orientation="Horizontal" ToolTip="{Binding ToolTip}" Background="Transparent">
+								<TextBlock Text="{Binding Separator}" Foreground="#888888" VerticalAlignment="Center" />
+								<TextBlock Text="{Binding Label}" Foreground="#B9D6F2" VerticalAlignment="Center" />
+								<Border x:Name="Swatch" Width="12" Height="12" Margin="7,0,0,0" VerticalAlignment="Center"
+										Background="{Binding Swatch}" BorderBrush="#666666" BorderThickness="1" />
+								<TextBlock x:Name="ColorText" Text="{Binding Text}" Foreground="#EEEEEE" Margin="4,0,0,0" VerticalAlignment="Center" />
+								<TextBlock x:Name="AgeText" Text="{Binding Age}" Foreground="#CCCCCC" Margin="7,0,0,0" VerticalAlignment="Center" />
+								<TextBlock x:Name="NoteText" Text="{Binding Note}" Foreground="{Binding NoteBrush}" Margin="7,0,0,0" VerticalAlignment="Center" />
+							</StackPanel>
+							<DataTemplate.Triggers>
+								<DataTrigger Binding="{Binding Swatch}" Value="{x:Null}">
+									<Setter TargetName="Swatch" Property="Visibility" Value="Collapsed" />
+								</DataTrigger>
+								<DataTrigger Binding="{Binding Text}" Value="">
+									<Setter TargetName="ColorText" Property="Visibility" Value="Collapsed" />
+								</DataTrigger>
+								<DataTrigger Binding="{Binding Age}" Value="">
+									<Setter TargetName="AgeText" Property="Visibility" Value="Collapsed" />
+								</DataTrigger>
+								<DataTrigger Binding="{Binding Note}" Value="">
+									<Setter TargetName="NoteText" Property="Visibility" Value="Collapsed" />
+								</DataTrigger>
+							</DataTemplate.Triggers>
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+			</StackPanel>
 		</Border>
 
 		<Border DockPanel.Dock="Right" Width="360" Background="#141414" Padding="6,4" BorderBrush="#333333" BorderThickness="1,0,0,0">

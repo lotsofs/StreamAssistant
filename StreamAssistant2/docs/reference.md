@@ -72,6 +72,8 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `ADS1` | `Ads.RunScheduleAsync` | One ad warning threw | later warnings still go out |
 | `5` | `TextToSpeech.ProcessQueueAsync` | Speaking an item failed, including when `Speech.Voice` isn't an installed voice | next item |
 | `UpT4` | `TwitchUptime.UptimeCheck` | The decapi.me request failed | the OBS text shows `U: ?` |
+| `NCL1` | `NameColor.ChangeAsync` | `<login>: <message>`: validating an account's token or changing its chat name colour failed (a refused token, a 400 for a bad colour, Twitch unreachable); logged once until a change works again, which logs `Name colour: <login> changes again` | that account's colour stays; tried again next pass |
+| `NCL2` | `NameColor.RunAsync` | A pass of the name colour loop threw outside the per-account handling | next pass |
 | `LOG1` | `ConsoleLogger` | Log files can't be written (once, until a write succeeds) | window only |
 
 Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from its body; use
@@ -95,6 +97,7 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `Test tip: not counted toward the money goal` | a `!test tip` ran the alert without counting |
 | `FAQ <command> for <user>` / `…: on cooldown` | a chat line matched an FAQ command: answered, or not because that user had it within `Chat.FaqCooldownSeconds` |
 | `Chat: no twitchBot login or accessToken in secrets.json, chatting as <broadcaster>` | no bot-account credentials; IRC logs in with the broadcaster's |
+| `Name colour: <login>'s token lacks user:manage:chat_color, its colour stays as is` | that account's token wasn't issued with the scope; its colour isn't changed until a restart with a new token, and the dashboard shows `NO TOKEN` ([twitch.md](twitch.md#chat-name-colours)) |
 | `StreamElements: no channelId or jwt in secrets.json, tips are off` | no `streamElements` credentials; the bot runs without tips |
 | `StreamElements stopped: fix streamElements in secrets.json and restart the bot` | StreamElements refused the JWT (after `Error SES3`) |
 | `Tip <id> already alerted, skipped` | the same tip arrived twice |
@@ -197,7 +200,7 @@ given only one of the two keeps the other's default.
 | `SpamGiB`, `WarnGiB`, `NotifyGiB` | 2, 15, 100 | free space under each starts that level |
 | `SpamEveryMinutes`, `WarnEveryMinutes`, `NotifyEveryMinutes` | 1, 12, 60 | how often a level repeats, on clock marks; each must divide 60 |
 
-### Ads, Chat, MoneyGoal, Clock, Uptime
+### Ads, Chat, MoneyGoal, Clock, Uptime, NameColor
 
 | Key | Default | Role |
 |---|---|---|
@@ -208,6 +211,8 @@ given only one of the two keeps the other's default.
 | `MoneyGoal.DefaultGoal` | 999 | the goal on a first start (the database's first row), until `!moneygoal`; at least 0.01 |
 | `Clock.Source` | `Text: Time Of Day` | the clock text, `yyyy-MM-dd HH:mm`, setting `text` |
 | `Uptime.Source` | `Text: Stream Uptime` | the uptime text, `U: <h>h <mm>m`, `U: Offline` or `U: ?`, setting `text` |
+| `NameColor.Enabled` | `true` | `false` leaves both chat name colours alone (`OFF` on the dashboard); read each pass, so `!reloaddata` switches it after the current wait |
+| `NameColor.IntervalSeconds` | 60 | how often the broadcaster's and the bot's chat name colours change; at least 5. A change on `!reloaddata` applies after the current wait |
 
 ### Layout
 
@@ -269,6 +274,8 @@ and the texts and the delays matched to sounds (tracked as
 | IRC host `irc.chat.twitch.tv:6667` | `TwitchIRCManager` |
 | EventSub `wss://eventsub.wss.twitch.tv/ws`; subscribe URL `https://api.twitch.tv/helix/eventsub/subscriptions` | `TwitchEventSub` |
 | Helix redemption URL `https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions` | `TwitchHelixApi` |
+| Token validation `https://id.twitch.tv/oauth2/validate`; chat colour `https://api.twitch.tv/helix/chat/color`, scope `user:manage:chat_color` | `TwitchHelixApi`, `NameColor` |
+| Twitch's named chat colours, the only ones an account without Turbo or Prime may set, with the hex Twitch shows for each: `blue`, `blue_violet`, `cadet_blue`, `chocolate`, `coral`, `dodger_blue`, `firebrick`, `golden_rod`, `green`, `hot_pink`, `orange_red`, `red`, `sea_green`, `spring_green`, `yellow_green`; the bot account picks from all of them. The `twitch` colour table holds the same | `NameColor.Named` |
 | StreamElements Astro `wss://astro.streamelements.com`, topic `channel.tips` | `StreamElementsSocket` |
 | OBS `ws://127.0.0.1:4455` | `ObsConnection` |
 | Uptime `https://decapi.me/twitch/uptime/`, followed by the broadcaster's login | `TwitchUptime` |
@@ -355,7 +362,7 @@ Every other input with audio (window captures for chat, S Keys, Winamp, LiveSpli
 | 5, 3, 2, 1 min before the next ad | `Ads` | the ad warnings, each with its text (TXT); the interval is `Ads.IntervalMinutes` |
 | 5 s | `TwitchUptime.MIN_GAP` | least time between uptime requests; a poll inside it waits out the rest |
 | 2 s | `ObsInputs.SHOWING_POLL` | how often the dashboard lists the stream scene, its nested scenes and groups, to see which image and text sources are showing |
-| 60 s | `TwitchHelixApi` | HTTP timeout (EventSub's separate client keeps the default) |
+| 60 s | `TwitchHelixApi` | HTTP timeout, for the broadcaster's calls and the name colours' (EventSub's separate client keeps the default) |
 
 ### Thresholds
 

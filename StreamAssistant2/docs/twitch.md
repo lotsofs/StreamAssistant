@@ -13,10 +13,10 @@ Read from the code; nothing here was run against Twitch.
 | Setting | Used for |
 |---|---|
 | `TwitchAuth.Login` | The broadcaster's login (`lotsofs`): the IRC channel, an admin, the chatter who gets `YOOO BRO`, the decapi uptime URL, the `!test online` / `offline` events, the ad nag's `@` mention. Required: `Config.Load` stops without it |
-| `TwitchAuth.AccessToken` | The broadcaster's token: the `Authorization: Bearer` header for both EventSub and Helix |
-| `TwitchAuth.ClientId` | The `Client-Id` header on every REST call |
+| `TwitchAuth.AccessToken` | The broadcaster's token: the `Authorization: Bearer` header for both EventSub and Helix, and the broadcaster's [name colour](#chat-name-colours) |
+| `TwitchAuth.ClientId` | The `Client-Id` header on the broadcaster's REST calls (the name colours send the client id the token validates to instead) |
 | `TwitchBot.Login` | The bot account's login (`botsofs`): IRC `NICK`, and an admin |
-| `TwitchBot.AccessToken` | The bot account's token: IRC `PASS oauth:<token>` |
+| `TwitchBot.AccessToken` | The bot account's token: IRC `PASS oauth:<token>`, and the bot's [name colour](#chat-name-colours) |
 | `TwitchAuth.RefreshToken`, `TwitchBot.RefreshToken`, `TwitchBot.ClientId` | Present in the file and the model, **never read**. Tokens are not refreshed at runtime ([TOK](robustness-fixes.md#tok--refresh-the-twitch-tokens-at-runtime)) |
 | `TwitchIds.BroadcasterId` | Channel the subscriptions and redemption updates apply to |
 | `TwitchIds.ModeratorId` | `moderator_user_id` for subscriptions that don't use the broadcaster as moderator (none currently) |
@@ -39,11 +39,12 @@ When a token expires, nothing renews it ([TOK](robustness-fixes.md#tok--refresh-
 rather than observed: with the bot's token, IRC gets a login-failure notice and the socket closes, so the
 connect loop retries every 3 s forever (`Error 1` / `Error TIRC2`); with the broadcaster's, EventSub's
 subscribe POST returns 401, which throws `Subscription failed (401)` and restarts the session every 3 s
-(`Error TES1`).
+(`Error TES1`). Either way the name colour change for that account logs `Error NCL1` once.
 
-The bot's token needs `chat:read` and `chat:edit`, nothing else. The broadcaster's needs channel-point
-redemption read **and** manage (the PATCH), bits, ad schedule, followers and user chat read (`user:read:chat`,
-for `channel.chat.notification`). That list comes from Twitch's documentation for the subscription types
+The bot's token needs `chat:read`, `chat:edit` and `user:manage:chat_color` (its name colour). The
+broadcaster's needs channel-point redemption read **and** manage (the PATCH), bits, ad schedule, followers,
+user chat read (`user:read:chat`, for `channel.chat.notification`) and `user:manage:chat_color` (its name
+colour). That list comes from Twitch's documentation for the subscription types
 used, not from inspecting the stored token.
 
 **Helix rewards ownership.** Updating a redemption's status only works for rewards created by the same
@@ -412,8 +413,10 @@ from an anonymous object carrying the fields the handler reads, and add a test t
 
 ## Helix
 
-[TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) has two calls. `Init()` sets headers once and a
-60 s timeout. Each call logs a `HELIX> …` line with the response code on the `Helix` channel.
+[TwitchHelixApi.cs](../code/Twitch/TwitchHelixApi.cs) has two calls with the broadcaster's token, and two
+that take an account's token, for the [chat name colours](#chat-name-colours). `Init()` sets the broadcaster's
+headers once and a 60 s timeout. Each of the broadcaster's calls logs a `HELIX> …` line with the response code
+on the `Helix` channel.
 
 `GetChannelCategoryIdAsync()`: `GET /helix/channels?broadcaster_id=…` (no scope needed), logs
 `HELIX> channel info: <code>`, throws `Channel info failed: <body>` on non-success, and returns
@@ -427,3 +430,52 @@ tested. Caller: `Games.OnStreamStartedAsync`, when going live with no category s
 Anything but 200 logs a warning; non-success throws `Redemption update failed: <body>`.
 Callers: `ChannelPoints.CloseRedemption`, for the train and colour rewards (catches and logs `Error CP1`), and the toilet-retrieve
 branch of `ProcessAdd` (does not catch).
+
+The other two go through their own `HttpClient`, with no default headers, so each request carries its own
+account's token. Neither logs; the caller does.
+
+`ValidateTokenAsync(accessToken)`: `GET https://id.twitch.tv/oauth2/validate` with `Authorization: OAuth
+<token>`. Returns a `TwitchToken`: the client id the token was issued to, the login, the user id and the
+scopes, through `ParseToken`, which is tested. A refusal throws `Token validation failed (<code>): <body>`.
+
+`SetChatColorAsync(token, accessToken, color)`: `PUT /helix/chat/color?user_id=<id>&color=<color>`, with the
+validated client id as `Client-Id` and the token as `Bearer`. `ChatColorUrl` escapes the colour, so a hex
+colour's `#` goes as `%23`. Twitch answers 204; anything else throws `Chat colour <color> failed (<code>):
+<body>`. It needs `user:manage:chat_color`, and the user id must be the token's own. A hex colour needs
+Turbo or Prime on the account, or Twitch answers 400.
+
+## Chat name colours
+
+[NameColor.cs](../code/Twitch/NameColor.cs) changes the chat name colour of the broadcaster (`twitchAuth`) and
+of the bot account (`twitchBot`) for as long as the bot runs, live or not. `NameColor.Start()`, called from
+`EnableBot` after `TwitchHelixApi.Init()`, starts one loop: it changes both colours at once, records each
+account's outcome for the dashboard, waits `NameColor.IntervalSeconds` (60 s, read each pass) and repeats. While `NameColor.Enabled` is `false`
+(also read each pass, so `!reloaddata` switches it after the current wait), a pass sends nothing and marks both
+accounts off, keeping their last colours; an account without the scope stays as it was.
+
+- **The broadcaster** has Prime, so it takes any hex colour: a random colour from the colour tables, as
+  `!changecolorrandom` picks (`ColorTableRegistry.GetRandomColor`; a random `#rrggbb` with no tables loaded).
+  `NameColor.TableColor` sends it in upper case, as Twitch's documentation writes hex (`#9146FF`); the dashboard
+  keeps the colour code's lower case, and the table it came from.
+- **The bot account** has neither Turbo nor Prime, so it takes one of Twitch's fifteen named colours, at
+  random and never the one it had. They're fixed in code (`NameColor.Named`), since Twitch hasn't changed
+  them, each with the hex Twitch shows for it (the CSS colour of that name: `coral` is `#ff7f50`) for the
+  dashboard. The `twitch` colour table (`Colors\Tables\twitch.json`) holds the same fifteen, so the layout
+  commands take them too (`!changecolor twitch golden_rod`); a real-data test keeps it equal to the code.
+  `NameColor.PickNamed` picks one. When chat goes as the broadcaster (no `twitchBot` login or
+  token), only the broadcaster's colour changes.
+
+Nothing is logged per change. Instead each account keeps a `NameColor.Status` (its last colour, when it was
+set, and a note with its reason), replaced whole on every pass, and the dashboard shows them in a row under
+the connection timers ([dashboard.md](dashboard.md#chat-name-colours)):
+`Lotsofs ■ Raw umber #826644 (encycolorpedia) 00:42  ·  Botsofs NO TOKEN`. `NameColor.StatusParts` and the
+pure `Part` build that row. A new colour shows only on messages sent after it, so viewers see the bot's change
+when it next speaks.
+
+Before an account's first change, the loop validates its token (`ValidateTokenAsync`) for the user and client
+ids. A token without `user:manage:chat_color` logs `Name colour: <login>'s token lacks user:manage:chat_color,
+its colour stays as is` once, on `Important`, and that account is left alone until a restart (`NO TOKEN` on the
+dashboard). A failed validate or change (`FAILED`, the last colour kept) logs `Error NCL1: <login>: <message>` once and is tried again each pass; when it works again,
+`Name colour: <login> changes again` follows, on `Important`. A validate that failed is retried, so Twitch being
+unreachable at startup doesn't turn the colours off. An exception outside that logs `Error NCL2`. Not yet seen
+live (LIV 151–153).

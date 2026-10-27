@@ -5,6 +5,8 @@ using System.Text.Json;
 namespace StreamAssistant2 {
 	public static class TwitchHelixApi {
 		static HttpClient _http = new HttpClient();
+		// No default headers: each request carries its own account's token
+		static readonly HttpClient _userHttp = new() { Timeout = TimeSpan.FromSeconds(60) };
 
 		static string _clientId = "";
 		static string _accessToken = "";
@@ -82,5 +84,57 @@ namespace StreamAssistant2 {
 			return data[0].ReadString("game_id");
 		}
 
+		/// <summary>
+		/// The token's client id, login, user id and scopes, from Twitch's validate endpoint; throws when Twitch refuses it.
+		/// </summary>
+		public static async Task<TwitchToken> ValidateTokenAsync(string accessToken) {
+			var request = new HttpRequestMessage(HttpMethod.Get, "https://id.twitch.tv/oauth2/validate");
+			request.Headers.Authorization = new AuthenticationHeaderValue("OAuth", accessToken);
+			var response = await _userHttp.SendAsync(request);
+			var txtContent = await response.Content.ReadAsStringAsync();
+			if (!response.IsSuccessStatusCode) {
+				throw new Exception($"Token validation failed ({(int)response.StatusCode}): {txtContent}");
+			}
+			return ParseToken(txtContent) ?? throw new Exception($"Token validation returned no user: {txtContent}");
+		}
+
+		/// <summary>
+		/// A validate response's client id, login, user id and scopes; null without a client or user id.
+		/// </summary>
+		internal static TwitchToken? ParseToken(string json) {
+			using JsonDocument doc = JsonDocument.Parse(json);
+			JsonElement root = doc.RootElement;
+			string clientId = root.ReadString("client_id");
+			string userId = root.ReadString("user_id");
+			if (clientId.Length == 0 || userId.Length == 0) {
+				return null;
+			}
+			JsonElement scopes = root.ReadElement("scopes");
+			string[] scopeNames = scopes.ValueKind == JsonValueKind.Array
+				? scopes.EnumerateArray().Where(scope => scope.ValueKind == JsonValueKind.String).Select(scope => scope.GetString()!).ToArray()
+				: [];
+			return new TwitchToken(clientId, root.ReadString("login"), userId, scopeNames);
+		}
+
+		/// <summary>
+		/// Sets the token's user's chat name colour: a named colour, or a hex one for Turbo and Prime users.
+		/// </summary>
+		public static async Task SetChatColorAsync(TwitchToken token, string accessToken, string color) {
+			var request = new HttpRequestMessage(HttpMethod.Put, ChatColorUrl(token.UserId, color));
+			request.Headers.Add("Client-Id", token.ClientId);
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+			var response = await _userHttp.SendAsync(request);
+			if (!response.IsSuccessStatusCode) {
+				throw new Exception($"Chat colour {color} failed ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}");
+			}
+		}
+
+		// The Update User Chat Color URL, the colour escaped
+		internal static string ChatColorUrl(string userId, string color) {
+			return $"https://api.twitch.tv/helix/chat/color?user_id={Uri.EscapeDataString(userId)}&color={Uri.EscapeDataString(color)}";
+		}
+
 	}
+
+	public sealed record TwitchToken(string ClientId, string Login, string UserId, string[] Scopes);
 }

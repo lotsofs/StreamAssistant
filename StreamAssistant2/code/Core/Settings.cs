@@ -167,6 +167,7 @@ namespace StreamAssistant2 {
 			AtLeast(s.Ads.IntervalMinutes, 5, "Ads.IntervalMinutes");
 			AtLeast(s.Chat.FaqCooldownSeconds, 0, "Chat.FaqCooldownSeconds");
 			AtLeast((double)s.MoneyGoal.DefaultGoal, 0.01, "MoneyGoal.DefaultGoal");
+			AtLeast(s.NameColor.IntervalSeconds, 5, "NameColor.IntervalSeconds");
 			AtLeast(s.Layout.ShowTwinsSeconds, 0, "Layout.ShowTwinsSeconds");
 			AtLeast(s.Layout.HideRealSeconds, 0, "Layout.HideRealSeconds");
 			AtLeast(s.Layout.RecolorSeconds, 0, "Layout.RecolorSeconds");

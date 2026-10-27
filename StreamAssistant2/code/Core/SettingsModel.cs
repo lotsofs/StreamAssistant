@@ -16,6 +16,7 @@ namespace StreamAssistant2 {
 		public MoneyGoalSettings MoneyGoal { get; set; } = new();
 		public ClockSettings Clock { get; set; } = new();
 		public UptimeSettings Uptime { get; set; } = new();
+		public NameColorSettings NameColor { get; set; } = new();
 		public LayoutSettings Layout { get; set; } = new();
 		public GameSettings Game { get; set; } = new();
 		public LeftPanelSettings LeftPanel { get; set; } = new();
@@ -112,6 +113,13 @@ namespace StreamAssistant2 {
 
 	public class UptimeSettings {
 		public string Source { get; set; } = "Text: Stream Uptime";
+	}
+
+	public class NameColorSettings {
+		// False leaves both chat names' colours alone
+		public bool Enabled { get; set; } = true;
+		// How often the chat names change colour
+		public double IntervalSeconds { get; set; } = 60;
 	}
 
 	public class LayoutSettings {

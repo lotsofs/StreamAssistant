@@ -6,11 +6,6 @@ other: each can be done, tested and committed on its own, except where an item s
 Items are indexed in [TODO.md](TODO.md): summaries, severities and the suggested order of work live
 there, along with the conventions these codes follow. This file holds the detail and the plans.
 
-**Dependencies between plans**
-
-- **NCK** and **TOK** both need the bot account's user id and send `twitchBot.clientId`; TOK's validate
-  call returns the user id, so whichever comes second can reuse it.
-
 Each plan ends with the docs to touch. When an item is finished, delete its section here and its row in
 TODO.md, and log it in [DONE.md](DONE.md), per the conventions there.
 
@@ -34,12 +29,16 @@ the token in `secrets.json` by hand and restart the bot. Read only; no expiry ha
    alone, and each refresh token works once; a token-generator site has its own refresh endpoint. That
    decides the refresh call.
 2. Validate each token at startup and then hourly, as Twitch asks: `GET https://id.twitch.tv/oauth2/validate`
-   with `Authorization: OAuth <token>` returns `login`, `scopes` and `expires_in`. Log the time left, and
-   warn when the login doesn't match the block's or a scope is missing (`chat:read`, `chat:edit` for the bot).
+   with `Authorization: OAuth <token>` returns `login`, `scopes` and `expires_in`. `TwitchHelixApi.ValidateTokenAsync`
+   already makes the call, for the name colours; add `expires_in` to its `TwitchToken`. Log the time left, and
+   warn when the login doesn't match the block's or a scope is missing (`chat:read`, `chat:edit` for the bot;
+   `user:manage:chat_color` for both, which the name colours already check).
 3. Refresh a token before it expires, and on a 401 from EventSub or Helix or an IRC `Login authentication
    failed` notice: `POST https://id.twitch.tv/oauth2/token` with `grant_type=refresh_token` and the refresh
    token (plus what step 1 found). Use the new token without a restart: IRC reconnects with it, and
-   EventSub and Helix send it from their next request.
+   EventSub and Helix send it from their next request. `NameColor` holds the `twitchAuth` and `twitchBot`
+   blocks it started with and reads their `AccessToken` at each change, so set the new token in those objects
+   rather than replacing them.
 4. Write the new access and refresh tokens back to `secrets.json`, changing only those two values, so a
    restart uses them. Never log them.
 5. Keep the decisions pure and tested: whether a refresh is due, parsing the validate and token responses,
@@ -203,49 +202,6 @@ Delete `disabled` and `none` from `countryschemes.json`, keeping `gameschemes`' 
 tests pass.
 
 **Docs when done:** delete this section and the TODO row.
-
-## NCK — Change the chat name colour every 60 seconds
-
-Wanted: the bot's name in chat changes colour every 60 seconds. Not built.
-
-Twitch no longer takes `/color` over IRC, so it goes through Helix's Update User Chat Color:
-`PUT https://api.twitch.tv/helix/chat/color?user_id=<id>&color=<color>`, with that account's own token
-and the scope `user:manage:chat_color` (the URL and scope are from memory of Twitch's API reference;
-confirm them before building). Any account can use the named colours: `blue`, `blue_violet`,
-`cadet_blue`, `chocolate`, `coral`, `dodger_blue`, `firebrick`, `golden_rod`, `green`, `hot_pink`,
-`orange_red`, `red`, `sea_green`, `spring_green` and `yellow_green`. A hex colour needs Turbo or Prime
-on the account. A new colour shows on messages sent after the change, so viewers only see it when the
-bot speaks.
-
-### Decisions
-
-- **Whose name:** the bot account's (`botsofs`), presumably.
-- **Which colours:** a random named colour, a cycle through them, or the layout's current colour (hex,
-  so only with Turbo or Prime on that account).
-- **When:** always, or only while live.
-
-### Plan
-
-1. Get the bot a new token with `user:manage:chat_color` added to `chat:read` and `chat:edit`. The
-   call sends `twitchBot.clientId` as `Client-Id`, which must be the app the token was issued to. It
-   also needs the bot's user id, which `secrets.json` lacks. Look it up once at startup, through
-   `GET https://id.twitch.tv/oauth2/validate` (its `user_id`) or `GET /helix/users?login=<login>`.
-2. Add a `NickColor` loop, started from `Program.StartBotAsync` and written like `Clock`. Every 60 s it
-   picks the next colour with a pure, tested function and sends it. A failure logs a new `Error` code,
-   and the loop carries on. The call goes in `TwitchHelixApi` and uses the bot's token, not the
-   broadcaster's.
-3. Make the interval and the colour list settings, in a section of [SettingsModel.cs](../code/Core/SettingsModel.cs)
-   with today's choice as the default ([infrastructure.md § Settings](infrastructure.md#settings)).
-
-**Verify:** F5. The log shows each change, and bot lines a minute or more apart (`!changecolorrandom`'s,
-say) come in different colours.
-
-**Docs when done:** delete this section and the TODO row. Then update:
-- [twitch.md](twitch.md#credentials-and-identity): the scope, the bot's user id and the Helix call
-- the loop lists in [infrastructure.md](infrastructure.md), [architecture.md](architecture.md) and
-  CLAUDE.md's Scheduling paragraph
-- [reference.md](reference.md): the URL, the interval and the error code
-- the test row in [development.md](development.md#unit-tests)
 
 ## DIR — Ask for the BotInput folder at first boot
 

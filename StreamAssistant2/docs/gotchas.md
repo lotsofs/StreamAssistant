@@ -65,6 +65,9 @@ full explanation is. Skim this before making a change you think is small.
   the goal: that is `MoneyGoal`. ([obs.md](obs.md#money-goal))
 - **A refused StreamElements token stops that connection until restart** (`Error SES3`, then
   `StreamElements stopped`); the rest of the bot carries on. ([streamelements.md](streamelements.md#session-lifecycle))
+- **The chat name colours need `user:manage:chat_color` on both tokens.** Without it, that account's
+  colour is left alone for the run, with one line at startup; a reissued token needs a restart.
+  ([twitch.md](twitch.md#chat-name-colours))
 - **IRC tags are ignored.** The bot knows nothing about badges, moderators or display names.
 - **`channel.follow` is subscribed but not handled**, so every follow logs a "not handled" line.
 - **The FAQ commands answer the broadcaster too**, natural-language questions included, so your own
