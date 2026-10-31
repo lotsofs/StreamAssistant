@@ -181,6 +181,28 @@ if they name the collection's members.
 ---
 
 
+## SHR — SplitWatcher's reads refuse LiveSplit's writes
+
+`SplitWatcher.ReadText` reads LiveSplit's files with `File.ReadAllText`, which opens them with `FileShare.Read`.
+While that read is open, a writer is refused. Output to File writes with `File.WriteAllText`, and when that fails
+its `FileQueue` forgets the file, so the write is only tried again at the component's next full rewrite: the next
+split, skip, undo, pause, scroll or reset. A read of `Number.txt`, `Completed.txt`, `RunTime.txt` or a `Sign.txt`
+that overlaps the component's write of it could leave that file stale on disk, and in OBS, until then. `SplitWatcher` reads right after each
+change event, which is when the component is writing. Read only; never seen. The dashboard's `SplitList`
+already reads with `FileShare.ReadWrite | FileShare.Delete` (`SplitList.ReadShared`).
+
+### Plan
+
+Make `ReadText` open the file the way `ReadShared` does, keeping its retry for a file LiveSplit has locked.
+Such a read can now land mid-write and see an empty or shorter file. `Index` already ignores a number that isn't
+one, and the next change event reads the file again, so `OnChanged` copes. Check `IsSkip` and the sign's
+colours on an empty read: an empty `RunTime.txt` counts as a split, and an empty sign colours nothing.
+
+**Verify:** the `SplitWatcher` tests pass, and LIV 158 stays clean over a stream.
+
+**Docs when done:** delete this section and the TODO row, and the `(SHR)` note in
+[gotchas.md](gotchas.md).
+
 ## DSB — Unused `disabled` colour category
 
 `countryschemes.json` (in `Stream-Resources\Colors\Schemes\`, the Stream-Resources repo) has a `disabled`

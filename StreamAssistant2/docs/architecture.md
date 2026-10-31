@@ -69,7 +69,8 @@ service registry.
    6. Logs `Data loaded`.
    7. `DiskSpace.Start()`, `TwitchUptime.Start()`, `Clock.Start()` and `ConnectionHealth.Start()`: the
       periodic loops. `Clock` doesn't need OBS yet: it skips its OBS write until OBS is ready. Then
-      `SplitWatcher.Start()`, the watcher on LiveSplit's split index, which never throws, and
+      `SplitWatcher.Start()`, the watcher on LiveSplit's split index, which never throws,
+      `SplitList.Start()`, the dashboard's read of LiveSplit's split lists every 500 ms, and
       `ObsInputs.Start()`, the dashboard's check of which images and texts are showing in `Basic Stream Layout`, idle
       until OBS is ready.
    8. `EnableBot()`: `ObsConnection.Connect()`, `TwitchIRCManager.Connect()` plus
@@ -231,6 +232,10 @@ colours LiveSplit's split sources through `SplitColors`. See [obs.md](obs.md#lef
 (from `Number.txt` and `Completed.txt` in `<LivesplitGenerated>\CurrentSplit\AllSplits`) and calls `LeftPanel.OnSplit` when it rises by one
 split. See [obs.md](obs.md#splits-from-livesplit).
 
+[SplitList.cs](../code/LiveSplit/SplitList.cs): reads the split-list window of every subsplit level under
+`<LivesplitGenerated>\SplitList` (or the completed, remaining or full list the dashboard chose) every 500 ms and
+merges them into one list in run order, for the dashboard's splits column. See [dashboard.md](dashboard.md#splits).
+
 [SplitColors.cs](../code/LiveSplit/SplitColors.cs): a game's split colours from `gameschemes.json` (over
 `none`'s), the sign → colour table, and the filter colours for the split list highlights and the previous
 split's differences, which the left-panel rotation sets. See [obs.md](obs.md#split-colours).
@@ -269,7 +274,7 @@ See [color.md](color.md), which is the authority on them.
 ### `ui/`
 
 [MainWindow.xaml](../ui/MainWindow.xaml) and its code-behind: the dashboard (status bar with the chat name colours under it, log, and on the
-right a column of the OBS sources the bot has set and the left-panel column). See [dashboard.md](dashboard.md).
+right LiveSplit's splits, then the left panel above the OBS sources the bot has set). See [dashboard.md](dashboard.md).
 
 ## Data flows worth knowing
 

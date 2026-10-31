@@ -21,6 +21,7 @@ namespace StreamAssistant2 {
 		public GameSettings Game { get; set; } = new();
 		public LeftPanelSettings LeftPanel { get; set; } = new();
 		public SplitColorsSettings SplitColors { get; set; } = new();
+		public SplitListSettings SplitList { get; set; } = new();
 	}
 
 	// Every directory but BotInput; an empty one turns its feature off
@@ -180,5 +181,12 @@ namespace StreamAssistant2 {
 		public string PreviousRun { get; set; } = "Livesplit: Previous Run";
 		public string PreviousSegment { get; set; } = "Livesplit: Previous Segment";
 		public string PreviousGold { get; set; } = "Livesplit: Previous Gold";
+	}
+
+	public class SplitListSettings {
+		// How long the dashboard's cycle shows each comparison
+		public double CycleSeconds { get; set; } = 30;
+		// The widest the dashboard's split names get, in characters, tree guides included
+		public int NameWidth { get; set; } = 40;
 	}
 }

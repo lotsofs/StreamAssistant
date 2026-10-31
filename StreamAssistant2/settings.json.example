@@ -130,5 +130,12 @@
 		"PreviousRun": "Livesplit: Previous Run",
 		"PreviousSegment": "Livesplit: Previous Segment",
 		"PreviousGold": "Livesplit: Previous Gold"
+	},
+	// The dashboard's splits column
+	"SplitList": {
+		// How long its cycle shows each comparison; at least 1
+		"CycleSeconds": 30,
+		// The widest its split names get, in characters, tree guides included; a longer one is cut short with …; at least 10
+		"NameWidth": 40
 	}
 }

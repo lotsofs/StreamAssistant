@@ -58,6 +58,7 @@ namespace StreamAssistant2
 				Clock.Start();
 				ConnectionHealth.Start();
 				SplitWatcher.Start();
+				SplitList.Start();
 				ObsInputs.Start();
 
 				EnableBot();

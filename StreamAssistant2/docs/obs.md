@@ -651,6 +651,10 @@ test checks that the panels in an entry that move the same families set the same
 `Index`, `IsSplit`, `IsSkip` and `ParseIndex` are tested. The watcher itself isn't, since its file events don't
 arrive on a fixed schedule.
 
+The dashboard reads more of LiveSplit's output: the split-list window that the component writes for every subsplit
+level under `SplitList\`, merged into one list in run order ([dashboard.md § Splits](dashboard.md#splits)). Nothing
+in OBS or the rotation uses it.
+
 ### Split colours
 
 [SplitColors.cs](../code/LiveSplit/SplitColors.cs) colours LiveSplit's sources in `!Scene: Left Panel Colored`

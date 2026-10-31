@@ -172,6 +172,8 @@ namespace StreamAssistant2 {
 			AtLeast(s.Layout.HideRealSeconds, 0, "Layout.HideRealSeconds");
 			AtLeast(s.Layout.RecolorSeconds, 0, "Layout.RecolorSeconds");
 			AtLeast(s.Game.CaptureSlots, 1, "Game.CaptureSlots");
+			AtLeast(s.SplitList.CycleSeconds, 1, "SplitList.CycleSeconds");
+			AtLeast(s.SplitList.NameWidth, 10, "SplitList.NameWidth");
 		}
 
 		/// <summary>

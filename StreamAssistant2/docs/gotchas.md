@@ -42,9 +42,17 @@ full explanation is. Skim this before making a change you think is small.
 - **A LiveSplit file's write time doesn't mark every split.** The component (release 8) skips a file whose
   contents haven't changed and writes the rest on a background thread, so a repeated sign keeps the
   earlier split's time. ([obs.md](obs.md#splits-from-livesplit))
+- **Reading a LiveSplit file can make LiveSplit's write of it fail.** `File.ReadAllText` opens with
+  `FileShare.Read`, which refuses a writer while it's open, and the component (release 8) retries a failed
+  write only at its next full rewrite (the next split, scroll or other timer event). Read with `FileShare.ReadWrite`, as `SplitList.ReadShared`
+  does; `SplitWatcher.ReadText` doesn't yet (SHR). ([dashboard.md](dashboard.md#splits))
 - **A stale LiveSplit path shows blank, not an error.** Release 8 empties every file in its folders that it
   doesn't write, so a text source or `leftpanel.json` path that a release moved still exists, empty.
   ([obs.md](obs.md#where-the-data-came-from))
+- **A level's number and window can be out of step.** Release 8 writes `CurrentSplit\<level>\Number.txt` 25 to 220 ms
+  before that level's list files (measured 2026-11-01), so after an undone split a read can see the lower number
+  with the old window. A number left stale by a failed write, in a file OBS may also be reading, would look the same.
+  `SplitList.FirstMember` treats a place before the level's start as unknown. ([dashboard.md](dashboard.md#splits))
 
 ## Twitch and Helix
 

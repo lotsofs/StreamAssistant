@@ -64,6 +64,7 @@ Every `catch` logs `Error <code>` on the `Error` channel and writes the exceptio
 | `LSW2` | `SplitWatcher` (the watcher's `Error` event) | The `FileSystemWatcher` failed, e.g. its buffer overflowed; the message is logged | events may be missed |
 | `LSW3` | `SplitWatcher.Start` | Starting the watcher threw | no previous-split panel this run |
 | `LSW4` | `FireForget.Run` (from `SplitWatcher.OnChanged`) | The handling after a change of the split index threw: the skip check, the previous-split panel or the sign's layout colour (`index change failed`) | that change doesn't show the previous-split panel or recolour the layout |
+| `LSL1` | `SplitList.WatchAsync` | Reading or merging LiveSplit's split lists for the dashboard threw (a file that can't be read reads as empty, so this is unexpected); logged once until a read succeeds | the splits column keeps its last rows; next read 500 ms later |
 | `OSS1` | `ObsConnection.OnStreamStateChanged` | Handling OBS's stream start or stop threw | chatter list not reset |
 | `DSK1` | `DiskSpace.WatchAsync` | A disk-space check threw | next minute |
 | `UpT5` | `TwitchUptime.UptimeLoopAsync` | An uptime check threw (outside its own HTTP handling), including the OBS write | next poll |
@@ -261,6 +262,13 @@ The text sources the rotation sets (`Livesplit: …`, settings `text` and `file`
 | `PreviousFilter` | `Color Correction` | their filter, property `color_multiply`, set on each previous-split panel |
 | `PreviousRun`, `PreviousSegment`, `PreviousGold` | `Livesplit: Previous Run`, `… Segment`, `… Gold` | the previous split's differences |
 
+### SplitList
+
+| Key | Default | Role |
+|---|---|---|
+| `CycleSeconds` | 30 | how long the dashboard's splits column shows each comparison while its dropdown is on `Cycle`; at least 1. Read at each read of the split lists, so `!reloaddata` applies it at once |
+| `NameWidth` | 40 | the widest the splits column's names get, in characters, tree guides included; a longer name is cut short with `…`. At least 10; the column is never narrower than its widest guides and one character. Read at each tick of the window, so `!reloaddata` applies it at once |
+
 ## Constants
 
 Values that stay in code: protocol addresses and timings, internal polls and limits, data-file formats,
@@ -295,6 +303,7 @@ The broadcaster's and the bot account's logins (the channel, the admins) aren't 
 | `Train<n>.png` and `Empty.png` in `Trains` | `ChannelPoints` |
 | `Number.txt` and `Completed.txt` in `CurrentSplit\AllSplits\`, `PreviousSplit\AllSplits\RealTime\RunTime.txt` and `PreviousSplit\AllSplits\RealTime\CurrentComparison\Sign.txt`, in `LivesplitGenerated` | `SplitWatcher` |
 | a `PreviousSplit\<level>\RealTime\CurrentComparison\Sign.txt`, named by an entry's `Sign` in `leftpanel.json` | `LeftPanel` |
+| `SplitList\<level>\` in `LivesplitGenerated`, or the same in `CompletedSplits\`, `RemainingSplits\` or `FullSplitList\` for the list the dashboard chose, less the files that list doesn't write, the levels `SansSubsplits`, `SansSubsplits_Level<k>` from 2 and `AllSplits`: `Names_Raw.txt`, `Names.txt`, `Names_Indent_<depth>.txt`, `Highlight_CurrentSplit.txt`, `Highlight_ScrolledToSplit.txt`, `RealTime\Highlight_Gold.txt`, and `RealTime\<comparison>\Highlight_<kind>.txt`, `Delta_Run.txt`, `Time_Run_Upcoming.txt`, `Delta_Segment.txt` and `Time_Segment_Upcoming.txt`, `<comparison>` being `CurrentComparison` or the folder the dashboard chose; the folders in `SplitList\AllSplits\RealTime\` with their `Time_Run_Upcoming.txt`, and `CurrentComparison.txt`, for the comparisons; also `CurrentSplit\<level>\Number.txt` and `TotalSplits_<level>.txt` for each level, `CurrentSplit\AllSplits\Completed.txt`, and `Names_Raw.txt` and `Names_Indent_<depth>.txt` in `CompletedSplits\AllSplits\` | `SplitList` |
 | `gameschemes.json` in `ColorSchemes`, its categories' `SplitColors`, with `none` as the fallback | `SplitColors` |
 | `AssistantLogs` and `AssistantLogs\EventSubs` under `BotOutput`, `streamAssistant.db` under `BotOutput` | `ConsoleLogger`, `TestReplay` (reads `EventSubs`, including StreamElements' `se.…` files), `Database` |
 
@@ -361,6 +370,8 @@ Every other input with audio (window captures for chat, S Keys, Winamp, LiveSpli
 | 5 s | `LeftPanel.OBS_WAIT` | while OBS isn't ready, the rotation checks again this often (each panel's own time is its `Seconds` in `leftpanel.json`) |
 | 5, 3, 2, 1 min before the next ad | `Ads` | the ad warnings, each with its text (TXT); the interval is `Ads.IntervalMinutes` |
 | 5 s | `TwitchUptime.MIN_GAP` | least time between uptime requests; a poll inside it waits out the rest |
+| 500 ms | `SplitList.POLL` | how often the dashboard reads LiveSplit's split lists |
+| 3 reads | `SplitList.MISSES_BEFORE_NOTE` | failed merges in a row before the splits column's title says `levels don't line up` |
 | 2 s | `ObsInputs.SHOWING_POLL` | how often the dashboard lists the stream scene, its nested scenes and groups, to see which image and text sources are showing |
 | 60 s | `TwitchHelixApi` | HTTP timeout, for the broadcaster's calls and the name colours' (EventSub's separate client keeps the default) |
 
