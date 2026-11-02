@@ -35,7 +35,7 @@ The bot account should be a moderator in the channel (`/mod botsofs`), so chat s
 viewers don't hold its messages: slow mode, followers- or subscriber-only chat, and blocked links (the
 FAQ answers carry URLs). A moderator may also send 100 messages per 30 s rather than 20.
 
-When a token expires, nothing renews it ([TOK](robustness-fixes.md#tok--refresh-the-twitch-tokens-at-runtime)); the two expire independently. Expected symptoms, inferred
+Both tokens come from a token generator site, which is also where new ones are made by hand. When a token expires, nothing renews it ([TOK](robustness-fixes.md#tok--refresh-the-twitch-tokens-at-runtime)); the two expire independently. Expected symptoms, inferred
 rather than observed: with the bot's token, IRC gets a login-failure notice and the socket closes, so the
 connect loop retries every 3 s forever (`Error 1` / `Error TIRC2`); with the broadcaster's, EventSub's
 subscribe POST returns 401, which throws `Subscription failed (401)` and restarts the session every 3 s
@@ -209,8 +209,8 @@ it with `JsonDocument`, and switches on `metadata.message_type`:
 
 #### Planned reconnects
 
-Twitch sends `session_reconnect` about once a day. The bot follows Twitch's documented flow, without
-leaving `ListenLoop`:
+Twitch sends `session_reconnect` about once a day, some days more often and some days not at all. The bot
+follows Twitch's documented flow, without leaving `ListenLoop`:
 
 1. `ConnectToReconnectUrlAsync` opens a **second** socket to `reconnect_url` while the old one stays open
    (`ConnectTimeout`, 15 s) and waits for its first message (`ReconnectWelcomeTimeout`, 10 s). It must be
@@ -231,8 +231,8 @@ chat lines, 3 s wait, a fresh session on the default URL and a full resubscribe.
 
 Opening the new socket before dropping the old one matters: a reconnect made after the old socket is gone
 is refused with `4007 "invalid reconnect attempt"`. The flow is tested against a loopback fake of Twitch
-(`EventSubReconnectTests`, `EventSubLoopTests`) and has worked live against Twitch. An event delivered on a
-reconnected session hasn't been seen yet (item ESR in [TODO.md](TODO.md)).
+(`EventSubReconnectTests`, `EventSubLoopTests`) and has worked live against Twitch, events on the
+reconnected session included.
 
 At the top of each iteration it checks that the socket is `Open` and that the stopwatch is under
 `KeepAliveTimeout`, 20 s (Twitch's default keepalive is 10 s). `ReceiveFullMessage` enforces the same
@@ -249,7 +249,11 @@ lost (<WebSocketError>): <innermost message>`. Twitch drops it with a TCP reset 
 times a day, which reads `EventSub connection lost (ConnectionClosedPrematurely): An existing connection was
 forcibly closed by the remote host.` On 2026-10-11 there were five, between 04:30 and 08:32, while IRC and
 StreamElements stayed up, which points at Twitch's side rather than the home connection. The first came
-16 s after the last keepalive, before the 20 s timeout; the rest came with no silence before them.
+16 s after the last keepalive, before the 20 s timeout; the rest came with no silence before them. From
+2026-10-08 to 11-02 there were 51 drops in 25 days, 43 of them between 01:00 and 09:00, on fresh and
+reconnected sessions alike, and almost none came within a minute of a StreamElements or IRC loss. Each costs
+about 5 s without events, from the drop to `EventSub subscribed`. Whether reconnected sessions drop more in
+the evening is [EDR](robustness-fixes.md#edr--reconnected-sessions-may-drop-more-in-the-evening).
 
 | Reason | Set when |
 |---|---|

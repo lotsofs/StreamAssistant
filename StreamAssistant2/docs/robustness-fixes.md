@@ -13,6 +13,9 @@ TODO.md, and log it in [DONE.md](DONE.md), per the conventions there.
 
 ## TOK — Refresh the Twitch tokens at runtime
 
+**Parked** by the owner on 2026-11-02, until a token actually expires. The research and design below were
+done that day; nothing is built.
+
 `secrets.json` holds two Twitch accounts in the same shape (`login`, `accessToken`, `refreshToken`,
 `clientId`): `twitchAuth`, the broadcaster, whose token EventSub and Helix use, and `twitchBot`, whose
 token IRC uses. Nothing reads either `refreshToken`, or `twitchBot`'s `clientId`. Each access token is
@@ -22,83 +25,127 @@ used until it stops working, and the expected symptoms are in
 (`Error TES1`) for the broadcaster's, with the redemption PATCH failing too. The fix today is to replace
 the token in `secrets.json` by hand and restart the bot. Read only; no expiry has been seen.
 
+### Where the tokens come from
+
+The tokens came from a token generator site (owner, 2026-11-02), and `secrets.json` has no client secret, so
+the bot can't use Twitch's own refresh call and has to go through the site. The design assumes
+twitchtokengenerator.com, which hands out this set of access token, refresh token and client id; confirm that
+first. Another site changes only the URL and `ParseRefresh`.
+
+The design stays on the generator rather than moving to an own app. The colour and flush rewards belong to the
+current client id ([color.md](color.md)), so an own app would need new authorisation for both accounts,
+recreated rewards and new reward ids. The price is relying on the site, whose logs may hold the refresh token,
+since it goes in the URL path. The refresh call stays in one method, so changing later is small.
+
+Read in outside documentation on 2026-11-02; none of it has been run:
+
+- `GET https://twitchtokengenerator.com/api/refresh/<refresh token>` returns
+  `{"success":true,"token":…,"refresh":…,"client_id":…}`. The
+  [README](https://github.com/swiftyspiffy/twitch-token-generator) gives only the URL; the method and fields
+  come from a [2021 GitHub issue](https://github.com/swiftyspiffy/twitch-token-generator/issues/10), so the
+  first live refresh is the real proof. The token lifetime isn't documented.
+- That `client_id` was wrong in the issue (the site's API app, not the one the token works with), and Helix
+  refused the pair. Ignore it and use the one from `validate`.
+- A refresh [may return a new refresh token](https://dev.twitch.tv/docs/authentication/refresh-tokens/), so the
+  old one may be spent and a lost response can lose the tokens.
+- [`validate`](https://dev.twitch.tv/docs/authentication/validate-tokens/) gives `expires_in`. The page doesn't
+  define 0: treat it as no scheduled refresh; a 401 still renews.
+- Twitch asks apps to validate at startup and then hourly, and says it audits for this. The bot validates only
+  before an account's first name colour change.
+- A 401 needn't mean an expired token: Helix gives one for a missing scope too. Validate before refreshing, or
+  a scope problem would call the generator every minute through the name colours.
+
 ### Plan
 
-1. Find out where the tokens come from. The `clientId` names the app: a confidential client needs its
-   client secret to refresh (it would join `secrets.json`); a public client refreshes with the client id
-   alone, and each refresh token works once; a token-generator site has its own refresh endpoint. That
-   decides the refresh call.
-2. Validate each token at startup and then hourly, as Twitch asks: `GET https://id.twitch.tv/oauth2/validate`
-   with `Authorization: OAuth <token>` returns `login`, `scopes` and `expires_in`. `TwitchHelixApi.ValidateTokenAsync`
-   already makes the call, for the name colours; add `expires_in` to its `TwitchToken`. Log the time left, and
-   warn when the login doesn't match the block's or a scope is missing (`chat:read`, `chat:edit` for the bot;
-   `user:manage:chat_color` for both, which the name colours already check).
-3. Refresh a token before it expires, and on a 401 from EventSub or Helix or an IRC `Login authentication
-   failed` notice: `POST https://id.twitch.tv/oauth2/token` with `grant_type=refresh_token` and the refresh
-   token (plus what step 1 found). Use the new token without a restart: IRC reconnects with it, and
-   EventSub and Helix send it from their next request. `NameColor` holds the `twitchAuth` and `twitchBot`
-   blocks it started with and reads their `AccessToken` at each change, so set the new token in those objects
-   rather than replacing them.
-4. Write the new access and refresh tokens back to `secrets.json`, changing only those two values, so a
-   restart uses them. Never log them.
-5. Keep the decisions pure and tested: whether a refresh is due, parsing the validate and token responses,
-   and the rewrite of the two values.
+1. **Check.** A new static `code/Twitch/TwitchTokens.cs` covers the broadcaster and, when it's a different
+   account, `TwitchIRCManager.ChatAccount`. `await TwitchTokens.StartAsync()` just before `EnableBot()` checks
+   both in parallel, so IRC's first login has a good token, then a loop repeats that hourly. A check validates
+   (`TwitchHelixApi.ValidateTokenAsync`, whose `TwitchToken` gains `ExpiresIn` and which throws a
+   `TokenRefusedException` on a 401, with today's message), logs the time left and warns when the login doesn't
+   match or the bot lacks `chat:read` / `chat:edit`. It sets `ClientId` from `validate`, warning if that differs,
+   since refunds depend on it, and refreshes a refused token or one with under 90 minutes left. That margin is
+   over the hourly interval, so a token can't expire between checks. `_userHttp`'s timeout drops to 15 s, so a
+   dead Twitch can't hold up startup for long.
+2. **Refresh.** One `SemaphoreSlim` for all accounts, so callers never race for a refresh token. Skip when the
+   token already changed, the refresh token was refused, or the last try is under a minute old. Set the new
+   tokens on the existing `TwitchAuthConfig` objects, which `NameColor` holds, and save them **before anything
+   else can fail**; validate after that, only to report. Use its own `HttpClient`, 15 s timeout, no redirects.
+   `Error TOK1` is a passing failure, tried again at the next check; a response without the fields logs its key
+   names only. `Error TOK2`, once, is a refused refresh token: it says to get new tokens and restart, and nothing
+   tries again until then. Never log tokens, the refresh URL or a raw body.
+3. **Renew when refused.** `TwitchTokens.SendAsync(http, account, build)` sends; on a 401 it validates, refreshes
+   a refused token and resends once. `build` is a factory, since a request can't be sent twice. All Helix calls
+   and EventSub's `Subscribe` go through it, with per-request headers from a new `TwitchHelixApi.AsAccount`. That
+   drops the `HttpClient` default headers, which aren't thread-safe to change while requests run, and the token
+   copies in both classes. `SetChatColorAsync` takes the `TwitchAuthConfig`. IRC keeps the account instead of
+   `_oauth`, reads its token in `ConnectOnce`, and on a pure `IsLoginFailure(line)` (`:tmi.twitch.tv NOTICE * :`
+   plus `Login authentication failed`, `Improperly formatted auth` or `Login unsuccessful`) renews and throws into
+   the normal reconnect. A scheduled refresh doesn't reconnect IRC: it only uses the token at login, and a
+   reconnect would post `🟣 Connected` and drop chat for nothing.
+4. **Save.** `Config.SaveTokens(account)` reads the file fresh, writes `secrets.json.tmp` beside it and moves it
+   over, deleting the tmp in a `finally`; a failure logs `Error TOK3` and the bot carries on with the new tokens.
+   A pure `WithTokens(byte[] utf8, block, access, refresh)` finds the two values with `Utf8JsonReader` and splices
+   them in, so the rest of the file stays byte-identical, BOM and line endings included. Add
+   `/Bot Input/secrets.json.tmp` to Stream-Resources' `.gitignore`, so a tmp left by a crash can't be committed.
+5. **`!refreshtokens`**, an admin command through `FireForget.Run`, refreshes both accounts whatever the time
+   left, for verifying and recovering.
+6. **Tests.** The pure parts: `IsRefreshDue`, `ParseRefresh`, `MissingScopes`, `IsLoginFailure`, `WithTokens`, the
+   time-left format. Then a loopback fake with overridable `RefreshUrl` and `ValidateUrl`, in `EventSubLoopTests`'
+   collection: a refresh adopts and saves; `success:false` stops trying; a 5xx tries again after the pause;
+   concurrent 401s refresh once; a still-valid token isn't refreshed on a 401; the response's `client_id` is
+   ignored; a 401 on subscribe refreshes, resends and delivers. Replace `Save` in every test, so none can reach
+   the real `secrets.json`.
 
-**Verify:** F5 logs the time left on both tokens. Lower the refresh threshold to force a refresh: the
-new token is used (IRC reconnects as `botsofs`, EventSub resubscribes or carries on) and `secrets.json`
-holds it afterwards.
+**Risk:** if the response's fields have changed since 2021, the first refresh logs `Error TOK1` with the key names
+and its new tokens are lost. Recovery is what it is today: fresh tokens from the site by hand.
 
-**Docs when done:** delete this section and the TODO row; update the credentials table, the expiry
-paragraph and the TOK links in [twitch.md](twitch.md#credentials-and-identity),
-[infrastructure.md § Config](infrastructure.md#config) (the bot now writes `secrets.json`), the
-"never refreshed at runtime" sentence in CLAUDE.md, and [reference.md](reference.md) for new log lines,
-error codes and URLs.
+**Verify:** F5 logs the time left on both tokens, which also shows the generator's real lifetime.
+`!refreshtokens` logs both refreshed; chat, a channel-point refund and the name colours keep working;
+`secrets.json` differs only in the token values, and the next F5 starts on them.
 
-## ESR — EventSub reconnect path unverified
+**Docs when done:** delete this section and the TODO row, and log it in [DONE.md](DONE.md). Update the credentials
+table, the expiry paragraph and the TOK links in [twitch.md](twitch.md#credentials-and-identity), with a section on
+the tokens; [infrastructure.md § Config](infrastructure.md#config) (the bot now writes `secrets.json`);
+[reference.md](reference.md) for the log lines, error codes, URLs, constants and `_userHttp`'s timeout;
+[architecture.md](architecture.md) for the startup order and file map; [development.md](development.md) for the
+test list; [gotchas.md](gotchas.md) (a saved refresh token replaces the one in the file, and hand-pasted tokens
+need a restart); [live-checks.md](live-checks.md) and the LIV row for the checks under **Verify**; and in CLAUDE.md
+the "never refreshed at runtime" sentence, the startup order, the admin commands and `secrets.json` being written.
 
-Twitch sends `session_reconnect` about once a day, around 19:00 to 19:40 local time. The bot used to abort
-the old socket, wait 3 s and connect to `reconnect_url`; Twitch refused that every time with
-`4007 "invalid reconnect attempt"` (seen in the logs on 2026-10-07, 19:40), and the bot fell back to a fresh
-session with about 7 s of lost events and two disconnect/connect pairs in chat.
+## EDR — Reconnected sessions may drop more in the evening
 
-The bot now follows Twitch's documented flow: the new socket is opened while the old one stays open, there
-is no resubscribe, and the old socket is drained, then closed. See
-[twitch.md § Planned reconnects](twitch.md#planned-reconnects) and the charts in
-[eventsub-flow.md](eventsub-flow.md). A `409` on subscribe now counts as success.
+Counted from the real bot's logs, 2026-10-08 19:00 to 2026-11-02. Each dropped connection (`ConnectionLost`, or
+`None` before that reason existed) goes to the kind of session it ended: fresh (since a `session_welcome`) or
+reconnected (since `EventSub reconnected`).
 
-Tested against a loopback fake of Twitch: the helpers in `EventSubReconnectTests`, and the real
-`StartConnectionLoop` in `EventSubLoopTests` (fresh session subscribes and delivers; a reconnect switches
-sockets without resubscribing, delivers an event left on the old socket and posts nothing; a 4007 refusal
-falls back to a fresh session; 409 keeps the session; 500 ends it).
+| Local time | Fresh | Reconnected |
+|---|---|---|
+| 09:00 to 18:00 | 211 h connected, 2 drops, 0.2 per 24 h | 9 h, no drops |
+| 18:00 to 01:00 | 110 h, 1 drop, 0.2 per 24 h | 61 h, 5 drops, 2.0 per 24 h |
+| 01:00 to 09:00 | 168 h, 35 drops, 5.0 per 24 h | 26 h, 8 drops, 7.5 per 24 h |
 
-**Reproduced live on 2026-10-08, 19:12:** `EventSub sent session_reconnect` → `Connecting to
-wss://cell-a…` → `EventSub reconnected` 0.4 s later → `EventSub old connection closed (0 events delivered
-during the switch, close none)` 1 s after that. There was no 4007, nothing in chat and no resubscribe, and the new
-session then stayed up on keepalives for 65 minutes. So the 4007 was caused by the old socket being gone, and
-that part is fixed.
+Overnight is the main pattern, and it hits both kinds alike. The evening row is the open question: five drops
+against one is too few to call, but it is about nine times the rate in the same hours. There is no fixed delay:
+reconnect to drop took 0.5 to 10.4 h, median 2.1 h, against a median of 2.4 h for a fresh session to drop. One
+of the quick ones, 10-23 at 01:01, was a local outage (`No such host is known` for about 8 hours), not Twitch.
 
-**Reproduced again on 2026-10-09, 19:17**, with the same timings: reconnected 0.4 s after
-`session_reconnect`, old connection closed 1 s later, 0 events during the switch, close none, nothing in chat.
+A planned reconnect has no gap of its own, so the worst case is a deferred drop. A drop costs about 5 s from
+the drop to `EventSub subscribed`, at most 10 s: the 3 s wait, then connecting and subscribing. Events in that
+gap are lost, and chat gets a disconnect and a connect line.
 
-**Both reconnects kept the session ID.** The new socket's `session_welcome` carried the same id as the old
-session (10-08: `AgoQQmqx…`, 10-09: `AgoQJP7b…`, each logged at its `EventSub reconnected` line). Each
-subscription is bound to a session id (`transport.session_id` in the subscribe responses), so this fits the
-subscriptions carrying over. It is not proof: no event has arrived on a reconnected session yet.
+**Plan:**
 
-**Why waiting hasn't worked:** the reconnect comes at about 19:10 to 19:40, off-stream, when nothing
-happens on the channel. Neither reconnected session saw a single notification. Both ended in a Twitch
-connection reset (now logged as `ConnectionLost`, see [twitch.md § Session lifecycle](twitch.md#session-lifecycle)): 10-08 after 65 min,
-10-09 after 2 h 07 min. Each was followed by a fresh session and a full resubscribe.
+1. Count again once a few weeks of new logs exist. If reconnected sessions stay well above fresh ones between
+   18:00 and 01:00, it's real, and worth asking whether Twitch's `reconnect_url` hosts are the cause.
+2. Whatever the count says, consider skipping the 3 s wait on the first retry after `ConnectionLost`, which
+   would about halve every drop's gap. `SessionExitReason` already says which exits those are.
 
-**Next check (owner):** after the next `EventSub reconnected` line, and before that session ends, change the
-stream **title** (not the category) in the Twitch dashboard. That fires `channel.update`. A title-only change
-does nothing in the bot (`Games.HandleUpdate` acts only on a category change), but the event is saved as
-`channel.update_<time>.log` in `AssistantLogs\EventSubs\`. If a file appears with a timestamp after the
-reconnect, the subscriptions carried over and this item is done. If no file appears, check that a title change
-on a fresh session does save one; if it does, the reconnect lost the subscriptions.
+**Verify:** the recount, with the same method. For the shorter wait, a test in `EventSubLoopTests` that a dropped
+connection reconnects at once and a repeat failure still waits.
 
-**Docs when done:** delete this section and the TODO row; drop the "not yet seen working" sentence in
-[twitch.md § Planned reconnects](twitch.md#planned-reconnects).
+**Docs when done:** delete this section and the TODO row, and log it in [DONE.md](DONE.md). A shorter wait also
+changes [twitch.md](twitch.md#session-lifecycle), the charts in [eventsub-flow.md](eventsub-flow.md) and
+[reference.md](reference.md).
 
 ## DCD — Connection timeouts unverified live
 
@@ -144,9 +191,22 @@ in [gotchas.md](gotchas.md#twitch-and-helix).
 
 ---
 
-## TSS — Tests that share static state run in parallel
+## TSS — Tests share static state, so parallelism stays off
 
-xUnit runs test collections in parallel, and some classes in different collections share static state:
+To revisit later: running the test collections in parallel would shorten the suite, but tests share static state
+and rely on running one at a time. `[assembly: CollectionBehavior(DisableTestParallelization = true)]` in
+`ColorData.cs` keeps them sequential.
+
+Reproduced 2026-11-02 on the real assembly, forcing it on with `-- xUnit.ParallelizeTestCollections=true`: the
+suite went from about 14.6 s to 4 s and passed in both forced runs. Those runs had none of the protection below, so
+they don't show it's safe. The 4 s is about what `GamesStateCollection` takes, and that stays serial either way, so
+[GLW](#glw--gamesgolivetests-spend-their-time-in-fixed-waits) would lower it.
+
+xUnit's `DiagnosticMessages` start line can't check this. It follows the runner's setting, not the attribute, so a
+default run says `parallel test collections = on` and is still sequential. Each test class's results staying in one
+block shows a sequential run; forced on, they interleave.
+
+What would collide with parallelism on (read; none of it seen failing):
 
 - **Left-panel state and log lines.** `GamesGoLiveTests` (`GamesStateCollection`) runs `!changepanel GTA3`
   with no panels loaded and asserts `No left panels loaded` and no `Left panel:` line.
@@ -160,23 +220,62 @@ xUnit runs test collections in parallel, and some classes in different collectio
   reads `ColorSchemeRegistry.Sets`. Meanwhile `ColorDataCollection` tests may be reloading it
   (`Sets.Clear()`, then refill). A read during the refill can throw (caught and logged as `Error GMS2`) or
   find nothing.
-
-Read only: every run so far has passed.
+- **`Config`.** `LeftPanelStopTests` point `Config.Data.Directories.BotInput` at a temporary folder for each test.
+- **Other log captures.** `EventSubLoopTests`, `StreamElementsLoopTests`, `GiftlessRecipientTests` and
+  `FireForgetTests` capture the global log too. Whether their assertions can catch another test's lines isn't checked.
+- **Timing.** The connection-loop tests run against timeouts, so they could turn flaky under load.
 
 ### Plan
 
 1. Put every class that touches `LeftPanel`, `Games` or the colour registries in one collection. Move
-   `GamesGoLiveTests`, `GamesTests` and the `LeftPanel*Tests` classes into `ColorDataCollection` (or rename
-   it to something broader), and drop `GamesStateCollection`. They then run one at a time. Check the
-   suite's total time stays about the same; the slow tests are the connection loops, which stay outside.
-2. The alternative, filtering the games test's captured lines to the ones it causes, fixes the log lines
-   but not the shared panel set, so it isn't enough on its own.
+   `GamesGoLiveTests`, `GamesTests`, `ChatterListTests` and the `LeftPanel*Tests` classes into
+   `ColorDataCollection` (or rename it to something broader), and drop `GamesStateCollection`.
+2. Go through the other log captures and move any whose assertions can catch another test's lines into that
+   collection. Together they take about 5 s, so the suite would land between 4 and 9 s (worked out from each
+   class's time, not measured).
+3. Remove the attribute.
 
-**Verify:** run the suite 20 times in a loop with no failures.
+Filtering the games test's captured lines to the ones it causes fixes the log lines but not the shared panel set,
+so it isn't enough on its own.
 
-**Docs when done:** delete this section and the TODO row; update the collections note in
-[development.md](development.md) and [color.md § Tests and verification](color.md#tests-and-verification)
-if they name the collection's members.
+**Verify:** run the suite 20 times in a loop with no failures, and check that the results interleave.
+
+**Docs when done:** delete this section and the TODO row; update the parallelism notes in
+[development.md](development.md#unit-tests) and [color.md § Tests and verification](color.md#tests-and-verification).
+
+---
+
+## GLW — GamesGoLiveTests spend their time in fixed waits
+
+`GamesGoLiveTests` are the slowest test class, about 3.4 s of the suite's 14.6 s (reproduced 2026-11-02). Nearly all
+of that is `await Task.Delay(300)`, in the tests and in `ObsConnects`, giving work on the thread pool time to finish
+(read). The waits are of two kinds:
+
+- **Waiting for a game setup to run**, about 1.8 s: `ObsStreamStart_SetsUpTheGame`,
+  `Boot_ObsAlreadyUp_StoresAndAppliesAtOnce`, `Boot_CategoryChangeDuringFetch_SkipsBootSetup`, the first wait in
+  `ChangeCommand_AppliesOnce_ThenSaysAlready`, the `ObsConnects` in `Boot_ObsConnectsLater_AppliesThen`, and the
+  first `ObsConnects` in `Boot_AppliesOnlyOnce_EvenIfCalledAgain`.
+- **Proving nothing else ran**, about 1.5 s: `AfterFetch_UpdateWithSameCategory_DoesNothing`,
+  `Boot_ThenSameCategoryUpdate_DoesNothingMore` (whose wait also covers the first setup), the second wait in
+  `ChangeCommand_AppliesOnce_ThenSaysAlready`, the first wait in `Boot_ObsConnectsLater_AppliesThen`, and the second
+  `ObsConnects` in `Boot_AppliesOnlyOnce_EvenIfCalledAgain`. There's no line to wait for, so these can only be
+  shortened.
+
+### Plan
+
+1. Give the class a wait that polls `Lines` until a line appears and fails the test on a timeout, like
+   `StreamElementsLoopTests.WaitUntilAsync`.
+2. Use it for the first kind, waiting for the **last** line `Games.Apply` logs: `<id> not in games.json, capture
+   sources left as is`, which these tests' made-up ids always reach. Waiting for `Game setup:`, its first line, would
+   end the test with the setup still running, and its colour and left-panel steps would overlap the next test.
+3. Shorten the second kind only as far as the test still catches a stray setup: make a second setup run, see the
+   test fail, and put it back.
+
+**Verify:** `dotnet test ../StreamAssistant2.Tests/StreamAssistant2.Tests.csproj --filter
+"FullyQualifiedName~GamesGoLiveTests"` passes several times in a row, and the class's time drops by about 1.8 s, or
+more if step 3 shortens anything.
+
+**Docs when done:** delete this section and the TODO row.
 
 ---
 
