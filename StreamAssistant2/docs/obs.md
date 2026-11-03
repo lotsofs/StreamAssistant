@@ -597,8 +597,9 @@ test checks that the panels in an entry that move the same families set the same
 - `Number.txt` holds the current split's number from 1, and `-` when there is none: before the start and
   after the finish. `Completed.txt` holds how many splits are done, skipped ones included: 0 before the start,
   all of them after the finish.
-- On every change of either, it reads both, retrying for about 100 ms while LiveSplit holds one, and turns
-  them into the split index with `Index` (tested):
+- On every change of either, it reads both with `ReadText` (tested), which never keeps LiveSplit from writing a
+  file and retries for about 100 ms while one is locked or empty (as it is mid-write). It turns them into the
+  split index with `Index` (tested):
   - the number − 1 during a run;
   - with `-` for the number, the count after the finish, or -1 before a run (a count of 0).
 
@@ -648,7 +649,7 @@ test checks that the panels in an entry that move the same families set the same
     `Error LSW3` when starting it throws, and `Error LSW4: index change failed: …` when the handling after an
     index change throws.
 
-`Index`, `IsSplit`, `IsSkip` and `ParseIndex` are tested. The watcher itself isn't, since its file events don't
+`ReadText`, `Index`, `IsSplit`, `IsSkip` and `ParseIndex` are tested. The watcher itself isn't, since its file events don't
 arrive on a fixed schedule.
 
 The dashboard reads more of LiveSplit's output: the split-list window that the component writes for every subsplit
@@ -680,7 +681,7 @@ is coloured. `Resolve` is tested.
 | `Livesplit: SL Highlights BehindLost` | `ListLostBehind` |
 
 **The previous split's differences**, at the start of each `Previous` step, when the entry has a `Sign`. The
-step reads the sign file (retrying about 100 ms while LiveSplit holds it). Then it sets the `color_multiply`
+step reads the sign file with `SplitWatcher.ReadText` (retrying about 100 ms while it's locked or empty). Then it sets the `color_multiply`
 of the `Color Correction` filter on `Livesplit: Previous Run`, `Segment` and `Gold`, by `SignKeys` (tested):
 
 | Sign | Run | Segment | Gold |

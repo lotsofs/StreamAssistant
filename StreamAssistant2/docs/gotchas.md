@@ -45,7 +45,8 @@ full explanation is. Skim this before making a change you think is small.
 - **Reading a LiveSplit file can make LiveSplit's write of it fail.** `File.ReadAllText` opens with
   `FileShare.Read`, which refuses a writer while it's open, and the component (release 8) retries a failed
   write only at its next full rewrite (the next split, scroll or other timer event). Read with `FileShare.ReadWrite`, as `SplitList.ReadShared`
-  does; `SplitWatcher.ReadText` doesn't yet (SHR). ([dashboard.md](dashboard.md#splits))
+  and `SplitWatcher.ReadText` do. Such a read can land mid-write and find the file empty, so `ReadText` retries an
+  empty read as it does a locked one. ([dashboard.md](dashboard.md#splits), [obs.md](obs.md#splits-from-livesplit))
 - **A stale LiveSplit path shows blank, not an error.** Release 8 empties every file in its folders that it
   doesn't write, so a text source or `leftpanel.json` path that a release moved still exists, empty.
   ([obs.md](obs.md#where-the-data-came-from))

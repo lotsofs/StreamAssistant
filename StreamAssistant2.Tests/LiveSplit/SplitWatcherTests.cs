@@ -59,5 +59,63 @@ namespace StreamAssistant2.Tests {
 		public void ParseIndex_AWholeNumber_ElseNull(string text, int? expected) {
 			Assert.Equal(expected, SplitWatcher.ParseIndex(text));
 		}
+
+		[Fact]
+		public void ReadText_ReadsAFileLiveSplitHasOpen() {
+			string path = TempPath();
+			try {
+				using (FileStream writer = new(path, FileMode.Create, FileAccess.Write, FileShare.Read)) {
+					writer.Write("4\r\n"u8);
+					writer.Flush();
+					Assert.Equal("4\r\n", SplitWatcher.ReadText(path));
+				}
+			}
+			finally {
+				File.Delete(path);
+			}
+		}
+
+		[Fact]
+		public void ReadText_AnEmptyFile_FilledWhileRetrying_GivesItsText() {
+			string path = TempPath();
+			try {
+				File.WriteAllText(path, "");
+				int waits = 0;
+				Assert.Equal("GoldAhead", SplitWatcher.ReadText(path, () => {
+					if (waits++ == 0) {
+						File.WriteAllText(path, "GoldAhead");
+					}
+				}));
+				Assert.Equal(1, waits);
+			}
+			finally {
+				File.Delete(path);
+			}
+		}
+
+		[Fact]
+		public void ReadText_AFileThatStaysEmpty_IsEmpty_NotNull() {
+			string path = TempPath();
+			try {
+				File.WriteAllText(path, "");
+				int waits = 0;
+				Assert.Equal("", SplitWatcher.ReadText(path, () => waits++));
+				Assert.Equal(5, waits);
+			}
+			finally {
+				File.Delete(path);
+			}
+		}
+
+		[Fact]
+		public void ReadText_AMissingFile_IsNull() {
+			int waits = 0;
+			Assert.Null(SplitWatcher.ReadText(TempPath(), () => waits++));
+			Assert.Equal(5, waits);
+		}
+
+		static string TempPath() {
+			return Path.Combine(Path.GetTempPath(), $"SplitWatcherTests_{Guid.NewGuid():N}.txt");
+		}
 	}
 }

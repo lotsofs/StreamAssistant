@@ -123,7 +123,7 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// The split index from the number and completed files, retrying while LiveSplit has them locked; null if they can't
+		/// The split index from the number and completed files, retrying while they're locked or empty; null if they can't
 		/// be read or hold no index.
 		/// </summary>
 		static int? Read(string number, string completed) {
@@ -131,18 +131,33 @@ namespace StreamAssistant2 {
 		}
 
 		/// <summary>
-		/// The file's text, retrying while LiveSplit has it locked; null if it can't be read.
+		/// The file's text, read without keeping LiveSplit from writing it, retrying while it's locked or empty; null if it
+		/// can't be read.
 		/// </summary>
 		internal static string? ReadText(string path) {
+			return ReadText(path, () => Thread.Sleep(20));
+		}
+
+		/// <summary>
+		/// The file's text, read without keeping LiveSplit from writing it, retrying while it's locked or empty and waiting
+		/// between tries with wait; empty if it stays empty, null if it can't be read.
+		/// </summary>
+		internal static string? ReadText(string path, Action wait) {
+			string? text = null;
 			for (int attempt = 0; attempt < 5; attempt++) {
 				try {
-					return File.ReadAllText(path);
+					using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+					using StreamReader reader = new(stream);
+					text = reader.ReadToEnd();
+					if (text.Length > 0) {
+						return text;
+					}
 				}
 				catch (IOException) {
-					Thread.Sleep(20);
 				}
+				wait();
 			}
-			return null;
+			return text;
 		}
 
 		/// <summary>
