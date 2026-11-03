@@ -40,6 +40,22 @@ namespace StreamAssistant2.Tests {
 
 		static string NewId() => "test-" + Guid.NewGuid().ToString("N");
 
+		// Longest a setup may take before the test fails
+		static readonly TimeSpan Wait = TimeSpan.FromSeconds(5);
+
+		// How long a stray setup gets to show: its "Game setup:" line comes one thread-pool hop after the call that queued it.
+		static readonly TimeSpan StrayWait = TimeSpan.FromMilliseconds(50);
+
+		// Waits for the last line of a setup: these tests' ids are never in games.json, so every Apply ends on it.
+		// "Game setup:" is its first line; stopping there would leave the colour and left-panel steps running into the next test.
+		async Task SetupFinished(string id) {
+			var deadline = DateTime.UtcNow + Wait;
+			while (Lines($"{id} not in games.json").Count == 0) {
+				Assert.True(DateTime.UtcNow < deadline, $"timed out waiting for the game setup of {id} to finish");
+				await Task.Delay(20);
+			}
+		}
+
 		[Fact]
 		public async Task KnownCategory_IsApplied_WithoutFetching() {
 			string id = NewId();
@@ -78,7 +94,7 @@ namespace StreamAssistant2.Tests {
 			FetchReturns(id);
 			await Games.OnStreamStartedAsync();
 			Games.HandleUpdate(JsonSerializer.SerializeToElement(new { category_id = id, title = "new title" }));
-			await Task.Delay(300);
+			await Task.Delay(StrayWait);
 			Assert.Single(Lines("Game setup:"), l => l.Contains(id));
 		}
 
@@ -88,7 +104,7 @@ namespace StreamAssistant2.Tests {
 			Games.CategoryId = id;
 			JObject data = new() { ["outputActive"] = true, ["outputState"] = "OBS_WEBSOCKET_OUTPUT_STARTED" };
 			ObsConnection.OnStreamStateChanged(null, new StreamStateChangedEventArgs(new OutputStateChanged(data)));
-			await Task.Delay(300);
+			await SetupFinished(id);
 			Assert.Single(Lines("Game setup:"), l => l.Contains(id));
 		}
 
@@ -100,10 +116,7 @@ namespace StreamAssistant2.Tests {
 			Games.WhenObsConnected = a => { _onObsConnect = a; return false; };
 		}
 
-		async Task ObsConnects() {
-			_onObsConnect!();
-			await Task.Delay(300);
-		}
+		void ObsConnects() => _onObsConnect!();
 
 		static bool ObsIsUp(Action action) {
 			action();
@@ -116,9 +129,9 @@ namespace StreamAssistant2.Tests {
 			string id = Random.Shared.NextInt64(1_000_000_000_000, 9_999_999_999_999).ToString();
 			Games.CategoryId = null;
 			Games.TryChangeCategory(id);
-			await Task.Delay(300);
+			await SetupFinished(id);
 			Games.TryChangeCategory(id);
-			await Task.Delay(300);
+			await Task.Delay(StrayWait);
 			Assert.Equal(id, Games.CategoryId);
 			Assert.Single(Lines("Game setup:"), l => l.Contains(id));
 			Assert.Single(Lines($"Category is already {id}"));
@@ -162,7 +175,7 @@ namespace StreamAssistant2.Tests {
 			FetchReturns(id);
 			Games.WhenObsConnected = ObsIsUp;
 			await Games.OnBootAsync();
-			await Task.Delay(300);
+			await SetupFinished(id);
 			Assert.Equal(id, Games.CategoryId);
 			Assert.Single(Lines("Game setup:"), l => l.Contains(id));
 			Assert.Single(Lines("Boot: category"), l => l.Contains(id));
@@ -176,11 +189,12 @@ namespace StreamAssistant2.Tests {
 			FetchReturns(id);
 			ObsConnectsLater();
 			await Games.OnBootAsync();
-			await Task.Delay(300);
+			await Task.Delay(StrayWait);
 			Assert.Equal(id, Games.CategoryId);
 			Assert.Empty(Lines("Game setup:"));
 			Assert.Single(Lines("Boot: OBS not ready"));
-			await ObsConnects();
+			ObsConnects();
+			await SetupFinished(id);
 			Assert.Single(Lines("Game setup:"), l => l.Contains(id));
 		}
 
@@ -196,7 +210,7 @@ namespace StreamAssistant2.Tests {
 				return Task.FromResult<string?>(stale);
 			};
 			await Games.OnBootAsync();
-			await Task.Delay(300);
+			await SetupFinished(changed);
 			Assert.Equal(changed, Games.CategoryId);
 			Assert.Single(Lines("Game setup:"), l => l.Contains(changed));
 			Assert.Empty(Lines(stale));
@@ -211,8 +225,10 @@ namespace StreamAssistant2.Tests {
 			FetchReturns(id);
 			ObsConnectsLater();
 			await Games.OnBootAsync();
-			await ObsConnects();
-			await ObsConnects();
+			ObsConnects();
+			await SetupFinished(id);
+			ObsConnects();
+			await Task.Delay(StrayWait);
 			Assert.Single(Lines("Game setup:"), l => l.Contains(id));
 		}
 
@@ -224,7 +240,8 @@ namespace StreamAssistant2.Tests {
 			Games.WhenObsConnected = ObsIsUp;
 			await Games.OnBootAsync();
 			Games.HandleUpdate(JsonSerializer.SerializeToElement(new { category_id = id, title = "new title" }));
-			await Task.Delay(300);
+			await SetupFinished(id);
+			await Task.Delay(StrayWait);
 			Assert.Single(Lines("Game setup:"), l => l.Contains(id));
 		}
 

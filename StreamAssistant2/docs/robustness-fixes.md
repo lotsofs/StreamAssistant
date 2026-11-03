@@ -197,16 +197,17 @@ To revisit later: running the test collections in parallel would shorten the sui
 and rely on running one at a time. `[assembly: CollectionBehavior(DisableTestParallelization = true)]` in
 `ColorData.cs` keeps them sequential.
 
-Reproduced 2026-11-02 on the real assembly, forcing it on with `-- xUnit.ParallelizeTestCollections=true`: the
-suite went from about 14.6 s to 4 s and passed in both forced runs. Those runs had none of the protection below, so
-they don't show it's safe. The 4 s is about what `GamesStateCollection` takes, and that stays serial either way, so
-[GLW](#glw--gamesgolivetests-spend-their-time-in-fixed-waits) would lower it.
+Reproduced 2026-11-03 on the real assembly, forcing it on with `-- xUnit.ParallelizeTestCollections=true`: the
+suite went from about 11.8 s to 2.3 s. Of 41 forced runs, about a quarter failed on `StreamElementsSocket.Times`,
+one also on the left panel (both below), and one hung for hours until it was stopped. 20 more runs with vstest's
+`--blame-hang` didn't hang, so what hung isn't known. The runs that passed had none of the protection below, so they
+don't show it's safe.
 
 xUnit's `DiagnosticMessages` start line can't check this. It follows the runner's setting, not the attribute, so a
 default run says `parallel test collections = on` and is still sequential. Each test class's results staying in one
 block shows a sequential run; forced on, they interleave.
 
-What would collide with parallelism on (read; none of it seen failing):
+What collides with parallelism on (read, except where it says seen):
 
 - **Left-panel state and log lines.** `GamesGoLiveTests` (`GamesStateCollection`) runs `!changepanel GTA3`
   with no panels loaded and asserts `No left panels loaded` and no `Left panel:` line.
@@ -216,11 +217,16 @@ What would collide with parallelism on (read; none of it seen failing):
     `Left panel: can't read …`.
   - The games test captures lines through the global `ConsoleLogger.LineLogged`. So any of those lines
     logged in its window fails it, and so do panels that happen to be loaded at that moment.
+  - Seen once: `LeftPanelStopTests.StartAfterStop_IsRestartedByObsConnectingAgain` counted 2 `Left panel: GTA3`
+    lines, not 3. Which test got in between isn't known.
 - **The colour registries.** `GamesGoLiveTests` reach `Games.Apply`, whose colour step (`GameColor.Set`)
   reads `ColorSchemeRegistry.Sets`. Meanwhile `ColorDataCollection` tests may be reloading it
   (`Sets.Clear()`, then refill). A read during the refill can throw (caught and logged as `Error GMS2`) or
   find nothing.
 - **`Config`.** `LeftPanelStopTests` point `Config.Data.Directories.BotInput` at a temporary folder for each test.
+- **`StreamElementsSocket.Times`.** `StreamElementsLoopTests` set it for each test, one with a 500 ms silence limit,
+  while `StreamElementsRetryTests`, in a collection of its own, checks its defaults. Seen:
+  `Defaults_SilenceIsTheHealthDeadline` finding `Times.Silence` at 0.5 s.
 - **Other log captures.** `EventSubLoopTests`, `StreamElementsLoopTests`, `GiftlessRecipientTests` and
   `FireForgetTests` capture the global log too. Whether their assertions can catch another test's lines isn't checked.
 - **Timing.** The connection-loop tests run against timeouts, so they could turn flaky under load.
@@ -230,55 +236,22 @@ What would collide with parallelism on (read; none of it seen failing):
 1. Put every class that touches `LeftPanel`, `Games` or the colour registries in one collection. Move
    `GamesGoLiveTests`, `GamesTests`, `ChatterListTests` and the `LeftPanel*Tests` classes into
    `ColorDataCollection` (or rename it to something broader), and drop `GamesStateCollection`.
-2. Go through the other log captures and move any whose assertions can catch another test's lines into that
-   collection. Together they take about 5 s, so the suite would land between 4 and 9 s (worked out from each
+2. Put `StreamElementsRetryTests` and `StreamElementsLoopTests` in one collection.
+3. Go through the other log captures and move any whose assertions can catch another test's lines into the first
+   collection. Together they take about 5 s, so the suite would land between 2 and 7 s (worked out from each
    class's time, not measured).
-3. Remove the attribute.
+4. Remove the attribute.
 
 Filtering the games test's captured lines to the ones it causes fixes the log lines but not the shared panel set,
 so it isn't enough on its own.
 
-**Verify:** run the suite 20 times in a loop with no failures, and check that the results interleave.
+**Verify:** run the suite 20 times in a loop with `--blame-hang` and no failures or hangs, and check that the
+results interleave.
 
 **Docs when done:** delete this section and the TODO row; update the parallelism notes in
 [development.md](development.md#unit-tests) and [color.md § Tests and verification](color.md#tests-and-verification).
 
 ---
-
-## GLW — GamesGoLiveTests spend their time in fixed waits
-
-`GamesGoLiveTests` are the slowest test class, about 3.4 s of the suite's 14.6 s (reproduced 2026-11-02). Nearly all
-of that is `await Task.Delay(300)`, in the tests and in `ObsConnects`, giving work on the thread pool time to finish
-(read). The waits are of two kinds:
-
-- **Waiting for a game setup to run**, about 1.8 s: `ObsStreamStart_SetsUpTheGame`,
-  `Boot_ObsAlreadyUp_StoresAndAppliesAtOnce`, `Boot_CategoryChangeDuringFetch_SkipsBootSetup`, the first wait in
-  `ChangeCommand_AppliesOnce_ThenSaysAlready`, the `ObsConnects` in `Boot_ObsConnectsLater_AppliesThen`, and the
-  first `ObsConnects` in `Boot_AppliesOnlyOnce_EvenIfCalledAgain`.
-- **Proving nothing else ran**, about 1.5 s: `AfterFetch_UpdateWithSameCategory_DoesNothing`,
-  `Boot_ThenSameCategoryUpdate_DoesNothingMore` (whose wait also covers the first setup), the second wait in
-  `ChangeCommand_AppliesOnce_ThenSaysAlready`, the first wait in `Boot_ObsConnectsLater_AppliesThen`, and the second
-  `ObsConnects` in `Boot_AppliesOnlyOnce_EvenIfCalledAgain`. There's no line to wait for, so these can only be
-  shortened.
-
-### Plan
-
-1. Give the class a wait that polls `Lines` until a line appears and fails the test on a timeout, like
-   `StreamElementsLoopTests.WaitUntilAsync`.
-2. Use it for the first kind, waiting for the **last** line `Games.Apply` logs: `<id> not in games.json, capture
-   sources left as is`, which these tests' made-up ids always reach. Waiting for `Game setup:`, its first line, would
-   end the test with the setup still running, and its colour and left-panel steps would overlap the next test.
-3. Shorten the second kind only as far as the test still catches a stray setup: make a second setup run, see the
-   test fail, and put it back.
-
-**Verify:** `dotnet test ../StreamAssistant2.Tests/StreamAssistant2.Tests.csproj --filter
-"FullyQualifiedName~GamesGoLiveTests"` passes several times in a row, and the class's time drops by about 1.8 s, or
-more if step 3 shortens anything.
-
-**Docs when done:** delete this section and the TODO row.
-
----
-
 
 ## SHR — SplitWatcher's reads refuse LiveSplit's writes
 
