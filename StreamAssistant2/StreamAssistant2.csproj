@@ -32,11 +32,5 @@
 		<!-- Lets the tests reach internal types such as Config. -->
 		<InternalsVisibleTo Include="StreamAssistant2.Tests" />
 	</ItemGroup>
-	
-	<Target Name="EnsurePathsJsonExists" BeforeTargets="BeforeBuild">
-		<Copy Condition="!Exists('paths.json') and Exists('paths.json.example')"
-			  SourceFiles="paths.json.example"
-			  DestinationFiles="paths.json" />
-	</Target>
 
 </Project>

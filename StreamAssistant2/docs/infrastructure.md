@@ -11,13 +11,21 @@ text format, ad warnings) has unit tests in `../StreamAssistant2.Tests`.
 
 [Config.cs](../code/Core/Config.cs). `Config.Load()` runs before anything else, from `Program.Main`.
 
+Before it, `Main` asks `Config.NeedsBotInput()` whether the `BotInput` folder must be picked: when
+`paths.json` is missing, names no `BotInput`, or names a folder without `secrets.json` (a mistyped path, a
+moved folder, a drive that isn't there). It then shows WPF's `OpenFolderDialog`, its title saying which,
+opened at that folder, or at `%APPDATA%\StreamAssistant2\Bot Input` when there's none, or the nearest folder
+above that exists. Cancelling exits. A picked folder is written as `paths.json`'s only key
+(`Config.SavePaths`), replacing what was there, and `Load()` carries on. A `paths.json` that isn't valid
+JSON isn't asked about: `Load()` fails on it with a message box, so a hand-written file is never
+overwritten. The decision is pure and unit-tested (`ConfigTests`); nothing creates `paths.json` at build time.
+
 1. Reads **`paths.json`** from the working directory (so the app must run from the project folder). It
    holds only `directories.BotInput`, the folder of `secrets.json`, `settings.json`, `games.json` and
    `leftpanel.json`, with environment variables expanded. Every other directory is in `settings.json`
    ([Settings](#settings)); an older `paths.json` that still lists them loads, and they're ignored. Without
-   a `BotInput`, `Load()` throws an `InvalidDataException` that `Main` shows as a message box. It is
-   machine-specific, so it is gitignored; a `BeforeBuild` target in the csproj copies it from the tracked
-   `paths.json.example` when missing, whose `BotInput` is `%APPDATA%\StreamAssistant2\Bot Input`.
+   a `BotInput`, `Load()` throws an `InvalidDataException` that `Main` shows as a message box (only
+   reachable when the picker didn't run first). It is machine-specific, so it is gitignored.
 2. Reads **`secrets.json`** from `BotInput`, which is outside this repository. If the file
    is missing, `Load()` creates the folder if needed, copies the tracked `secrets.json.example` there and
    throws a `FileNotFoundException` telling the user to fill it in; `Main` shows that as a message box. It

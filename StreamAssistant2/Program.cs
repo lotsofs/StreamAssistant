@@ -1,4 +1,5 @@
 using System.Windows;
+using Microsoft.Win32;
 
 // SAPI text-to-speech, OBS, WPF and drive letters: the bot only runs on Windows.
 [assembly: System.Runtime.Versioning.SupportedOSPlatform("windows")]
@@ -13,6 +14,13 @@ namespace StreamAssistant2
 		[STAThread]
 		static void Main(string[] args) {
 			try {
+				if (Config.NeedsBotInput() is (string reason, string startAt)) {
+					OpenFolderDialog dialog = new() { Title = reason, InitialDirectory = startAt };
+					if (dialog.ShowDialog() != true) {
+						return;
+					}
+					Config.SavePaths(dialog.FolderName);
+				}
 				Config.Load();
 			}
 			catch (Exception ex) {

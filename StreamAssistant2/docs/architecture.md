@@ -49,7 +49,8 @@ service registry.
 1. `Main` is a synchronous `[STAThread]` method. WPF needs the STA thread, and an `async Main` would
    lose it after the first `await`.
 2. `Config.Load()` runs first: `paths.json` and `secrets.json`. A failure shows a message box (there is no
-   console) and exits.
+   console) and exits. Before it, a folder picker asks for `BotInput` and writes `paths.json` when that
+   file is missing or names no folder holding `secrets.json` ([infrastructure.md](infrastructure.md#config)).
 3. `new Application()`, `new MainWindow()` (which subscribes to the log), then
    `Settings.Load(atStartup: true)`: `settings.json`, whose `BotOutput` is where the log file goes, so it
    comes before anything else logs. A broken file shows a message box and exits, like `Config.Load`. Then

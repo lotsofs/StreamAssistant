@@ -9,6 +9,7 @@ namespace StreamAssistant2 {
 		
 		static CancellationTokenSource? _cts;
 		static volatile bool _ready;
+		static string? _lastFailure;
 
 		/// <summary>
 		/// True once OBS has accepted the connection (its Connected event), false again when it drops.
@@ -53,6 +54,7 @@ namespace StreamAssistant2 {
 
 		static void OnConnected(object? sender, EventArgs e) {
 			_ready = true;
+			_lastFailure = null;
 			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.ConnectionNotification, "Connected to OBS");
 			LeftPanel.OnObsConnected();
 			GameSidebar.OnObsConnected();
@@ -60,9 +62,30 @@ namespace StreamAssistant2 {
 			ChannelPoints.OnObsConnected();
 		}
 
+		/// <summary>
+		/// Logs a drop of the connection, or a failed connect whose reason isn't the last one logged.
+		/// </summary>
 		static void OnDisconnected(object? sender, ObsDisconnectionInfo e) {
+			bool wasReady = _ready;
 			_ready = false;
-			ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, $"Lost connection to OBS: {e.DisconnectReason}");
+			(string? line, _lastFailure) = DisconnectLine(wasReady, e.DisconnectReason ?? "", _lastFailure);
+			if (line != null) {
+				ConsoleLogger.ColoredLine(ConsoleLogger.ColorType.Important, line);
+			}
+		}
+
+		/// <summary>
+		/// The line for a disconnect, or null, and the failure reason to remember: a drop of a connection OBS had accepted
+		/// is logged and leaves an unreachable OBS unlogged; a failed connect is logged when its reason isn't the last one.
+		/// </summary>
+		internal static (string? Line, string? Last) DisconnectLine(bool wasReady, string reason, string? last) {
+			if (wasReady) {
+				return ($"Lost connection to OBS: {reason}", "");
+			}
+			if (reason == last) {
+				return (null, last);
+			}
+			return (reason.Length == 0 ? "Can't reach OBS, connecting when it's up" : $"Can't connect to OBS: {reason}", reason);
 		}
 
 		/// <summary>

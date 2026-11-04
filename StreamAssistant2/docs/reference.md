@@ -121,6 +121,8 @@ Not every failure has a code. A bare `_ = SomeAsync()` swallows exceptions from 
 | `Twitch: stream online (<started_at>)` | Twitch marked the channel live (`stream.online`); `started_at` is Twitch's start time, UTC |
 | `Twitch: stream offline` | Twitch marked the channel offline (`stream.offline`) |
 | `Trying to do an OBS action but not connected to OBS` | OBS is closed; the action was skipped |
+| `Lost connection to OBS: <reason>` | OBS dropped the connection (`Server stopping.` when it closes); the bot tries again every 3 s without logging it |
+| `Can't reach OBS, connecting when it's up`, `Can't connect to OBS: <reason>` | a connect failed, logged once until the reason changes or OBS connects: OBS isn't running (the first), or refused the bot (a wrong `obs` password in `secrets.json`, say) |
 | `Color change request FAILED: <text>` | no colour matched; the points were refunded |
 
 ## Settings
@@ -296,6 +298,7 @@ The broadcaster's and the bot account's logins (the channel, the admins) aren't 
 | Value | Where |
 |---|---|
 | `paths.json` in the working directory, holding only `BotInput`; `secrets.json`, `settings.json`, `games.json` and `leftpanel.json` in `BotInput` | `Config`, `Settings`, `Games`, `LeftPanel` |
+| `%APPDATA%\StreamAssistant2\Bot Input`, where the first-boot folder picker opens when `paths.json` names no folder (or the nearest folder above it that exists) | `Config` |
 | `Template.png` in `Backgrounds`, the background for a game without its own | `GameBackground` |
 | `Dynamic\<game>_<n>.png` and `Dynamic\<game>_2_<n>.png` in `Sidebar`, n the split index + 1 (`_00` before a run) | `GameSidebar` |
 | `Borders_Inner_<aspect>.png` and `Borders_Outer_<aspect>.png` in `Layout` (only `16x9` has them), else `Borders_Inner.png` and `Borders_Outer.png` there | `GameBorder` |

@@ -101,6 +101,8 @@ full explanation is. Skim this before making a change you think is small.
   directory.
 - **`secrets.json` lives outside the repo**, in `BotInput`, a different git repo that must
   ignore it. Never print or log its values.
+- **A `BotInput` without `secrets.json` opens the folder picker at F5**, a drive that isn't there
+  included, and picking another folder rewrites `paths.json`. ([infrastructure.md](infrastructure.md#config))
 - **The TTS voice in `Speech.Voice` (`Microsoft Catherine`) must exist**; a missing one logs `Error 5`
   for every utterance, the first at the *end* of startup, after everything else is already running.
   ([infrastructure.md](infrastructure.md#text-to-speech))
@@ -141,5 +143,8 @@ full explanation is. Skim this before making a change you think is small.
 - **Tests that load colour data write to the real log folder** if the data has errors, so keep fixtures
   valid. ([color.md](color.md#tests-and-verification))
 - **`LineLogged` runs on the logging thread.** Subscribers must marshal.
+- **obs-websocket raises `Disconnected` for every failed connect**, every 3 s while OBS is closed, not only for a
+  drop. Logging each one filled the log; `ObsConnection.DisconnectLine` logs a drop and each new failure once.
+  ([obs.md](obs.md#connection))
 - **Stopping the debugger skips shutdown** entirely; the `Shutting Down` post and `DisableBot` only run
   when the window is closed normally.

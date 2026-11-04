@@ -4,16 +4,53 @@ namespace StreamAssistant2 {
 	/// <summary>
 	/// Loads paths.json from the working directory (the project folder), then secrets.json from the
 	/// BotInput directory it names, environment variables expanded. A missing secrets.json is created
-	/// there from the secrets.json.example template, and startup stops until it's filled in.
+	/// there from the secrets.json.example template, and startup stops until it's filled in. Says when
+	/// the BotInput folder must be picked, and writes paths.json naming it.
 	/// </summary>
 	static class Config {
 		const string PATHS_FILE = "paths.json";
 		const string SECRETS_FILE = "secrets.json";
 		const string SECRETS_TEMPLATE = "secrets.json.example";
+		const string DEFAULT_BOT_INPUT = @"%APPDATA%\StreamAssistant2\Bot Input";
 
 		static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
+		static readonly JsonSerializerOptions _indented = new() { WriteIndented = true };
 
 		public static ConfigModel Data { get; private set; } = new();
+
+		/// <summary>
+		/// Why the BotInput folder must be picked, and the folder to open the picker at. Null when paths.json
+		/// names a folder holding secrets.json, or isn't valid JSON.
+		/// </summary>
+		internal static (string Reason, string StartAt)? NeedsBotInput(string pathsFile = PATHS_FILE) {
+			string fallback = NearestExisting(Environment.ExpandEnvironmentVariables(DEFAULT_BOT_INPUT));
+			if (!File.Exists(pathsFile)) {
+				return ($"No {PATHS_FILE}. Pick the Bot Input folder", fallback);
+			}
+			ConfigModel paths;
+			try {
+				paths = Read(pathsFile);
+			}
+			catch (JsonException) {
+				return null;
+			}
+			string botInput = Environment.ExpandEnvironmentVariables(paths.Directories.BotInput);
+			if (botInput.Length == 0) {
+				return ($"{PATHS_FILE} has no BotInput. Pick the Bot Input folder", fallback);
+			}
+			if (File.Exists(Path.Combine(botInput, SECRETS_FILE))) {
+				return null;
+			}
+			return ($"{botInput} has no {SECRETS_FILE}. Pick the Bot Input folder", NearestExisting(botInput));
+		}
+
+		/// <summary>
+		/// Writes paths.json naming the BotInput folder.
+		/// </summary>
+		internal static void SavePaths(string botInput, string pathsFile = PATHS_FILE) {
+			var paths = new { directories = new { BotInput = botInput } };
+			File.WriteAllText(pathsFile, JsonSerializer.Serialize(paths, _indented));
+		}
 
 		public static void Load() {
 			ConfigModel paths = Read(PATHS_FILE);
@@ -50,6 +87,17 @@ namespace StreamAssistant2 {
 				throw new FileNotFoundException($"Config file not found: {Path.GetFullPath(path)}");
 			}
 			return JsonSerializer.Deserialize<ConfigModel>(File.ReadAllText(path), _jsonOptions) ?? new ConfigModel();
+		}
+
+		/// <summary>
+		/// The folder, or the nearest one above it that exists; empty when none does.
+		/// </summary>
+		static string NearestExisting(string folder) {
+			string? dir = Path.GetFullPath(folder);
+			while (dir != null && !Directory.Exists(dir)) {
+				dir = Path.GetDirectoryName(dir);
+			}
+			return dir ?? "";
 		}
 	}
 

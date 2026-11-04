@@ -13,8 +13,14 @@ Read from the code. The connection and animation were not run against a live OBS
 
 - The address is hardcoded: `ws://127.0.0.1:4455`. The password is `Obs.SocketPassword` from
   `secrets.json`.
-- `Connect()` is idempotent. It hooks `Connected` and `Disconnected` (which log `Connected to OBS` and
-  `Lost connection to OBS: <reason>`) and `StreamStateChanged`, and starts `Loop`. `Connected` also restarts
+- `Connect()` is idempotent. It hooks `Connected` and `Disconnected` and `StreamStateChanged`, and starts
+  `Loop`. `Connected` logs `Connected to OBS`. obs-websocket raises `Disconnected` for every connect that fails
+  too, every 3 s while OBS is closed, with an empty reason. So `DisconnectLine` (tested) logs a drop of a
+  connection OBS had accepted as `Lost connection to OBS: <reason>` (`Server stopping.` when OBS closes), and a
+  failed connect only when its reason isn't the last one logged since OBS last connected: `Can't reach OBS,
+  connecting when it's up` for an empty one (OBS closed at F5), `Can't connect to OBS: <reason>` for another (a
+  refused password). After a drop, an empty reason counts as logged already. Seen 2026-11-02, before this:
+  `Lost connection to OBS: ` 30,744 times in 25 h with OBS closed. `Connected` also restarts
   the left-panel rotation ([Left panel](#the-rotation)), sets the dynamic sidebar again
   ([Per-game setup](#per-game-setup)) and rewrites the money goal text ([Money goal](#money-goal)).
 - `OnStreamStateChanged` logs `OBS started streaming` and `OBS stopped streaming` (the in-between

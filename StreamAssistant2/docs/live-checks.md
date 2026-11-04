@@ -66,17 +66,19 @@ raise it.
 
 ## Closing and reopening OBS while the bot runs
 
-- **53.** Within a minute of reopening, `Text: Stream Uptime` is right again, with no `Trying to do an OBS action…` line every minute while OBS was closed (on F5 OBS's saved scene showed `U: Offline`, and no `Trying to do…` line ever; OBS hasn't been restarted under a build with it)
+- **53.** Within a minute of reopening, `Text: Stream Uptime` is right again (no `Trying to do an OBS action…` line every minute while OBS was closed, seen in the log over 25 h from 2026-11-02; the reopen is still to see)
 - **66.** Close OBS mid-rotation: no `Trying to do an OBS action…` lines while it's closed. Reopen it: right after `Connected to OBS` the log shows `Left panel: <game>, …` again, the rotation starts over from its first panel, and only `Always` and that panel are up, with nothing left over from before the restart
 - **67.** `!stoppaneltimer` mid-rotation: the log shows `Left panel rotation stopped` and the current panel stays up past its time. Close and reopen OBS: no `Left panel: …` line after `Connected to OBS` (`Left panel rotation stopped` seen 2026-10-12; the panel staying up and the OBS restart are still to see)
 - **98.** While SWAT4's panels run: after `Connected to OBS` the split list highlights are coloured again
 - **109.** Mid-run in LiveSplit, having split while OBS was closed: right after `Connected to OBS` both sidebar images show the current mission's
 - **136.** `!train`, close OBS, wait out the 62 s, reopen it: after `Connected to OBS` the train is gone, with `Leftover train cleared` if OBS had kept it showing. Reopening OBS within the 62 s instead logs no such line, and the train goes when its time is up
+- **165.** Close OBS: one `Lost connection to OBS: Server stopping.` line, then no OBS connection line at all while it stays closed. Reopen it: `Connected to OBS` within a few seconds
 
 ## F5 with OBS closed
 
 - **23.** Open OBS minutes later: the game setup runs as soon as OBS connects
 - **75.** Before OBS connects (so before the first game setup), the dashboard's right-hand column reads `Left panel: none`
+- **166.** One `Can't reach OBS, connecting when it's up` line soon after start, and no more while OBS stays closed
 
 ## After a temporary change (undo it afterwards)
 
@@ -95,6 +97,8 @@ raise it.
 - **149.** Delete the `Clock` section from `settings.json`, then `!reloaddata`: the log shows `settings.json lacks Clock; their defaults apply …`, and the OBS clock still updates at the next minute
 - **153.** Set `NameColor.IntervalSeconds` to 10 in `settings.json`, then `!reloaddata`: after the current minute's wait, the ages go back to `00:00` every 10 s. Set `NameColor.Enabled` to `false` and `!reloaddata`: after the current wait both show `OFF` (hover: `NameColor.Enabled is false`) with their last colours and climbing ages, and chat colours stop changing; `true` again resumes them at the next pass
 - **150.** Off-stream, move `settings.json` out of `Bot Input` and F5: the window shows `Created …\settings.json from settings.json.example, every setting at its default`, and the new file lists every setting (the log and a fresh database are under `%APPDATA%\StreamAssistant2\Bot Output` for this run). Close the bot, put your file back and delete `%APPDATA%\StreamAssistant2`
+- **167.** Move `paths.json` out of the project folder and F5: a folder picker titled `No paths.json. Pick the Bot Input folder` opens at `%APPDATA%\StreamAssistant2\Bot Input`, or the nearest folder above it that exists. Cancel: the bot exits and no `paths.json` appears. F5 again and pick an empty scratch folder: the new `paths.json` names it, and a message box says `Created …\secrets.json from secrets.json.example`. Put your `paths.json` back and F5: no picker. Delete the scratch folder
+- **168.** Set `BotInput` in `paths.json` to a folder that doesn't exist, inside one that does, and F5: the picker's title is `<that folder> has no secrets.json. Pick the Bot Input folder`, it opens at the folder above, and no folder is created. Cancel, and put the value back
 
 ## Closing the bot by its window (not the debugger)
 
